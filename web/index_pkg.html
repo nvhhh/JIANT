@@ -63,6 +63,8 @@
     <p class="small" style="margin:0 0 8px" data-t="n085Risk"></p>
     <p class="small" style="margin:0 0 8px" data-t="n085Keep"></p>
   </div>
+  <p class="small"><label><span data-t="ownFile"></span><br><input id="own-file" type="file" accept=".fwsc"></label>
+    <br><span data-t="ownWhat"></span></p>
   <p><button id="go" disabled data-t="install"></button></p>
   <details id="stock" style="margin-top:24px">
     <summary data-t="stockTitle"></summary>
@@ -140,6 +142,9 @@ const TEXT = {
     noreturn: "FM-1 が戻ってきません。電源を入れ直してください。",
     mismatch: "書き込みは終わりましたが、FM-1 が別のバージョンを報告しています: ",
     badpkg: "インストールするファイルが壊れています。ページを再読み込みしてください。",
+    ownFile: "または自作ビルドをインストール（.fwsc）:",
+    ownWhat: "./build.sh が作ったパッケージ（build/felucca.fwsc）。自作ビルドは未検証です。自己責任でインストールしてください。",
+    ownValid: "自作ビルド: ", ownBad: "FM-1 用の JIANT パッケージではありません: ",
     leave: "書き込み中です。ページを閉じないでください。",
     license: "GPL-3.0、無保証。ソース:",
     n085Title: "0.8.5 をインストールする前に",
@@ -188,6 +193,9 @@ const TEXT = {
     noreturn: "The FM-1 did not come back. Power-cycle it.",
     mismatch: "Written, but the FM-1 reports another version: ",
     badpkg: "The file to install is damaged. Reload the page.",
+    ownFile: "Or install your own build (.fwsc):",
+    ownWhat: "A package made by ./build.sh (build/felucca.fwsc). Your own builds are untested: install at your own risk.",
+    ownValid: "Your build: ", ownBad: "Not a JIANT package for the FM-1: ",
     leave: "Writing. Do not close the page.",
     license: "GPL-3.0, no warranty. Source:",
     n085Title: "Before you install 0.8.5",
@@ -374,6 +382,9 @@ TEXT.es = {
   noreturn: "El FM-1 no volvió. Apagalo y prendelo.",
   mismatch: "Se escribió, pero el FM-1 informa otra versión: ",
   badpkg: "El archivo a instalar está dañado. Recargá la página.",
+  ownFile: "O instalá tu propia compilación (.fwsc):",
+  ownWhat: "Un paquete hecho con ./build.sh (build/felucca.fwsc). Las compilaciones propias no están probadas: instalalas bajo tu propio riesgo.",
+  ownValid: "Tu compilación: ", ownBad: "No es un paquete JIANT para el FM-1: ",
   leave: "Escribiendo. No cierres la página.",
   license: "GPL-3.0, sin garantía. Código:",
   newstock: "Este FM-1 tiene un firmware oficial más nuevo que el V15, que este instalador todavía no conoce: no se escribió nada. Primero volvé al V15 oficial con el botón de abajo y después instalá de nuevo. Encontrado: ",
@@ -502,7 +513,7 @@ const tellEditors = (busy) => {
 };
 
 let writing = false, stock = null, stockFileEpoch = 0;
-const lockInstaller = (on) => { writing = on; tellEditors(on); $("ver").disabled = on; $("go").disabled = on || !image; $("stock-go").disabled = on || !stock; $("stock-file").disabled = on; $("stock-recovery").disabled = on; };
+const lockInstaller = (on) => { writing = on; tellEditors(on); $("ver").disabled = on; $("own-file").disabled = on; $("go").disabled = on || !image; $("stock-go").disabled = on || !stock; $("stock-file").disabled = on; $("stock-recovery").disabled = on; };
 window.addEventListener("beforeunload", (e) => { if (writing) { e.preventDefault(); e.returnValue = t("leave"); } });
 
 /* (0.6.46) the version to install: the current one or one of the last few (make_site.py PREV_DIR) */
@@ -550,7 +561,24 @@ const noticeOf = () => releaseNotice((versions[+$("ver").value] || versions[0]).
 const showNotice = () => { $("notice").hidden = !noticeOf(); };
 fillVersions();
 showNotice();
-$("ver").addEventListener("change", () => { showNotice(); if (!writing) loadVersion(+$("ver").value); });
+$("ver").addEventListener("change", () => { showNotice(); if (!writing) { $("own-file").value = ""; loadVersion(+$("ver").value); } });
+/* your own build (./build.sh): any JIANT package (identity FM-1_9xx, read from the file); the device must report that
+ * identity after the install, as for a listed version. Clearing the file goes back to the version picked */
+$("own-file").addEventListener("change", async () => {
+  const file = $("own-file").files[0], epoch = ++loadEpoch;
+  if (!file) { loadVersion(+$("ver").value); return; }
+  image = null; $("go").disabled = true;
+  try {
+    const pkg = new Uint8Array(await file.arrayBuffer());
+    if (epoch !== loadEpoch) return;
+    const id = productOf(pkg);
+    log(`own file: ${file.name} ${pkg.length} B, ${id}`);
+    if (!/^FM-1_9[0-9]{2}$/.test(id)) { sayK("ownBad", /^[ -~]+$/.test(id) ? id : file.name); showTip(null); return; }
+    image = logicalImage(pkg); product = id;
+    sayK("ownValid", `${file.name} (${id})`); showTip(null);
+    $("go").disabled = writing;
+  } catch (e) { if (epoch === loadEpoch) { sayK("ownBad", e.message); showTip(null); } }
+});
 (async () => {
   try { permission = (await navigator.permissions.query({ name: "midi", sysex: true })).state; } catch (_) {}
   if (!env.webmidi) { const k = nomidiCode(env); sayK(k); showTip(k); log(`no WebMIDI: ${k}`); return; }
