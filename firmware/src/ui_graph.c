@@ -1676,6 +1676,63 @@ static void graph_scope(uint16_t c)
 {
     scope_at(PANEL_X0, PANEL_W, (int32_t)cv_h / 2, cv_h == H_GRAPH ? 46 : (int32_t)cv_h / 2 - 6, c);   /* (LARGE: the strip) */
 }
+/* (0.9.18) BUBBLES (ui_scope 2): a row of soft dots, one every 3 px at the sample's height, each as big as the level
+ * about it (the peak of 5 samples, 1..5 px), with a trail of two dim, smaller dots behind it (the samples before);
+ * each heat as hot as it is far from the line (JIANT). Stateless: the window is redrawn each frame */
+static void scope_bubbles(const int16_t *snap, uint32_t trig, int32_t peak, int32_t x0, int32_t pw, int32_t cy, int32_t a,
+                          uint16_t c)
+{
+    int32_t x, k;
+    cv_rect(x0, cy, pw, 1, T_RAISE);
+    for (x = 0; x < pw; x += 3) {
+        int32_t s = snap[trig + (uint32_t)x], lv = 0, y, r;
+        uint16_t col;
+        for (k = -2; k <= 2; k++) {
+            int32_t j = (int32_t)trig + x + k, v;
+            if (j < 0 || j >= SCOPE_N)
+                continue;
+            v = snap[j] < 0 ? -snap[j] : snap[j];
+            if (v > lv)
+                lv = v;
+        }
+        y = cy - s * a / peak;
+        r = 1 + lv * 4 / peak;
+        col = settings.palette == UI_JIANT_INDEX ? heat_col(40 + (y > cy ? y - cy : cy - y) * 216 / a) : c;
+        for (k = 2; k >= 1; k--) {                          /* the trail: the samples 3 and 6 back, dimmer and smaller */
+            int32_t j = (int32_t)trig + x - 3 * k, ty;
+            if (j < 0)
+                continue;
+            ty = cy - snap[j] * a / peak;
+            og_node((x0 + x - 3 * k) * 16, ty * 16, r > k ? r - k : 1, ux_mix(T_SURF, col, 30 + 10 * (2 - k)));
+        }
+        og_node((x0 + x) * 16, y * 16, r, col);
+    }
+}
+/* (0.9.18) ORBIT (ui_scope 3): the phase plot of the output against itself D samples back, x = s[n], y = s[n - D], a
+ * glowing loop about (x0 + pw / 2, cy) at scale a on both axes. D = a quarter of the spacing of the first two rising
+ * zero crossings (a circle for a sine; 24 if there is no second crossing within 256 samples); the loop of one
+ * period after the trigger (from D on, so n - D stays in the window); the hue follows the level |s[n]| (JIANT) */
+static void scope_orbit(const int16_t *snap, uint32_t trig, int32_t peak, int32_t x0, int32_t pw, int32_t cy, int32_t a,
+                        uint16_t c)
+{
+    int32_t D = 24, cx = x0 + pw / 2, n, start, end;
+    uint32_t t1;
+    for (t1 = trig + 8u; t1 < SCOPE_N && t1 <= trig + 256u; t1++)
+        if (snap[t1 - 1] < 0 && snap[t1] >= 0) {
+            D = (int32_t)(t1 - trig) / 4;
+            break;
+        }
+    start = (int32_t)trig > D ? (int32_t)trig : D;
+    end = start + 4 * D > SCOPE_N - 1 ? SCOPE_N - 1 : start + 4 * D;   /* (4 D: one period, the loop closed) */
+    for (n = start + 1; n <= end; n++) {
+        int32_t x1 = cx + snap[n - 1] * a / peak, y1 = cy - snap[n - 1 - D] * a / peak;
+        int32_t x2 = cx + snap[n] * a / peak, y2 = cy - snap[n - D] * a / peak;
+        int32_t lv = snap[n] < 0 ? -snap[n] : snap[n];
+        uint16_t col = settings.palette == UI_JIANT_INDEX ? heat_col(40 + lv * 216 / peak) : c;
+        cv_line_t(x1, y1, x2, y2, ux_mix(T_SURF, col, 35), 4);   /* the glow */
+        cv_line_t(x1, y1, x2, y2, col, 2);
+    }
+}
 /* .. pw px wide from x0, about the line cy, +-a px (0.8.5: EDIT's SOUND, in its well) */
 static void scope_at(int32_t x0, int32_t pw, int32_t cy, int32_t a, uint16_t c)
 {
@@ -1694,6 +1751,14 @@ static void scope_at(int32_t x0, int32_t pw, int32_t cy, int32_t a, uint16_t c)
             trig = i;
             break;
         }
+    if (ui_scope == 2u) {                                    /* (0.9.18) MENU > DISPLAY > SCOPE: BUBBLES */
+        scope_bubbles(snap, trig, peak, x0, pw, cy, a, c);
+        return;
+    }
+    if (ui_scope == 3u) {                                    /* (0.9.18) ORBIT */
+        scope_orbit(snap, trig, peak, x0, pw, cy, a, c);
+        return;
+    }
     cv_rect(x0, cy, pw, 1, T_RAISE);
     for (x = 0; x < pw; x++) {
         int32_t y = cy - snap[trig + (uint32_t)x] * a / peak;    /* auto-scaled */
@@ -1724,6 +1789,7 @@ static void graph_mseq(const track_t *t, uint16_t c)
     }
     if (song.playing)
         cv_rect(13, y0 - t->ms_v * hmax / 32767, 205, 1, T_TEXT);
+    vx_mseq(t, 12, y0 - hmax, 208, hmax);   /* the motion jellyfish (ui_engvis.c): bobs over the playing step */
 }
 /* (0.6.22) ARRANGE / SEQ > SONG, after SLOOP's arranger in JIANT's colours: the song as a column of rows, each a section
  * chip (A..D, each its own heat), its bars as blocks (one a bar, up to 16; past 16 each a 16th of it) filling as they

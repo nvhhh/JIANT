@@ -665,7 +665,7 @@ enum { S_HOME, S_HOME_IDLE, S_MESSAGE, S_MESSAGE_KEY, S_MESSAGE_NOFILE, S_PRESET
        S_LIVE_RIELES, S_LIVE_RIELES_T3, S_LIVE_MANO, S_LIVE_MANO_KEYS,
        S_MIXER_T4, S_HOME_T4, S_MOCK_HOME, S_MOCK_PRESETS, S_MOCK_SEQ, S_MOCK_DRUM, S_MOCK_MIXER, S_MOCK_DIALOG, S_MOCK_MENU,
        S_TOAST_ENV, S_TOAST_MUTATE, S_TOAST_MUTATE_HINT, S_TOAST_MOTION, S_TOAST_MOTION_LOCKS, S_TOAST_PUNCH, S_TOAST_AUTO_LIST,
-       S_TOAST_AUTO_LIST_DRUM, S_TOAST_PATTERN, S_TOAST_FM6_OP, S_TOAST_ANALOG, S_PRESETS_TYPE, S_MENU_MIDI, S_MENU_SCREEN2, S_COUNT };
+       S_TOAST_AUTO_LIST_DRUM, S_TOAST_PATTERN, S_TOAST_FM6_OP, S_TOAST_ANALOG, S_PRESETS_TYPE, S_MENU_MIDI, S_MENU_SCREEN2, S_V6_SHRUB, S_V6_SHRUB_FULL, S_V6_MSEQ_MOTION, S_COUNT };
 static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "message_key", "message_nofile", "presets", "presets_nofav", "user",
     "phrases", "project", "tools", "song_empty", "song", "step", "pattern", "chance", "comp", "comp_trig", "comp_echo", "mutate", "morph", "dx_image", "dx_send", "page_flash", "page_flash_home", "fugue", "motion", "drum",
     "drum_hand", "drum_cym", "mixer", "mixer_pan", "env", "env_dest", "lfo", "mod", "fx", "slicer", "slbus", "slpitch", "dly", "scl", "shift", "arp",
@@ -703,7 +703,7 @@ static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "mes
     "live_rieles", "live_rieles_t3", "live_mano", "live_mano_keys",
     "mixer_tracks4", "home_tracks4", "mock_home", "mock_presets", "mock_seq", "mock_drum", "mock_mixer", "mock_dialog", "mock_menu",
     "toast_env", "toast_mutate", "toast_mutate_hint", "toast_motion", "toast_motion_locks", "toast_punch", "toast_auto_list",
-    "toast_auto_list_drum", "toast_pattern", "toast_fm6_op", "toast_analog", "presets_pluck", "menu_midi", "menu_screen2"};
+    "toast_auto_list_drum", "toast_pattern", "toast_fm6_op", "toast_analog", "presets_pluck", "menu_midi", "menu_screen2", "v6_shrub", "v6_shrub_full", "v6_mseq_motion"};
 
 /* (0.9.11) GLO > LIVE: six sequences of their own lengths (16 32 7 16 . 1/8 20 4 . 1/4, as the mock-up's), modifiers on
  * T2 (THIN 70 %), T3 (x2 RATCH x3), T4 (LOOP 8), T5 (2/3), played two seconds from PLAY so the playheads and ghosts are
@@ -1828,6 +1828,20 @@ static void setup(int s)
     }
     case S_V6_VOICE_FULL: vx_phon(PH_E, 6000); ui_scope = 0; break;            /* (0.9.7) SCOPE OFF: VOICE's head, ANIMAL's */
     case S_V6_ANIMAL_FULL: vx_animal_scene("CANARY", -1); ui_scope = 0; break;
+    case S_V6_SHRUB: v6_scene(15, "WT PAD", "EDIT 1", 0, 50, 300, 7); break;     /* (0.9.12) SHRUB: the tree beside EDIT */
+    case S_V6_SHRUB_FULL: {                          /* (WT 110: ten branches; CUT and RES open, the FILT ACID leaves) */
+        static const int16_t K[8] = {110, 60, 14, 50, 100, 60, 20, 1};
+        v6_scene(15, "WT LEAD", "EDIT 1", K, 60, 300, 7); ui_scope = 0; break;
+    }
+    case S_V6_MSEQ_MOTION: {                         /* (0.9.12) MOTION over the MSEQ bars (vx_mseq, drawn in draw) */
+        static const uint8_t L[16] = {10, 40, 70, 100, 127, 90, 60, 30, 0, 50, 110, 20, 80, 80, 80, 80};
+        uint32_t k;
+        for (k = 0; k < 16u; k++) TSEL->p[P_MS0 + k] = L[k];
+        TSEL->p[P_MSLEN] = 12; ms_ui_step = 4; ms_clock = div_samples(2) * 6u + 3u;
+        TSEL->ms_v = 60 * 258;
+        go_title("MSEQ");
+        break;
+    }
     case S_VX_KIT_MUTED: dx_mute_set(DXG_HAT | DXM_LANE(7)); vx_kit_scene(0x01u, 0); dx_ui_lane = 7; dx_ui_seen = last_note; go_title("SOUND 4"); break;
     case S_WORDS_OFF: eng(ENGI_VOICE_UI); TSEL->p[P_VLANG] = 0; go_page(GR_LYRIC); break;
     case S_NAME_LYRIC:
@@ -1936,6 +1950,11 @@ static void draw(int s)
     ui.force = 1;
     if (ui.menu == 1 && !ui.mlv && s != S_MENU_SLIDE) ui.mlv = 1;   /* (0.8.5: the lens at TAB, as it opens; S_MENU_SLIDE: MENU) */
     ui_draw();
+    if (s == S_V6_MSEQ_MOTION) {                     /* MOTION alone on the card (graph_mseq's call site is not in the harness's page) */
+        cv_begin(240, 240, T_SURF);
+        vx_mseq(TSEL, 12, 40, 208, 80);
+        cv_blit(0, 0);
+    }
 }
 
 /* every value of every column on every page of every engine: labels and values fit their column */

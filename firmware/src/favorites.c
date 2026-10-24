@@ -7,12 +7,15 @@ typedef struct {
     uint32_t user, filter;
 } favorites_t;
 static favorites_t favorites;
+/* the row holding an engine's favourite bits. Row 15 is the settings' (hints, SKIN, CPU, ... : settings_persist.c), so
+ * SHRUB (15) keeps its bits in row 4, SAMPLE's (retired; nothing sets it: eng_ok) */
+#define FAV_ROW(e) ((e) == 15u ? 4u : (e))   /* 15: ENGI_SHRUB (core.h; a literal: settings_test mocks the core) */
 static int favorite_has(uint32_t engine, uint32_t preset)
 {
     if (engine == NENGINES)
         return preset < UP_SLOTS && ((favorites.user >> preset) & 1u);
     return engine < NENGINES && engine < 16u && preset < 256u &&
-        ((favorites.factory[engine][preset / 8u] >> (preset % 8u)) & 1u);
+        ((favorites.factory[FAV_ROW(engine)][preset / 8u] >> (preset % 8u)) & 1u);
 }
 static int favorite_set(uint32_t engine, uint32_t preset, int on)
 {
@@ -23,7 +26,7 @@ static int favorite_set(uint32_t engine, uint32_t preset, int on)
         if (on) favorites.user |= 1u << preset;
         else favorites.user &= ~(1u << preset);
     } else {
-        uint8_t *b = &favorites.factory[engine][preset / 8u];
+        uint8_t *b = &favorites.factory[FAV_ROW(engine)][preset / 8u];
         if (on) *b |= (uint8_t)(1u << (preset % 8u));
         else *b &= (uint8_t)~(1u << (preset % 8u));
     }

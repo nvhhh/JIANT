@@ -67,11 +67,16 @@
  *           insides gone and cilia growing with CUT, BP only the body's middle, COMB a double skin, a closed CUT blurring
  *           and swelling it, RES ringing contours and the peak's ring; DIST the skin clipped with spikes, MORPH the head's
  *           species
+ * (0.9.12) SHRUB  a little tree (ENG_SHRUB, vx_draw): its branches grown by WT, the trunk bent by WARP, the leaves in
+ *           FILT's shape swaying with the level, the newest note's blossom opening, CUT and RES glowing it; a knob turned
+ *           flourishes its part (vx_knob: the param that changed last). MOTION  a jellyfish over the MSEQ bars (vx_mseq,
+ *           called by graph_mseq): it bobs over the step playing at that step's level, its tentacles as long as LEN; a
+ *           knob turned on the page makes it hop to that step.
  * Each takes a rectangle (vx_draw: EDIT's left panel, HOME's middle, or a whole panel) and scales to it.
  * State: vxs (in the pool: no global of the RAM region moves). MENU > ANIM OFF: they rest. */
 #define VX_POOL __attribute__((section(".pool")))
 #define VX_CODE __attribute__((noinline))                 /* (each creature its own function: its size on its own) */
-#define VX_NE 9                                          /* the creatures: VOICE ANIMAL DRUM-X ANALOG FM6 WHEEL NOISE PHASE LOFI */
+#define VX_NE 11                                         /* the creatures: VOICE ANIMAL DRUM-X ANALOG FM6 WHEEL NOISE PHASE LOFI SHRUB MOTION */
 #define VX_NSW 56                                        /* NOISE's swarm (the mock-up's 84: its cost) */
 typedef struct { int32_t cx, cy, s; } vxf_t;            /* a unit (Q4: 16) -> Q4 px: c + u * s / 256 */
 static struct {
@@ -103,6 +108,12 @@ static struct {
     uint32_t hitm[8], tl[8], kms;                        /* .. its last hit (fm1_ms), its being's time; the ms drawn */
     uint8_t kc;                                          /* .. drawing it (its colours: vx_col) */
     uint8_t init;
+    int16_t pk[2][16];                                   /* (0.9.12) SHRUB's (8) and MOTION's (16) params as last seen: a knob turned */
+    uint32_t kt[2];                                      /* .. when it was turned (fm1_ms); 0: never (the first look takes them) */
+    uint8_t kn[2];                                       /* .. which one (SHRUB: 0..7; MOTION: the step, 0..15; 0xFF: none yet) */
+    uint8_t mss;                                         /* MOTION: the step KNOB 1 picked last (ms_ui_step) */
+    int16_t mxp;                                         /* .. its place along the steps (Q8: 256 a step), gliding */
+    uint32_t mms;                                        /* .. when it was placed (fm1_ms) */
 } vxs VX_POOL;
 
 /* DRUM-X's beings in the thermal ramp of the mock-up the kit was chosen from (cyan blue violet red orange yellow white:
@@ -2102,6 +2113,259 @@ static VX_CODE void vx_lofi(const track_t *t, const int32_t *A, int32_t en_home)
     vxs.kc = 0;
 }
 
+/* ------------------------------------------------------------------------------------------------ SHRUB --- */
+/* (0.9.12) SHRUB, a little tree: a trunk (WARP bends it, SUB its roots) and branches, WT's frames of them grown (more
+ * frames, more branching: 3 .. 10), a bud at each tip, the newest note's blossom open (vx_age: 0.25 s to open, shut
+ * after 2.5 s); the leaves (FILT: a round LADDER, a pointed ACID, a needle fern SVF) sway with the level; CUT and RES
+ * glow the blossoms. A knob turned (the param that changed last, vx_knob) flourishes its part as it fades (~1 s):
+ * WT the branches swing, WARP the trunk, DETUNE the leaves shiver, SUB the roots, CUT the blossoms pop, RES their
+ * halos pulse, DRIVE the crown shakes, FILT the leaves turn. Q4 px as the rest: 16 a unit (the foot at y 46) */
+static const int8_t VS_BR[10][3] = {{-1, -24, -38}, {-1, 22, -42}, {0, -38, -58}, {0, -14, -60}, {1, 36, -60},
+                                    {1, 14, -66}, {2, -50, -72}, {3, -24, -80}, {4, 50, -70}, {5, 26, -84}};   /* parent (-1: the top), x, y */
+static const int8_t VS_LF[2][6][2] = {{{2, 0}, {6, 4}, {12, 4}, {16, 0}, {12, -4}, {6, -4}},               /* LADDER, ACID: */
+                                      {{0, 0}, {8, 6}, {16, 0}, {8, -6}, {0, 0}, {0, 0}}};                 /* (a, b) / 16 of the leaf */
+static const uint8_t VS_LN[2] = {6, 4};
+static int32_t vx_fit(int32_t w, int32_t h, int32_t uw, int32_t uh);   /* (the glue, below) */
+/* a knob moved: the param (of n) that changed last since the last look, its time (kt) and index (kn). The first look
+ * takes the values silently (kt 0, kn not yet 0xFF) */
+static void vx_knob(const int16_t *p, int16_t *pk, uint32_t n, uint32_t *kt, uint8_t *kn)
+{
+    uint32_t i;
+    if (!*kt && *kn != 0xFFu) {
+        for (i = 0; i < n; i++) pk[i] = p[i];
+        *kn = 0xFFu;
+        return;
+    }
+    for (i = 0; i < n; i++)
+        if (p[i] != pk[i]) {
+            pk[i] = p[i];
+            *kn = (uint8_t)i;
+            *kt = fm1_ms;
+        }
+}
+/* sin(ph) * a (a in any unit: the result a's sine) */
+static int32_t vx_osc(uint32_t ph, int32_t a) { return (og_sin(ph) * a) >> 15; }
+/* the warp (Q4 px): x bent by bend at the foot (y 736 = 46 units) and out to the top (-160 = -10 units), then the crown
+ * moves with the top */
+static int32_t vs_wx(int32_t x, int32_t y, int32_t bend)
+{
+    int32_t d = 736 - y;
+    d = d > 896 ? 896 : d;
+    return x + bend * d * d / 802816;
+}
+/* the point (x, y) turned about (ox, oy) by a (16-bit turns) */
+static void vs_rot(int32_t *x, int32_t *y, int32_t ox, int32_t oy, int32_t a)
+{
+    int32_t dx = *x - ox, dy = *y - oy, c = og_cos((uint32_t)a), s = og_sin((uint32_t)a);
+    *x = ox + ((dx * c - dy * s) >> 15);
+    *y = oy + ((dx * s + dy * c) >> 15);
+}
+/* a leaf's point: (a, b) / 16 of the leaf v (its perpendicular b) from the base (ex, ey) */
+static void vs_lp(int32_t ex, int32_t ey, int32_t vx, int32_t vy, int32_t a, int32_t b, int32_t *x, int32_t *y)
+{
+    *x = ex + (a * vx - b * vy) / 16;
+    *y = ey + (a * vy + b * vx) / 16;
+}
+static VX_CODE void vx_shrub(const track_t *t, const int32_t *A, int32_t en_home)
+{
+    const int16_t *p = t->p;
+    vxf_t f = {A[0] * 16 + A[2] * 8, A[1] * 16 + A[3] * 8 + (320 * vx_fit(A[2], A[3], 120, 150) >> 8), vx_fit(A[2], A[3], 120, 150)}, fc;
+    int32_t en, bend, ws, wt, sw, shv, ft, shk, nb, fp, sf, kn, slot, bl, hb, rr, wd, amp, i, k, note = 0;
+    int32_t E[10][2], SX[10], SY[10], q[12], tx, ty;
+    uint32_t mt, age, kms;
+    en = vx_level(t, 9, en_home);
+    vx_knob(p + P_E0, vxs.pk[0], 8, &vxs.kt[0], &vxs.kn[0]);
+    mt = vxs.mt[9];
+    age = vx_age(t, 9, &note);
+    kn = vxs.kn[0] < 8u ? vxs.kn[0] : -1;
+    kms = fm1_ms - vxs.kt[0];
+    amp = kn >= 0 && !(ui_prefs & PREF_ANIM_OFF) ? vx_fall(kms, 260u) : 0;   /* (the flourish: Q8, fading) */
+    ws = (og_sin(kms * 160u) * amp) >> 15;               /* (Q8, +-256: the swing) */
+    bend = p[P_E1] * 160 / 127 + (kn == 1 ? ws * 64 >> 8 : 0);
+    wt = kn == 0 ? (ws * 2000) >> 8 : 0;                 /* the branches' swing (turns) */
+    sw = en * 2600 / 256;                                /* the leaves' sway with the level (turns) */
+    shv = kn == 2 ? vx_osc(kms * 900u, amp * 3000 / 256) : 0;
+    ft = kn == 7 ? vx_osc(kms * 200u, amp * 1500 / 256) : 0;
+    shk = kn == 6 ? (og_sin(kms * 300u) * amp * 48) >> 23 : 0;   /* the crown's shake (Q4 px) */
+    fp = p[P_E0] * 7 / 127;                              /* WT's frame: 3 .. 10 branches */
+    nb = 3 + fp;
+    sf = p[P_E7];                                        /* FILT: the leaves' shape */
+    fc = f;
+    fc.cx += shk;
+    /* the branches: the tip of each from its parent's (the trunk's top first), turned by the swing */
+    tx = vs_wx(0, -160, bend);
+    ty = -160;
+    for (i = 0; i < nb; i++) {
+        int32_t sx = VS_BR[i][0] < 0 ? tx : E[VS_BR[i][0]][0], sy = VS_BR[i][0] < 0 ? ty : E[VS_BR[i][0]][1];
+        int32_t ex = vs_wx(VS_BR[i][1] * 16, VS_BR[i][2] * 16, bend), ey = VS_BR[i][2] * 16;
+        vs_rot(&ex, &ey, sx, sy, wt);
+        E[i][0] = ex;
+        E[i][1] = ey;
+        SX[i] = sx;
+        SY[i] = sy;
+    }
+    /* the trunk: two walls to the top, the base closed; its width SUB's */
+    wd = 112 + p[P_E3] * 48 / 127;
+    {
+        static const int16_t TY[4] = {736, 384, 64, -160};
+        int32_t lp[8], th = 96 + en / 3;
+        for (k = 0; k < 4; k++) {
+            int32_t w = wd - k * wd / 5;
+            q[2 * k] = vs_wx(-w, TY[k], bend);
+            q[2 * k + 1] = TY[k];
+            lp[2 * k] = vs_wx(w, TY[k], bend);
+            lp[2 * k + 1] = TY[k];
+        }
+        vx_curve(&f, q, 4, 0, th);
+        vx_curve(&f, lp, 4, 0, th);
+        vx_line(&f, q[0], q[1], lp[0], lp[1], th);
+    }
+    /* the roots (SUB's flourish grows them) and the ground */
+    vx_line(&f, -36 * 16, 736, 36 * 16, 736, 26);
+    {
+        int32_t rl = (4 + p[P_E3] * 6 / 127) * 16 + (kn == 3 ? amp * 96 >> 8 : 0);
+        for (k = -1; k <= 1; k += 2)
+            vx_line(&f, 0, 736, k * rl, 736 + rl / 2, 50 + p[P_E3] / 3);
+    }
+    /* the branches (curved from the start through a bow to the tip) */
+    for (i = 0; i < nb; i++) {
+        int32_t mx = (SX[i] + E[i][0]) / 2 + 24, my = (SY[i] + E[i][1]) / 2;
+        q[0] = SX[i]; q[1] = SY[i]; q[2] = mx; q[3] = my; q[4] = E[i][0]; q[5] = E[i][1];
+        vx_curve(&fc, q, 3, 0, 110 + en / 4);
+    }
+    /* the leaves: two at each tip, out to either side; their sway with the level, their shiver (DETUNE), turn (FILT) */
+    for (i = 0; i < nb; i++)
+        for (k = 0; k < 2; k++) {
+            int32_t a = (k ? -8336 : 8336) + vx_osc(vx_ang(mt, 700) + (uint32_t)(i * 9000 + k * 5000), sw) + shv + ft;
+            int32_t dx = E[i][0] - SX[i], dy = E[i][1] - SY[i], c = og_cos((uint32_t)a), s = og_sin((uint32_t)a);
+            int32_t vx = (dx * c - dy * s) >> 17, vy = (dx * s + dy * c) >> 17, lpt[12], j, n, x, y;
+            if (sf < 2) {                                /* LADDER round, ACID pointed */
+                n = VS_LN[sf];
+                for (j = 0; j < n; j++) {
+                    vs_lp(E[i][0], E[i][1], vx, vy, VS_LF[sf][j][0], VS_LF[sf][j][1], &x, &y);
+                    lpt[2 * j] = x;
+                    lpt[2 * j + 1] = y;
+                }
+                vx_poly(&fc, lpt, (uint32_t)n, 1, sf ? 170 + en / 3 : 90 + en / 2);
+            } else {                                     /* SVF: a needle fern, its midrib and barbs */
+                vs_lp(E[i][0], E[i][1], vx, vy, 16, 0, &x, &y);
+                vx_line(&fc, E[i][0], E[i][1], x, y, 130 + en / 3);
+                vs_lp(E[i][0], E[i][1], vx, vy, 6, 0, &lpt[0], &lpt[1]);
+                vs_lp(E[i][0], E[i][1], vx, vy, 10, 4, &lpt[2], &lpt[3]);
+                vs_lp(E[i][0], E[i][1], vx, vy, 10, -4, &lpt[4], &lpt[5]);
+                vx_line(&fc, lpt[0], lpt[1], lpt[2], lpt[3], 130 + en / 3);
+                vx_line(&fc, lpt[0], lpt[1], lpt[4], lpt[5], 130 + en / 3);
+            }
+        }
+    /* the blossoms: a bud at each tip; the newest note's (slot: its MIDI note over the branches) opens, petals and a
+     * halo glowing with CUT (the heat) and RES (the halo); its petals pop with CUT's flourish */
+    slot = note % nb;
+    bl = age < 2500u && !(ui_prefs & PREF_ANIM_OFF) ? clamp((int32_t)(age * 256u / 250u), 0, 256) : 0;
+    for (i = 0; i < nb; i++) {
+        int32_t ex = E[i][0], ey = E[i][1];
+        if (i != slot || !bl) {
+            vx_dot(&fc, ex, ey, 24, clamp(110 + p[P_E4] * 100 / 127 + p[P_E5] * 40 / 127 + en / 4, 0, 255));
+            continue;
+        }
+        hb = clamp(150 + p[P_E4] * 60 / 127 + p[P_E5] * 40 / 127 + en / 6, 0, 255);
+        rr = 24 + bl * 16 / 256 + (kn == 4 ? amp * 24 >> 8 : 0);
+        vx_ring(&fc, ex, ey, 40 + p[P_E5] * 24 / 127 + (kn == 5 ? amp * 16 >> 8 : 0) + bl * 16 / 256,
+                40 + p[P_E5] * 24 / 127 + (kn == 5 ? amp * 16 >> 8 : 0) + bl * 16 / 256, clamp(30 + p[P_E5] * 190 / 127, 0, 255));
+        for (k = 0; k < 5; k++) {
+            uint32_t a = (uint32_t)k * 13107u + 1200u;
+            vx_ring(&fc, ex + ((rr * og_cos(a)) >> 15), ey + ((rr * og_sin(a)) >> 15), rr, rr, hb);
+        }
+        vx_dot(&fc, ex, ey, 24, clamp(hb + 40, 0, 255));
+    }
+}
+
+/* ------------------------------------------------------------------------------------------------ MOTION --- */
+/* (0.9.12) MOTION, a jellyfish over the MSEQ page's 16 levels (graph_mseq's bars: the rectangle x y w h px, step i at
+ * x + (i + 1/2) w / 16): it bobs over the step playing (the step KNOB 1 picked when stopped), its bell at the height of
+ * that step's level, gliding from step to step; its tentacles hang as long as LEN and wave with the level, its
+ * antennae stand up with it; a trail of dots (LEN's count) follows it back while the sound plays. A knob turned on the
+ * page (a step's level, or KNOB 1 picking a step) makes it hop to that step, the jump's arc decaying. ANIM OFF: at rest.
+ * State: pk[1] (the levels as last seen), kn/kt[1] (the step turned, when), mss, mxp, mms. */
+int vx_mseq(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t h)
+{
+    const int16_t *p = t->p;
+    uint32_t len = p[P_MSLEN] > 0 ? (uint32_t)p[P_MSLEN] : 1u;
+    uint32_t per = div_samples((uint32_t)p[P_MSDIV]), now = song.playing && per ? ms_clock / per % len : 0xFFu;
+    vxf_t f = {0, 0, 256};
+    int32_t en, tgt, pos, ip, fr, lvq, X, Y, kn, ov, bob, pul, rx, ry, jump, sn, hb, LT, ANT, nd, d, j, k;
+    uint32_t mt, kms, dm, ph;
+    vx_knob(p + P_MS0, vxs.pk[1], 16, &vxs.kt[1], &vxs.kn[1]);
+    if (ms_ui_step != vxs.mss) {                          /* KNOB 1 picked another step */
+        vxs.mss = ms_ui_step;
+        vxs.kn[1] = (uint8_t)(ms_ui_step & 15u);
+        vxs.kt[1] = fm1_ms;
+    }
+    en = vx_level(t, 10, -1);
+    mt = vxs.mt[10];
+    kn = vxs.kn[1] < 16u ? vxs.kn[1] : -1;
+    kms = fm1_ms - vxs.kt[1];
+    ov = kn >= 0 && kms < 900u && !(ui_prefs & PREF_ANIM_OFF);
+    tgt = ov ? kn : now < len ? (int32_t)now : (int32_t)(ms_ui_step & 15u);
+    dm = (uint32_t)(fm1_ms - vxs.mms);
+    if (dm > 80u) dm = 80u;
+    if (!vxs.mms || (ui_prefs & PREF_ANIM_OFF))
+        vxs.mxp = (int16_t)(tgt * 256);
+    else
+        vxs.mxp = (int16_t)(vxs.mxp + (tgt * 256 - vxs.mxp) * (int32_t)dm / 80);
+    vxs.mms = fm1_ms;
+    pos = vxs.mxp;
+    /* the level there (Q8, between the two steps it lies) */
+    ip = clamp(pos >> 8, 0, 15);
+    fr = pos & 255;
+    lvq = p[P_MS0 + ip] * (256 - fr) + p[P_MS0 + (ip < 15 ? ip + 1 : 15)] * fr;
+    X = x * 16 + ((pos * w) >> 8) + (w >> 1);
+    Y = (y + h) * 16 - (lvq * h * 16) / (127 * 256);     /* the bar's top */
+    /* the bob, the bell's pulse, the hop's arc */
+    ph = (uint32_t)vx_ang(mt, 700);
+    bob = vx_osc(ph, 48 * en / 256);
+    pul = (og_sin(vx_ang(mt, 1400)) * en) >> 15;
+    rx = 96 + pul * 16 / 256;
+    ry = 64 + pul * 12 / 256;
+    sn = og_sin((uint32_t)(kms * 180u));
+    jump = ov ? (vx_fall(kms, 240u) * (sn < 0 ? -sn : sn)) >> 15 : 0;
+    jump = jump * 160 / 256;
+    {
+        int32_t Yc = Y - 128 - bob - jump;               /* the bell's centre: 8 px over the bar's top */
+        hb = 150 + (lvq * 90 >> 15);
+        LT = 96 + len * 18;                              /* LEN: the tentacles, Q4 px */
+        ANT = 64 + (lvq * 192 >> 15);                    /* the antennae: the level */
+        /* the trail: dots behind it on the bars it has crossed (LEN's count), only while it sounds */
+        nd = en ? 1 + (int32_t)(len / 4u) : 0;
+        for (d = nd; d >= 1; d--) {
+            int32_t pb = pos - d * 154, ib = clamp(pb >> 8, 0, 15), fb = pb & 255;
+            int32_t lb = p[P_MS0 + ib] * (256 - fb) + p[P_MS0 + (ib < 15 ? ib + 1 : 15)] * fb;
+            if (pb < 0) continue;
+            vx_dot(&f, x * 16 + ((pb * w) >> 8) + (w >> 1), (y + h) * 16 - (lb * h * 16) / (127 * 256) - 64,
+                   40 - d * 6, clamp(120 - d * 20, 0, 255));
+        }
+        /* the tentacles: four, hanging from the bell, waving with the level */
+        for (k = -2; k <= 1; k++) {
+            int32_t xk = X + (k * rx) / 2 + (rx / 4), q[8];
+            for (j = 0; j < 4; j++)
+                q[2 * j] = xk + vx_osc(ph * 2u + (uint32_t)(k * 9000 + j * 7000), 24 + (lvq * 40 >> 15)),
+                q[2 * j + 1] = Yc + j * LT / 3;
+            vx_curve(&f, q, 4, 0, 90 + (lvq * 80 >> 15));
+        }
+        /* the bell: a dome of two arcs (the top half), its rim, two eyes */
+        vx_arc(&f, X, Yc, rx, ry, 32768u, 65536u, 10, hb);
+        vx_line(&f, X - rx, Yc, X + rx, Yc, hb);
+        vx_dot(&f, X - rx / 3, Yc - ry / 2, 24, 243);
+        vx_dot(&f, X + rx / 3, Yc - ry / 2, 24, 243);
+        /* the antennae: up and out, their tips the level's */
+        for (k = -1; k <= 1; k += 2) {
+            int32_t bx = X + k * rx / 2, tx = bx + k * rx / 3 + vx_osc(ph + (uint32_t)(k * 20000), 32), ty = Yc - ry - ANT;
+            vx_line(&f, bx, Yc - ry * 3 / 4, tx, ty, 180 + (lvq * 60 >> 15));
+            vx_dot(&f, tx, ty, 24, 230);
+        }
+    }
+    return 1;
+}
+
 /* ------------------------------------------------------------------------------------------------ the glue --- */
 /* the engine's own creature in the rectangle x y w h (px: EDIT's left panel 8 14 108 112, HOME's middle 146 x 112, or a
  * whole panel: each fits itself to it), en_home: HOME's level for the track (-1: its own); 0 when the engine has none
@@ -2134,6 +2398,8 @@ static int vx_draw(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t h,
         vx_phase(t, A, en_home);
     else if (e == &ENG_LOFI)
         vx_lofi(t, A, en_home);
+    else if (e == &ENG_SHRUB)                            /* (the tree ~120 x 150 units) */
+        vx_shrub(t, A, en_home);
     else
         return 0;
     return 1;

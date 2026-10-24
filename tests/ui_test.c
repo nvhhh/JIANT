@@ -5565,13 +5565,13 @@ static int test_fm4_retired(void)
         turn(EN_K2, 1);
         seen |= 1u << TSEL->eng_req;
     }
-    bad += check("PRESETS KNOB 2: the engines in order (0.9.9: DRUM first, NOISE last, round), DIGITAL skipped, back to the first",
+    bad += check("PRESETS KNOB 2: the engines in order (0.9.9: DRUM first, NOISE then SHRUB (0.9.10) last, round), DIGITAL skipped, back to the first",
                  seen == all && TSEL->eng_req == 0u && eng_step(0, 1) == ENGI_FM6 && eng_step(ENGI_FM6, 1) == ENGI_PHASE &&
                  eng_step(ENGI_FM6, -1) == 0u && eng_step(0, -1) == ENGI_LOFI && eng_step(ENGI_DRUM, 1) == ENGI_VOICE &&
-                 eng_step(ENGI_VOICE, 1) == ENGI_ANIMAL && eng_step(ENGI_DRUM, -1) == ENGI_NOISE && eng_step(ENGI_NOISE, 1) == ENGI_DRUM);
+                 eng_step(ENGI_VOICE, 1) == ENGI_ANIMAL && eng_step(ENGI_DRUM, -1) == ENGI_SHRUB && eng_step(ENGI_SHRUB, 1) == ENGI_DRUM && eng_step(ENGI_NOISE, 1) == ENGI_SHRUB);
     {   /* the display order (engines.c ENGINE_ORDER, 0.9.9): every engine one can pick once; the PRESETS list follows it
          * (was ANALOG FM6 PHASE LOFI VOICE WHEEL NOISE DRUM ANIMAL: test_engine_order_099 has PROGRAM CHANGE's) */
-        static const char *const ORDER[] = {"DRUM", "VOICE", "ANIMAL", "LOFI", "ANALOG", "FM6", "PHASE", "WHEEL", "NOISE"};
+        static const char *const ORDER[] = {"DRUM", "VOICE", "ANIMAL", "LOFI", "ANALOG", "FM6", "PHASE", "WHEEL", "NOISE", "SHRUB"};
         uint32_t last = 0xFFu, r = 0, n = 0;
         ok = NENG_SHOWN == NELEM(ORDER);
         for (i = 0; ok && i < NENG_SHOWN; i++)
@@ -5586,7 +5586,7 @@ static int test_fm4_retired(void)
             last = e;
             r++;
         }
-        bad += check("engines shown DRUM VOICE ANIMAL LOFI ANALOG FM6 PHASE WHEEL NOISE (ENGINE_ORDER); PRESETS lists them so",
+        bad += check("engines shown DRUM VOICE ANIMAL LOFI ANALOG FM6 PHASE WHEEL NOISE SHRUB (ENGINE_ORDER); PRESETS lists them so",
                      ok && r == NENG_SHOWN);
     }
     /* a user preset stored with engine 1: kept as it is, it loads as FM6 with the converted patch */
@@ -10457,13 +10457,16 @@ static int test_scope(void)
     uint32_t e, sk, nseen = 0;
     ui_power_on(); frame();
     ok = ui_scope == 0u && MI_SCOPE == MI_SKIN + 1u && str_eq(MI_NAME[MI_SCOPE], "SCOPE") && mi_tab(MI_SCOPE) == MTAB_SCREEN &&
-         menu_n(MI_SCOPE) == 2u && str_eq(menu_vname(MI_SCOPE, 0), "OFF") && str_eq(menu_vname(MI_SCOPE, 1), "ON") &&
-         menu_get(MI_SCOPE) == 0u;
+         menu_n(MI_SCOPE) == 4u && str_eq(menu_vname(MI_SCOPE, 0), "OFF") && str_eq(menu_vname(MI_SCOPE, 1), "ON") &&
+         str_eq(menu_vname(MI_SCOPE, 2), "BUBBLES") && str_eq(menu_vname(MI_SCOPE, 3), "ORBIT") && menu_get(MI_SCOPE) == 0u;
     hold(B_HOME); ui.menu_sel = MI_SCOPE;
     turn(EN_K1, 1); ok &= ui_scope == 1u && menu_get(MI_SCOPE) == 1u;
-    turn(EN_K1, 1); ok &= ui_scope == 1u;                         /* (stops at the end) */
-    press(B_OCTDN); ok &= ui_scope == 0u;
-    press(B_OCTUP); ok &= ui_scope == 1u;
+    turn(EN_K1, 1); ok &= ui_scope == 2u;                         /* BUBBLES */
+    turn(EN_K1, 1); ok &= ui_scope == 3u;                         /* ORBIT (the last value) */
+    turn(EN_K1, 1); ok &= ui_scope == 3u;                         /* (stops at the end) */
+    press(B_OCTDN); ok &= ui_scope == 2u;
+    press(B_OCTUP); ok &= ui_scope == 3u;
+    press(B_OCTDN); press(B_OCTDN); press(B_OCTDN); ok &= ui_scope == 0u;
     press(B_HOME); ok &= !ui.menu;
     bad += check("SCOPE: OFF by default, a row of DISPLAY under SKIN; KNOB 1 / OCT+- OFF ON, stopping at the ends", ok);
     {   /* saved with the settings (byte 19 of engine 15); older settings (0) and unknown values: OFF; new settings: OFF */
@@ -10491,8 +10494,8 @@ static int test_scope(void)
     for (sk = 0; sk < SKIN_N; sk++)                               /* the EDIT pages of every engine with a creature */
         for (e = 0; e < NENGINES; e++) {
             uint32_t on_tile, on_mid, off_tile, off_mid, gy, chips;
-            if (!eng_ok(e) || e == ENGI_DRUM || e == ENGI_FM6 || eng_gone(e) || str_eq(ENGINES[e]->name, "DIGITAL"))
-                continue;                                         /* (DIGITAL, FELUCCA_FM4=1: its OP pages, no creature) */
+            if (!eng_ok(e) || e == ENGI_DRUM || e == ENGI_FM6 || e == ENGI_SHRUB || eng_gone(e) || str_eq(ENGINES[e]->name, "DIGITAL"))
+                continue;                                         /* (DIGITAL, FELUCCA_FM4=1: its OP pages, no creature; SHRUB (0.9.10): no creature yet) */
             ui_power_on(); ui_skin = (uint8_t)sk; set_engine_of(TSEL, e); TSEL->engine = TSEL->eng_req;
             go_title("EDIT 1"); ui.force = 1; frame(); frame();
             if (trk_engp(TSEL) == &ENG_FORMANT && TSEL->p[P_VLANG])

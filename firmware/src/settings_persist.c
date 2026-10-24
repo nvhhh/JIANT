@@ -41,7 +41,8 @@ static int settings_import(persist_t *p, int n)
         p->favorites.factory[15][20] = 0;
     else if (p->favorites.factory[15][20] == 1u)   /* (0.9.17) BOTTOM, retired: AIR (its word tabs, the knobs' row on top) */
         p->favorites.factory[15][20] = 3u;
-    if (p->favorites.factory[15][19] > 1u)         /* SCOPE (0.9.7, ui.c ui_scope): unknown = OFF (0, older settings too) */
+    if (p->favorites.factory[15][19] > 3u)         /* SCOPE (0.9.7, ui.c ui_scope; 0.9.18: 2 BUBBLES, 3 ORBIT): unknown = OFF (0,
+                                                     * older settings too: 0 and 1 keep their meaning) */
         p->favorites.factory[15][19] = 0;
     if (p->favorites.factory[15][29] > 1u)        /* STYLE (ui.c ui_style): 2, the retired PIXEL = LINE; unknown = FLAT */
         p->favorites.factory[15][29] = p->favorites.factory[15][29] == 2u ? 1u : 0u;
