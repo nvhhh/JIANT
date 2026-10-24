@@ -90,7 +90,9 @@
  *
  * Built on the Mac too (tests/project_test.c, -DPROJ_HOST): the part above the #ifndef
  * PROJ_HOST needs core.h, params.c (TP) and engines.c. */
-#define PROJ_MAGIC 0x46554E43u                 /* "FUNC" (JIANT 0.6): six tracks, the steps packed (see proj_pack) */
+#define PROJ_MAGIC 0x46554E43u                 /* "FUNC" (JIANT 0.6): six tracks, the steps packed (see proj_pack); the in-RAM magic too */
+#define PROJ_MAGIC_8 0x46554E44u               /* "FUND" (0.9.19): FUNC's layout with NPART (8) tracks, written since: byte 67 the count
+                                                * (proj_unpack_c); a FUNC store holds at most PROJ_LT_C of them */
 #define PROJ_MAGIC_VB 0x46554E42u                 /* "FUNB": FUNA, 96 bytes longer (JIANT: DIST TYPE TONE, the modulation
                                                 * sequence: 120 parameters; the buses' new globals) */
 #define PROJ_MAGIC_VA 0x46554E41u              /* "FUNA": FUN9 + the DRUM-X kit (JIANT 0.1) */
@@ -108,6 +110,7 @@
 #define PROJ_NP_V3 57u                         /* P_COUNT of format 3 (P_E0 was 49) */
 #define PROJ_NP_V4 69u                         /* P_COUNT of format 4 (P_E0 61) */
 #define PROJ_LT 4u                             /* the tracks of every format before FUNC */
+#define PROJ_LT_C 6u                           /* the tracks of FUNC (and FUNB's first six): the rest are power-on */
 #define PROJ_PHYS 2u                           /* project_t.phys: PHYS without DUST and DRUM (see the top) */
 #define PROJ_NAME_LEN 12u                      /* the name: FUN7 bytes PROJ_NAME_OFF.. (the reserved tail's end) */
 typedef struct {                               /* one track */
@@ -630,8 +633,8 @@ static int proj_import(project_t *q, const void *b, int n)
 }
 static int proj_import_any(project_t *q, const void *b, int n)
 {
-    if (n == PROJ_STORE_SIZE && ((const uint32_t *)b)[0] == PROJ_MAGIC)
-        return proj_unpack_c(q, b);                     /* (JIANT 0.6: six tracks, packed) */
+    if (n == PROJ_STORE_SIZE && (((const uint32_t *)b)[0] == PROJ_MAGIC_8 || ((const uint32_t *)b)[0] == PROJ_MAGIC))
+        return proj_unpack_c(q, b);                     /* (FUND: NPART tracks; FUNC, JIANT 0.6: six, packed) */
     if (n == PROJ_STORE_SIZE && ((const uint32_t *)b)[0] == PROJ_MAGIC_VB)
         return proj_unpack(q, b, PROJ_STORE_SIZE);
     if (n == PROJ_STORE_SIZE && ((const uint32_t *)b)[1] >= 8u && ((const uint32_t *)b)[1] < PROJ_STORE_SIZE)
@@ -865,9 +868,10 @@ static uint32_t proj_packed_size(const project_t *q)
     }
     return n;
 }
-static int proj_pack(project_store_t *out, const project_t *q)
+/* nt tracks (NPART, or FUNC's six in the tests: the others must be empty) under magic: FUND (proj_pack) */
+static int proj_pack_nt(project_store_t *out, const project_t *q, uint32_t nt, uint32_t magic)
 {
-    uint8_t *b = out->raw; uint32_t pos = 68u, t, i; uint32_t magic = PROJ_MAGIC, size = PROJ_STORE_SIZE, sum;
+    uint8_t *b = out->raw; uint32_t pos = 68u, t, i; uint32_t size = PROJ_STORE_SIZE, sum;
     proj_full = 0;
     for (t = 0; t < NTRK; t++) {                        /* the values first: out untouched when one is wrong */
         if (q->t[t].engine >= NENGINES) return 0;
@@ -885,8 +889,8 @@ static int proj_pack(project_store_t *out, const project_t *q)
     if (proj_packed_size(q) > PROJC_PFX_OFF) { proj_full = 1; return 0; }
     memset(out, 0, sizeof *out); memcpy(b, &magic, 4); memcpy(b + 4, &size, 4);
     memcpy(b + 8, q->g, G_NSTORE * 2u); b[62] = q->sel; b[63] = q->parts; b[64] = q->phys; b[66] = P_COUNT;
-    b[67] = NTRK;
-    for (t = 0; t < NTRK; t++) {
+    b[67] = (uint8_t)nt;
+    for (t = 0; t < nt; t++) {
         uint32_t e = q->t[t].engine, map, fm = (uint32_t)proj_fm_kept(q, t);
         b[pos++] = (uint8_t)e; b[pos++] = q->t[t].preset; b[pos++] = (uint8_t)fm;
         if (fm) { memcpy(b + pos, q->fm6[t], FM6_PACKED); pos += FM6_PACKED; }
@@ -1035,6 +1039,17 @@ static int proj_pack(project_store_t *out, const project_t *q)
     sum = proj_hash(b, PROJ_STORE_SIZE - 4u); memcpy(b + PROJ_STORE_SIZE - 4u, &sum, 4);
     return 1;
 }
+static int proj_pack(project_store_t *out, const project_t *q)
+{
+    return proj_pack_nt(out, q, NTRK, PROJ_MAGIC_8);
+}
+#ifdef PROJ_FUNC_WRITER
+/* (tests only) the first PROJ_LT_C tracks as FUNC, as firmware before 0.9.19 wrote it (its other tracks empty) */
+static int proj_pack_func(project_store_t *out, const project_t *q)
+{
+    return proj_pack_nt(out, q, PROJ_LT_C, PROJ_MAGIC);
+}
+#endif
 #ifdef PROJ_FUNB_WRITER
 /* (tests only) the first PROJ_LT tracks of q as FUNB, as JIANT 0.2 .. 0.5 wrote it: the older formats' imports are
  * tested from it */
@@ -1098,7 +1113,8 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
 {
     uint32_t pos = 68u, t, i, size, sum, np = b[66], nt = b[67], room = PROJC_PFX_OFF;
     memcpy(&size, b + 4, 4); memcpy(&sum, b + PROJ_STORE_SIZE - 4u, 4);
-    if (size != PROJ_STORE_SIZE || sum != proj_hash(b, PROJ_STORE_SIZE - 4u) || np < 8u || np > P_COUNT || !nt || nt > NTRK)
+    if (size != PROJ_STORE_SIZE || sum != proj_hash(b, PROJ_STORE_SIZE - 4u) || np < 8u || np > P_COUNT || !nt || nt > NTRK ||
+        (((const uint32_t *)b)[0] == PROJ_MAGIC && nt > PROJ_LT_C))     /* (FUNC: six tracks at most) */
         return 0;
     memset(q, 0, sizeof *q); q->magic = PROJ_MAGIC; q->size = sizeof *q;
     memcpy(q->g, b + 8, G_NSTORE * 2u); q->sel = b[62];
@@ -1835,7 +1851,12 @@ static int project_restore_runtime(const project_t *input)
     for (k = 0; k < NTRK; k++) {                        /* the power-on sounds: format 1 (tracks 2..4), old drums */
         track_t *t = &trk[k];
         int16_t keep[P_COUNT];
-        if (p->t[k].preset == PROJ_DEF_SOUND) {
+        if (p->t[k].preset == PROJ_DEF_SOUND && k >= PROJ_LT_C) {   /* (0.9.19) T7, T8 of a project of six: the power-on
+                                                         * sound a new part has (TRK_DEF, as power_on_parts), no steps */
+            power_sound_of(t, k);
+            t->engine = t->eng_req;
+            track_defaults_steps(t);
+        } else if (p->t[k].preset == PROJ_DEF_SOUND) {
             apply_preset_to(t, TRK_OLD[k][1]);          /* (0.9.9: 0.9.8's power-on sound, engines.c TRK_OLD) */
             track_defaults_steps(t);
         } else if (p->t[k].preset == PROJ_DEF_KEEP) {   /* the steps, LEVEL PAN MUTE, LEN DIV SWING GATE kept */

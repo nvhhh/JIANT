@@ -493,8 +493,9 @@ static void macro_dice(uint32_t mode)
     static const uint8_t DST[] = {MD_CUT, MD_SHP, MD_E1, MD_E1 + 1, MD_E1 + 2, MD_E1 + 3, MD_E1 + 4, MD_E1 + 5, MD_E1 + 6,
                                   MD_E1 + 7, MD_E1, MD_E1 + 1, MD_E1 + 2, MD_E1 + 3, MD_DLY, MD_REV, MD_PITCH, MD_DIST};   /* (the
                                                          * engine's, its first four twice as likely) */
-    uint32_t k, j, n;
-    for (k = 0; k < NTRK; k++) {
+    uint32_t k, j, n, kmax = mode == 3u ? 6u : NTRK;   /* (0.9.19: DICE ALL's routes on T1..T6 as before: the generator's
+                                                        * random numbers, and so its pieces, do not move with T7 and T8) */
+    for (k = 0; k < kmax; k++) {
         track_t *t = &trk[k];
         uint32_t has = 0, used = 0;
         for (j = 0; j < 4u; j++) {
@@ -550,7 +551,11 @@ static void session_dice(uint32_t seed)
 }
 
 /* GLO's white keys after the SOLOs (F3 ..): unmute all, tap tempo; KNOB 1..4: the levels from track trk_base4() */
-#define GLO_ALL ((uint32_t)NTRK)
+/* (0.9.19) the GLO keys that name a track (its SOLO, its MUTE black key) are T1..T6 as they were: the places past them
+ * keep their 6-track keys (UNMUTE, TAP, UNDO, FREEZE, REVERT ALL; the groups); T7 and T8 have no key here (their MUTE:
+ * TRACKS KNOB 1, the mixer's) */
+#define GLO_KEYS 6u
+#define GLO_ALL GLO_KEYS
 #define GLO_TAP 7u
 #define GLO_UNDO 8u                                     /* (0.6.21) G4: UNDO the last big change (project.c undo_do) */
 #define GLO_FRZ 9u                                      /* (0.6.43) A4: MUTATE frozen / free (project.c mutate_poll) */
@@ -560,11 +565,11 @@ static void layer_key(uint32_t l, uint32_t k)
     uint32_t p = key_place(k), i;
     if (l == LAYER_GLO) {
         if (key_black(k)) {
-            if (p < NTRK)
+            if (p < GLO_KEYS)
                 trk[p].p[P_MUTE] = (int16_t)!trk[p].p[P_MUTE];
-            else if (p < NTRK + 4u)
-                dx_mute_set(dx_mute ^ (1u << (p - NTRK)));
-        } else if (p < NTRK) {
+            else if (p < GLO_KEYS + 4u)
+                dx_mute_set(dx_mute ^ (1u << (p - GLO_KEYS)));
+        } else if (p < GLO_KEYS) {
             lys.solo |= 1u << k;                        /* (layer_masks: perf_solo while held) */
         } else if (p == GLO_ALL) {
             for (i = 0; i < NTRK; i++)
@@ -800,9 +805,9 @@ static uint32_t layer_leds(uint32_t *br)
             can = e < PF_N && ((ok >> e) & 1u);
             on = can && ((held >> e) & 1u);
         } else if (l == LAYER_GLO) {                    /* sounding lit; SOLO held lit, the others, C4, F4 breathe */
-            on = b ? (p < NTRK && glo_sounding(p)) || (p >= NTRK && p < NTRK + 4u && !((dx_mute >> (p - NTRK)) & 1u))
-                   : p < NTRK && ((lys.solo >> k) & 1u);      /* (a group sounding: lit) */
-            can = !b && ((p < NTRK && p < trk_live) || p == GLO_ALL || (p == GLO_TAP && !song.g[G_CLOCK]) ||
+            on = b ? (p < GLO_KEYS && glo_sounding(p)) || (p >= GLO_KEYS && p < GLO_KEYS + 4u && !((dx_mute >> (p - GLO_KEYS)) & 1u))
+                   : p < GLO_KEYS && ((lys.solo >> k) & 1u);      /* (a group sounding: lit) */
+            can = !b && ((p < GLO_KEYS && p < trk_live) || p == GLO_ALL || (p == GLO_TAP && !song.g[G_CLOCK]) ||
                          (p == GLO_UNDO && undo_ok) || p == GLO_FRZ || (p == GLO_RVA && mut_back_ok()));
                                                         /* (the keys that do something breathe: not an asleep track's) */
             on |= !b && p == GLO_FRZ && mut_freeze;      /* (0.6.43: FREEZE on: lit) */
@@ -905,7 +910,7 @@ static uint32_t ly_keyname(uint32_t l, int blk, uint32_t p, char *nm)
         }
         if (blk ? p == 7u : p >= PF_NW)
             return LS_OFF;
-        if (blk && p < NTRK) {
+        if (blk && p < GLO_KEYS) {
             str_cpy(nm, "MUTE T1", 12);
             nm[6] = (char)('1' + p);
             return (held >> e) & 1u ? LS_MUTE : LS_OFF;
@@ -915,18 +920,18 @@ static uint32_t ly_keyname(uint32_t l, int blk, uint32_t p, char *nm)
                ((perf_act >> e) & 1u) || ((PF_MIDI >> e) & 1u) ? LS_HELD : LS_WAIT;
     }
     if (l == LAYER_GLO) {
-        if (blk && p < NTRK) {
+        if (blk && p < GLO_KEYS) {
             str_cpy(nm, "MUTE T1", 12);
             nm[6] = (char)('1' + p);
             return trk[p].p[P_MUTE] ? LS_MUTE : p >= trk_live ? LS_DIM : LS_OFF;
         }
-        if (blk && p < NTRK + 4u && glo_drums()) {
-            str_cpy(nm, GLO_GROUP[p - NTRK], 12);
-            return (dx_mute >> (p - NTRK)) & 1u ? LS_MUTE : LS_OFF;
+        if (blk && p < GLO_KEYS + 4u && glo_drums()) {
+            str_cpy(nm, GLO_GROUP[p - GLO_KEYS], 12);
+            return (dx_mute >> (p - GLO_KEYS)) & 1u ? LS_MUTE : LS_OFF;
         }
         if (blk)
             return LS_OFF;
-        if (p < NTRK) {
+        if (p < GLO_KEYS) {
             str_cpy(nm, "SOLO T1", 12);
             nm[6] = (char)('1' + p);
             return (perf_solo >> p) & 1u ? LS_HELD : p >= trk_live ? LS_DIM : LS_OFF;
@@ -1213,7 +1218,7 @@ static void layer_state(uint32_t l)
             if (((held >> e) & 1u) || ((PF_SWEEP >> e) & 1u && pf.sw[e - PF_SCRU]))
                 lst_chip(PF_NAME[e], 0, 1);
     } else if (l == LAYER_GLO) {                        /* the tracks, the DRUM groups, UNDO */
-        for (k = 0; k < NTRK; k++) {
+        for (k = 0; k < GLO_KEYS; k++) {
             char t[3] = {'T', (char)('1' + k), 0};
             lst_chip(t, trk[k].p[P_MUTE] ? "MUTE" : k >= trk_live ? "ASLEEP" : "ON", !trk[k].p[P_MUTE] && k < trk_live);
         }

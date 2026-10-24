@@ -190,7 +190,7 @@ int main(void)
         static const char *const VN[3] = {"mix/v12.one", "mix/v12", "mix/v12.c0"};
         uint32_t k, nv = 0, live = trk_live;
         vg_quiet();
-        trk_live = NTRK;
+        trk_live = 6u;
         mc_host = e != 0u;
         for (i = 0; i < NPART; i++) {
             vg_part(i, i & 1u ? ENGI_FM6 : ENGI_ANALOG, 0, 4);
@@ -298,7 +298,7 @@ int main(void)
         for (e = 0; e < NENGINES && ENGINES[e] != &ENG_FORMANT; e++)
             ;
         vg_quiet();
-        trk_live = NTRK;                            /* (TRACKS 6: all six parts play) */
+        trk_live = 6u;                            /* (TRACKS 6: all six parts play) */
         for (k = 0; k < 6u; k++) {
             if (k < 3u)
                 lyr_set(k, TX[k]);

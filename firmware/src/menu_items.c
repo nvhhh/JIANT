@@ -101,13 +101,13 @@ static const menu_flag_t MENU_FLAGS[] = {
     {MI_RESTORE, PREF_RESTORE_ON, {"OFF", "ON"}},      /* 1.2, #130; JIANT 0.6.40: OFF (the default), no autosave, power-on as
                                                         * INIT SYSTEM; ON, the last session back (project.c) */
     {MI_SCLLED, PREF_SCALE_LEDS, {"OFF", "ON"}},      /* 1.2, Discussion #127: ON, the keys show the scale (ui_input.c) */
-    {MI_TRACKS, PREF_SIX, {"4", "6"}},                /* (JIANT 0.6.18) 4 tracks (the default) or all 6 (voice.c trk_live) */
 };
 /* SPEAKER EQ (settings.lowcut, fx.c fx_lowcut): an EQ on the master for the small speaker, not a speaker switch
  * (#42: "OFF" read as the speaker off). FLAT is the old OFF (0, stored as before). The built-in speaker cannot be
  * turned off from the firmware (no amp enable or mute line is known); the EQ reaches
  * the headphone / line out and USB audio too (one DAC, uac_tap reads the master) */
 static const char *const SPK_EQ[3] = {"FLAT", "LOWCUT", "BASS+"};
+static const char *const TRKS_N[3] = {"4", "6", "8"};    /* (0.9.19) MENU > TRACKS: the tracks that play */
 /* (0.7.0) USB LEVEL: MASTER (USB follows the knob, the default), FIXED (full level, the knob after: #42), then fixed
  * and attenuated (-6 .. -24 dB: a phone recording over USB clipped at the full level). ui.c usb_lvl, fx.c fx_usb_gain */
 static const char *const USBLVL_N[6] = {"MASTER", "FIXED", "-6 dB", "-12 dB", "-18 dB", "-24 dB"};
@@ -165,7 +165,7 @@ static const menu_flag_t *menu_flag(uint32_t row)
 /* a row's value as 0..menu_n(row) - 1 in the order the menu steps it (LEDS: OFF DIM LO DIM HI INV, LEDS_MENU) */
 static uint32_t menu_n(uint32_t row)
 {
-    return row == MI_COLOR ? NPALETTES : row == MI_SKIN ? SKIN_MENU_N : row == MI_SCOPE ? 4u : row == MI_LOWCUT || (row >= MI_CLICK && row <= MI_COUNTIN) || row == MI_LOAD ? 3u :
+    return row == MI_COLOR ? NPALETTES : row == MI_SKIN ? SKIN_MENU_N : row == MI_SCOPE ? 4u : row == MI_LOWCUT || (row >= MI_CLICK && row <= MI_COUNTIN) || row == MI_LOAD || row == MI_TRACKS ? 3u :
            row == MI_HOLD || row == MI_MIDIOUT ? 4u : row == MI_USB ? 6u : row == MI_SERIAL ? 5u : row == MI_LEDS ? LEDS_COUNT : row == MI_SCROFF ? NELEM(SCROFF_N) : 2u;
 }
 static uint32_t menu_get(uint32_t row)
@@ -186,6 +186,7 @@ static uint32_t menu_get(uint32_t row)
     case MI_SCROFF: return scr_get();
     case MI_CLICK: case MI_CLKLVL: case MI_COUNTIN: return rp_get(row - MI_CLICK);
     case MI_LOAD: return load_get();
+    case MI_TRACKS: return trks_pos();                  /* (0.9.19: 4, 6, 8) */
     case MI_MIDIOUT: return midi_out_mode & 3u;
     case MI_CPU: case MI_CLOCK: return cpu_get(row == MI_CLOCK);
     case MI_LEARN: return ml.on;
@@ -215,6 +216,7 @@ static const char *menu_vname(uint32_t row, uint32_t v)
     case MI_CLKLVL: return CLKLVL_N[v % 3u];
     case MI_COUNTIN: return COUNTIN_N[v % 3u];
     case MI_LOAD: return N_LOAD[v % 3u];
+    case MI_TRACKS: return TRKS_N[v % 3u];
     case MI_MIDIOUT: return MIDIOUT_N[v & 3u];
     case MI_CPU: case MI_CLOCK: return CPU_N[row == MI_CLOCK][v & 1u];
     case MI_SCROFF: return SCROFF_N[v % NELEM(SCROFF_N)];
@@ -261,6 +263,7 @@ static void menu_put(uint32_t row, uint32_t v)
     case MI_LEDS: settings_leds = LEDS_MENU[v]; break;
     case MI_CLICK: case MI_CLKLVL: case MI_COUNTIN: rp_put(row - MI_CLICK, v); break;   /* (at once: click.c, seq.c) */
     case MI_LOAD: load_put(v % 3u); break;
+    case MI_TRACKS: trks_put(v % 3u); break;            /* (0.9.19: 4, 6, 8; ui.c) */
     case MI_CPU: case MI_CLOCK: cpu_put(row == MI_CLOCK, v & 1u); break;   /* (0.9.12, cpu_safe.c) */
     case MI_MIDIOUT: midi_out_mode = (uint8_t)(v & 3u); break;
     case MI_LEARN: ml_set(v); break;                   /* (0.9.12: armed, or off; not saved) */   /* (seq.c reads it every frame: ui_input) */         /* (at once: voice.c sys_load) */

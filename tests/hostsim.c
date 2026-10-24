@@ -82,7 +82,7 @@ static void host_tracks_init(void)                /* as felucca_init: defaults, 
     song.master_q12 = 4096;
     if (!lyb_ok)
         sing_init();                             /* (0.9.0: as felucca_init, VOICE's English generator words) */
-    trk_live = NTRK;                             /* (the tests play all six: TRACKS 6) */
+    trk_live = 6u;                             /* (the tests play all six: TRACKS 6) */
 }
 
 /* the factory preset as ui.c apply_preset_to sets it (sound, sends; not the steps, not the track's own:

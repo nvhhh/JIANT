@@ -807,7 +807,7 @@ static int menu_protocol(void)
         {"SPEAKER EQ", "FLAT,LOWCUT,BASS+"}, {"USB LEVEL", "MASTER,FIXED,-6 dB,-12 dB,-18 dB,-24 dB"}, {"USB AUDIO", "CONSOLE,STEREO,STEMS,IN+OUT,STEMS+IN"},
         {"CLICK", "OFF,REC,ON"}, {"CLICK LEVEL", "LOW,MID,HIGH"}, {"COUNT-IN", "OFF,1 BAR,2 BARS"},   /* (1.1: appended) */
         {"RESTORE LAST", "OFF,ON"}, {"SCALE LEDS", "OFF,ON"},                                        /* (1.2) */
-        {"SCREEN SLEEP", "NEVER,5 MIN,15 MIN,30 MIN,60 MIN"}, {"TRACKS", "4,6"},   /* (0.6.18) */
+        {"SCREEN SLEEP", "NEVER,5 MIN,15 MIN,30 MIN,60 MIN"}, {"TRACKS", "4,6,8"},   /* (0.6.18; 0.9.19: 8) */
         {"LOAD", "ECO,LITE,FULL"}};                                                                 /* (0.6.30) */
     static const int32_t DEF[20] = {-1, 0, 0, 0, 2, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 2};   /* (COLOR: the default palette) */
     static const uint8_t TAB[20] = {0, 0, 0, 0, 0, 4, 4, 4, 1, 1, 3, 3, 1, 1, 1, 4, 0, 0, 1, 1};      /* (0.9.18) SCREEN AUDIO MIDI

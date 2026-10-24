@@ -51,7 +51,7 @@ static void gen_with(uint32_t genre, uint32_t seed, uint32_t energy, uint32_t fo
 static uint32_t all_sig(void)
 {
     uint32_t k, h = 2166136261u ^ (uint32_t)song.g[G_BPM];
-    for (k = 0; k < NTRK; k++) h = (h ^ steps_sig(&trk[k]) ^ trk[k].eng_req ^ (uint32_t)trk[k].p[P_E4] * 7u) * 16777619u;
+    for (k = 0; k < GEN_NT; k++) h = (h ^ steps_sig(&trk[k]) ^ trk[k].eng_req ^ (uint32_t)trk[k].p[P_E4] * 7u) * 16777619u;
     return h;
 }
 static int in_scale(const track_t *t, int32_t n)
@@ -123,17 +123,17 @@ int main(void)
     /* ---- every genre, three seeds, three energies: the guard rails */
     for (g = 0; g < NGENRE; g++) {
         for (s = 0; s < 3u; s++) {
-            uint32_t dr = NTRK, bs = NTRK, ld = NTRK, pd = NTRK, drums = 0;
+            uint32_t dr = GEN_NT, bs = GEN_NT, ld = GEN_NT, pd = GEN_NT, drums = 0;
             gen_with(g + 1u, 100u * g + 17u * s + 3u, s == 0u ? 20u : s == 1u ? 50u : 85u, 0);
             pieces++;
-            for (k = 0; k < NTRK; k++) {
+            for (k = 0; k < GEN_NT; k++) {
                 if (drum_track(&trk[k])) { drums++; dr = k; }
-                else if (gs.role[k] == RL_BASS && bs == NTRK) bs = k;
-                else if (gs.role[k] == RL_LEAD && ld == NTRK) ld = k;
-                else if (gs.role[k] == RL_PAD && pd == NTRK) pd = k;
+                else if (gs.role[k] == RL_BASS && bs == GEN_NT) bs = k;
+                else if (gs.role[k] == RL_LEAD && ld == GEN_NT) ld = k;
+                else if (gs.role[k] == RL_PAD && pd == GEN_NT) pd = k;
             }
             if (drums != 1u) drums_many++;
-            for (k = 0; k < NTRK; k++) {
+            for (k = 0; k < GEN_NT; k++) {
                 const track_t *t = &trk[k];
                 uint32_t len = (uint32_t)t->p[P_SLEN];
                 if (k == dr || len > NSTEP) continue;
@@ -151,11 +151,11 @@ int main(void)
                     if (k == pd && st->n >= 3u && (st->note[0] < 46u || st->note[st->n - 1u] > 81u)) { chords_bad++; printf("  chord range: %s seed %u step %u %u..%u\n", gs.g->name, s, i, st->note[0], st->note[st->n - 1u]); }
                 }
             }
-            if (dr < NTRK && gs.act[RL_DRUM]) {         /* the kick anchored on the one where the genre has it */
+            if (dr < GEN_NT && gs.act[RL_DRUM]) {         /* the kick anchored on the one where the genre has it */
                 uint32_t bd = DRUM_MAP_I[gs.g->drum][0];   /* (0.6.95: the map as this throw plays it; 0.9.7 packed) */
                 if (bd && gm_level(bd, 0) == 255u && !(trk[dr].step[0].time == ST_NOTE && (trk[dr].step[0].hit & 1u))) { kick_anchor_bad++; printf("  kick anchor: %s seed %u map %u\n", gs.g->name, s, gs.g->drum); }
             }
-            if (bs < NTRK && gs.act[RL_BASS] && gs.ba != BA_ACID) {   /* the root at the chord changes */
+            if (bs < GEN_NT && gs.act[RL_BASS] && gs.ba != BA_ACID) {   /* the root at the chord changes */
                 const track_t *b = &trk[bs];
                 uint32_t len = (uint32_t)b->p[P_SLEN], at;
                 for (at = 0; at < len; at++) {
@@ -170,7 +170,7 @@ int main(void)
                         }
                 }
             }
-            if (ld < NTRK && gs.act[RL_LEAD]) {         /* the lead's strong steps on chord tones */
+            if (ld < GEN_NT && gs.act[RL_LEAD]) {         /* the lead's strong steps on chord tones */
                 const track_t *l = &trk[ld];
                 uint32_t len = (uint32_t)l->p[P_SLEN];
                 for (i = 0; i < len; i += 4u) {
@@ -212,14 +212,14 @@ int main(void)
                 for (k = 0; k < GP_N; k++) gp.amt[k] = GA_AUTO;
                 gp.complex = (uint8_t)(10u + (s * 31u) % 85u); gp.swing = GA_AUTO; gp.human = 30;
                 gen_go();
-                for (k = 0; k < NTRK; k++) {            /* the SCALE page */
+                for (k = 0; k < GEN_NT; k++) {            /* the SCALE page */
                     const track_t *t = &trk[k];
                     uint32_t c = 0, b;
                     for (b = 0; b < 12u; b++) c += (scale_mask(t) >> b) & 1u;
                     if (t->p[P_ROOT] != gs.root || t->p[P_SCALE] != gs.scale || c != 7u || t->p[P_QUANT] == QN_OFF) page_bad++;
                 }
                 pd = gs.trk_of[RL_PAD];
-                if (pd < NTRK && gs.act[RL_PAD]) {      /* the CHORD page: an in-scale type, LEAD, every chord in the key */
+                if (pd < GEN_NT && gs.act[RL_PAD]) {      /* the CHORD page: an in-scale type, LEAD, every chord in the key */
                     track_t *t = &trk[pd];
                     uint8_t o[KB_CH];
                     uint32_t key, c, j;
@@ -227,7 +227,7 @@ int main(void)
                     for (key = 53; key < 80u; key++)
                         for (c = chord_build(t, key, o), j = 0; j < c; j++) if (!in_scale(t, o[j])) chord_bad++;
                 }
-                for (k = 0; k < NTRK; k++) {
+                for (k = 0; k < GEN_NT; k++) {
                     const track_t *t = &trk[k];
                     uint32_t r = gs.role[k], len = dlen(t);
                     if (drum_track(t) || !gs.act[r]) continue;
@@ -341,7 +341,7 @@ int main(void)
             if (!proj_import(&pa, &proj_slot[0], sizeof(project_store_t)) || !proj_import(&pb, &proj_slot[1], sizeof(project_store_t)) ||
                 !proj_import(&pc, &proj_slot[2], sizeof(project_store_t))) continue;
             lift_ok += pc.t[bs].p[P_ROOT] == (pa.t[bs].p[P_ROOT] + 2) % 12 && pc.t[0].p[P_ROOT] == pc.t[bs].p[P_ROOT];
-            for (k = 0; k < NTRK; k++) {                /* C's notes in C's key */
+            for (k = 0; k < GEN_NT; k++) {                /* C's notes in C's key */
                 track_t tt;
                 if (gs.role[k] == RL_DRUM) continue;
                 memcpy(tt.p, pc.t[k].p, sizeof tt.p);
@@ -404,7 +404,7 @@ int main(void)
         gen_go();
         {
             uint32_t on = 0;
-            for (k = 0; k < NTRK; k++)
+            for (k = 0; k < GEN_NT; k++)
                 if (gs.role[k] == RL_LEAD || gs.role[k] == RL_ARP)
                     for (i = 0; i < (uint32_t)trk[k].p[P_SLEN]; i++) on += trk[k].step[i].time == ST_NOTE;
             bad += gcheck("LEAD and ARP OFF: their tracks silent (the sound kept)", on == 0u);
@@ -434,7 +434,7 @@ int main(void)
         }
         {   /* the live music after: section A, nothing muted */
             uint32_t m = 0;
-            for (k = 0; k < NTRK; k++) m += trk[k].p[P_MUTE] != 0;
+            for (k = 0; k < GEN_NT; k++) m += trk[k].p[P_MUTE] != 0;
             bad += gcheck("  after: the whole piece live (A), nothing muted", m == 0u && live.cur == 0);
         }
     }
@@ -474,7 +474,7 @@ int main(void)
         gen_with(1, 5, 50, 0);
         trk[3].p[P_MSND] = 3; trk[0].p[P_MPAT] = 2;
         gen_go();
-        for (k = 0; k < NTRK; k++) on += trk[k].p[P_MSND] || trk[k].p[P_MPAT];
+        for (k = 0; k < GEN_NT; k++) on += trk[k].p[P_MSND] || trk[k].p[P_MPAT];
         bad += gcheck("a new piece: MUTATE SOUND / PATTERN OFF on every track, the anchor kept", !on && mut.ok);
     }
     /* ---- (0.6.95) a throw its own: HOUSE over twelve seeds takes more than one drum map and more than one chord
@@ -528,7 +528,7 @@ int main(void)
         gp.amt[GP_ARP] = 100; gen_go();
         for (i = 0; i < dlen(&trk[ar]); i++) n100 += trk[ar].step[i].time == ST_NOTE;
         if (n20 * 2u > dlen(&trk[ar]) || n100 < n20 * 2u) printf("  arp: %u notes at 20 %%, %u at 100 %% (LEN %u)\n", n20, n100, dlen(&trk[ar]));
-        bad += gcheck("ARP 20 %: eighths, under half the steps; 100 %: at least twice as many notes", ar < NTRK && n20 * 2u <= dlen(&trk[ar]) && n100 >= n20 * 2u);
+        bad += gcheck("ARP 20 %: eighths, under half the steps; 100 %: at least twice as many notes", ar < GEN_NT && n20 * 2u <= dlen(&trk[ar]) && n100 >= n20 * 2u);
     }
     /* ---- (0.8.6) EXPLORE, the dice's default: at power-on, on NEW PROJECT, where the screen opens; sixty seeds, each
      * a piece that plays (two melodic parts at least, sound at a safe level, the voice and engine budgets), its SCALE and
@@ -573,7 +573,7 @@ int main(void)
             gp.complex = (uint8_t)((sd * 29u) % 100u); gp.swing = GA_AUTO; gp.human = 30;
             gen_go();
             if (strncmp(ui.msg, "GEN: EXPLORE ", 13) || strcmp(gs.g->name, "EXPLORE")) name_bad++;
-            for (k = 0; k < NTRK; k++) {
+            for (k = 0; k < GEN_NT; k++) {
                 const track_t *t = &trk[k];
                 uint32_t r = gs.role[k], len = dlen(t), on = 0, c = 0, b;
                 if (drum_track(t)) { dk++; if (gs.act[RL_DRUM]) for (i = 0; i < len; i++) lms += step_lm_any(&t->step[i]) != 0; continue; }
@@ -613,7 +613,7 @@ int main(void)
             if (fm > 2u || an > 2u || vo > 2u || dk > 1u) budget_bad++;
             {   /* the CHORD page: an in-scale type on the chord track, its chords in the key */
                 uint32_t pd = gs.trk_of[RL_PAD];
-                if (pd < NTRK && gs.act[RL_PAD]) {
+                if (pd < GEN_NT && gs.act[RL_PAD]) {
                     track_t *t = &trk[pd];
                     uint8_t o[KB_CH];
                     uint32_t key, c, j;
@@ -674,7 +674,7 @@ int main(void)
                     for (k = 0; k < GP_N; k++) gp.amt[k] = GA_AUTO;
                     gp.complex = (uint8_t)(cx * 50u); gp.swing = GA_AUTO; gp.human = 30;
                     gen_go();
-                    for (k = 0; k < NTRK; k++) {
+                    for (k = 0; k < GEN_NT; k++) {
                         uint32_t h;
                         own[cx] += !drum_track(&trk[k]) && gs.act[gs.role[k]] && (trk[k].p[P_SDIV] != 2 || (uint32_t)trk[k].p[P_SLEN] != gs.len);
                         for (h = 0; h < FG_HEADS; h++) hd[cx] += fg_set[k][h].rate != 0;
@@ -722,7 +722,7 @@ int main(void)
                     gen_go();
                     est[f] += gc_cost(1);
                 }
-                for (k = 0; k < NTRK; k++) {
+                for (k = 0; k < GEN_NT; k++) {
                     const track_t *t = &trk[k];
                     uint32_t r = gs.role[k], on = 0;
                     if (drum_track(t) || !gs.act[r] || (r == RL_TEX && k != gs.trk_of[RL_TEX])) continue;
@@ -758,7 +758,7 @@ int main(void)
         gen_with(1, 421, 50, 0); h3 = all_sig();
         for (f = 0; f < 6u; f++) gen_with(GEN_EXPLORE, 300u + f, 50, f % 3u);
         gen_with(1, 421, 50, 0); h4 = all_sig();
-        for (k = 0; k < NTRK; k++) { divs += trk[k].p[P_SDIV] != 2; for (i = 0; i < FG_HEADS; i++) fg += fg_set[k][i].rate != 0; }
+        for (k = 0; k < GEN_NT; k++) { divs += trk[k].p[P_SDIV] != 2; for (i = 0; i < FG_HEADS; i++) fg += fg_set[k][i].rate != 0; }
         bad += gcheck("  HOUSE 0421 the same piece before and after six EXPLORE pieces (DIV 1/16, no PLAYHEADS)", h3 == h4 && !divs && !fg);
         for (f = 1; f <= 12u; f++) {                    /* PARTS and SONG: each section in its own key, playing, storable */
             uint32_t s2;
@@ -768,7 +768,7 @@ int main(void)
             for (s2 = 0; s2 < 4u; s2++) {
                 if (!((dice_secs >> s2) & 1u)) continue;
                 if (!proj_import(&ps, &proj_slot[s2], sizeof(project_store_t))) { sec_bad++; continue; }
-                for (k = 0; k < NTRK; k++) {
+                for (k = 0; k < GEN_NT; k++) {
                     track_t tt;
                     uint32_t j;
                     if (gs.role[k] == RL_DRUM) continue;
@@ -798,7 +798,7 @@ int main(void)
                 uint32_t pd, ch = 0;
                 gen_with(gg, sd * 131u + 7u, 50, 0);
                 n++;
-                for (k = 0; k < NTRK; k++) {
+                for (k = 0; k < GEN_NT; k++) {
                     const track_t *t = &trk[k];
                     uint32_t r = gs.role[k];
                     int32_t d = t->p[P_LD_PIT] < 0 ? -t->p[P_LD_PIT] : t->p[P_LD_PIT];
@@ -810,7 +810,7 @@ int main(void)
                     if (gg == GEN_EXPLORE) { xtr++; anim += t->eng_req == ENGI_ANIMAL; }
                 }
                 pd = gs.trk_of[RL_PAD];
-                if (pd < NTRK && gs.act[RL_PAD]) for (i = 0; i < NSTEP; i++) ch += trk[pd].step[i].time == ST_NOTE && trk[pd].step[i].n >= 2u;
+                if (pd < GEN_NT && gs.act[RL_PAD]) for (i = 0; i < NSTEP; i++) ch += trk[pd].step[i].time == ST_NOTE && trk[pd].step[i].n >= 2u;
                 prog += ch && gs.pn >= 2u;
                 xp += gg == GEN_EXPLORE;
             }
@@ -828,19 +828,19 @@ int main(void)
          * SELECT never the same preset twice running; the lead in the key, by steps, few leaps, a few syncopations; its
          * envelope seldom held at the top */
         static const uint8_t GG[6] = {3, 1, 6, 14, 27, 40};   /* (MICRO HOUSE, HOUSE, TECHNO, SYNTH POP, BOOM BAP, AMBIENT) */
-        static int16_t prev[NTRK][NSTEP];
+        static int16_t prev[GEN_NT][NSTEP];
         uint32_t gi, pr, near = 0, parts = 0, sndrep = 0, snd = 0, ml_pre[24], nml = 0, liv = 0, lstep = 0, lleap = 0, lon = 0,
                  loff = 0, lflat = 0, lfull = 0, nl = 0, seq_ct = 0, seq_st = 0, seq_same = 0, sd_rep = 0, po_same = 0;
-        uint16_t lastsnd[NTRK];
+        uint16_t lastsnd[GEN_NT];
         for (gi = 0; gi < 6u; gi++) {
             gen_reset();
             gen_with(GG[gi], 4321u + gi, 50, 0);
             memset(prev, 0, sizeof prev);
-            for (k = 0; k < NTRK; k++) lastsnd[k] = 0xFFFF;
+            for (k = 0; k < GEN_NT; k++) lastsnd[k] = 0xFFFF;
             for (pr = 0; pr < 24u; pr++) {
                 host_ticks += 1300000u + pr * 777u;
                 gen_press();
-                for (k = 0; k < NTRK; k++) {
+                for (k = 0; k < GEN_NT; k++) {
                     const track_t *t = &trk[k];
                     uint32_t r = gs.role[k], len = dlen(t), eq = 0, any = 0;
                     uint16_t id = (uint16_t)(t->eng_req << 8 | t->preset);
@@ -891,7 +891,7 @@ int main(void)
             uint32_t ld, last = 0;
             gen_reset(); gen_with(1, 77, 50, 0);
             ld = gs.trk_of[RL_LEAD];
-            for (pr = 0; pr < 20u && ld < NTRK; pr++) {
+            for (pr = 0; pr < 20u && ld < GEN_NT; pr++) {
                 uint32_t sg;
                 host_ticks += 990000u;
                 dice_seq(&trk[ld]);
@@ -901,7 +901,7 @@ int main(void)
                     if (trk[ld].step[i].time == ST_NOTE && trk[ld].step[i].n) { seq_st++; seq_ct += (gchord_pcs(i) >> (trk[ld].step[i].note[0] % 12u)) & 1u; }
             }
             printf("gen: (0.9.17) SEQ + SELECT x 20 on HOUSE 0077's lead: strong steps on the piece's chord tones %u of %u, the same twice running %u\n", seq_ct, seq_st, seq_same);
-            bad += gcheck("  SEQ + SELECT: on the piece's chords (75 % of the strong steps; 0.9.17: 58 %), never the same twice running", ld < NTRK && seq_ct * 4u >= seq_st * 3u && !seq_same);
+            bad += gcheck("  SEQ + SELECT: on the piece's chords (75 % of the strong steps; 0.9.17: 58 %), never the same twice running", ld < GEN_NT && seq_ct * 4u >= seq_st * 3u && !seq_same);
         }
         {   /* EDIT + SELECT x 30, on FM6 (15 presets) */
             uint32_t last = 0xFFFF;
@@ -972,7 +972,7 @@ int main(void)
         for (g = 0; g < NGENRE; g++)
             for (sd = 0; sd < 4u; sd++) {
                 gen_with(g + 1u, sd * 977u + g * 13u + 3u, 40u + sd * 20u, 0);
-                for (k = 0; k < NTRK; k++) {
+                for (k = 0; k < GEN_NT; k++) {
                     const track_t *t = &trk[k];
                     if (!drum_track(t)) continue;
                     for (i = 0; i < NSTEP; i++) {

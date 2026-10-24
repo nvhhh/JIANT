@@ -35,7 +35,7 @@ static uint32_t centre_render(void)
     uint32_t b, i, h = 2166136261u, k;
     ui_power_on();
     song.master_q12 = 4096;
-    trk_live = NTRK;
+    trk_live = 6u;
     for (k = 0; k < 4u; k++) {
         track_t *t = &trk[k];
         set_engine_of(t, k == 3u ? ENGI_DRUM : k == 1u ? ENGI_FM6 : ENGI_ANALOG);

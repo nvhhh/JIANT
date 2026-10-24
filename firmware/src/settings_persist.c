@@ -64,6 +64,8 @@ static int settings_import(persist_t *p, int n)
     if (p->favorites.factory[15][17] > 127u)       /* (0.9.12) MENU > SYSTEM > CPU, CPU CLOCK (cpu_safe.c cpu_cfg): unknown =
                                                      * 2 CORES, 360 MHZ (0, older settings too) */
         p->favorites.factory[15][17] = 0;
+    if (p->favorites.factory[15][31] != 0x5Au)     /* TRACKS 8 (0.9.19, ui.c trk8_pref, TRK8_ON): any other = 0 (4 or 6 as PREF_SIX says) */
+        p->favorites.factory[15][31] = 0;
     if (p->favorites.factory[15][27] > 7u)         /* SCREEN OFF (1.1.5, ui.c SCR_CODE): unknown = 0 (NEVER since 1.1.5.1) */
         p->favorites.factory[15][27] = 0;
     if (p->favorites.factory[15][18] >= 10u)       /* PRESETS' LIST type (JIANT 0.9.12, ui.c list_type; core.h PT_N): unknown

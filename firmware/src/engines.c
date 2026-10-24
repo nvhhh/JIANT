@@ -162,12 +162,17 @@ static const struct {
  * power_sound_of: no DIST CHOR DLY REV send, the effects are the player's to add) */
 #define TRK_PR_VOICE 9u          /* SINGER EN (eng_formant.c FORMANT_PRESETS) */
 #define TRK_PR_ANALOG 14u        /* FAT BASS (eng_analog.c) */
+/* (0.9.19) T7 and T8: ANALOG's first preset (0), no pattern: the sound the tracks had before there were eight (a new
+ * part's power-on is the first ANALOG sound, as the engine's own default). Their steps are empty at power-on and in every
+ * project that has no tracks 7 and 8 (proj_new_tracks: TRK_OLD). The engines of T1..T6 stay as they were */
 static const uint8_t TRK_DEF[NPART][3] = {{ENGI_DRUM, 0, 0}, {ENGI_VOICE, TRK_PR_VOICE, 0}, {ENGI_ANIMAL, 0, 0},
-                                          {ENGI_LOFI, 0, 0}, {ENGI_ANALOG, TRK_PR_ANALOG, 0}, {ENGI_FM6, 0, 0}};
+                                          {ENGI_LOFI, 0, 0}, {ENGI_ANALOG, TRK_PR_ANALOG, 0}, {ENGI_FM6, 0, 0},
+                                          {ENGI_ANALOG, 0, 0}, {ENGI_ANALOG, 0, 0}};
 /* DRUM-X (DRUM's first, the factory kit), SINGER EN, CMOS BIRD, BYTEBEAT, FAT BASS, TINE EP */
 /* the parts at power-on through 0.9.8 (the same columns): what an old project's tracks it had no room for load as
  * (project.c proj_new_tracks, PROJ_DEF_SOUND: format 1's tracks 2..4, a 4-track format's T5 / T6): never change it.
  * ANALOG ACID, FM6 PAD (was DIGITAL PAD), LOFI PULSE LD (3: BYTE first), DRUM KIT; (JIANT 0.6) PHASE's first, WHEEL's first */
-static const uint8_t TRK_OLD[NPART][3] = {{0, 4, 0}, {ENGI_FM6, 4, 0}, {3, 3, 0}, {ENGI_DRUM, 0, 0}, {2, 0, 0}, {7, 0, 0}};
+static const uint8_t TRK_OLD[NPART][3] = {{0, 4, 0}, {ENGI_FM6, 4, 0}, {3, 3, 0}, {ENGI_DRUM, 0, 0}, {2, 0, 0}, {7, 0, 0},
+                                          {0, 0, 0}, {0, 0, 0}};   /* (0.9.19) T7, T8: ANALOG preset 0 (the same as TRK_DEF's) */
 static uint32_t trk_old_engine(uint32_t i) { return TRK_OLD[i % NPART][0]; }
 static uint32_t trk_def_engine(uint32_t i) { return TRK_DEF[i % NPART][0]; }

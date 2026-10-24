@@ -1054,7 +1054,7 @@ static void setup(int s)
 {
     memset(kb_on, 0, sizeof kb_on);               /* no key held (roll_playing holds one) */
     live.req = live.cur = -1; live.mode = live.srec = live.dirty = 0; lys.nqc = 0;   /* (the song layer: off) */
-    trk_live = NTRK;                              /* (the six awake but on *_tracks4) */
+    trk_live = 6u;                              /* (the six awake but on *_tracks4) */
     if (s >= S_TOAST_ENV && s <= S_TOAST_ANALOG) {   /* (0.9.5) a toast over a page with words to its foot: the pill keeps clear
                                                    * of them (or is not drawn: the header says it), never over one (hk_overlay) */
         static const uint16_t BASE[] = {S_ENV, S_MUTATE, S_MUTATE, S_MOTION, S_MOTION_LOCKS, S_COUNT, S_AUTO_LIST,

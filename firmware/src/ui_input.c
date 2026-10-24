@@ -1267,7 +1267,7 @@ static void edit_param(uint32_t slot, int32_t steps)
     *vp = (int16_t)v;
     if (vp == &trks_ui) {                               /* (0.6.18) GLO > SYSTEM's TRKS: the MENU's setting, saved */
         trks_put(v);
-        ui_message(v ? "6 TRACKS: MORE CPU" : "4 TRACKS: T5-T6 ASLEEP");
+        ui_message(v == 2 ? "8 TRACKS: MORE CPU" : v ? "6 TRACKS: MORE CPU" : "4 TRACKS: T5-T8 ASLEEP");
         settings_save();
         return;
     }

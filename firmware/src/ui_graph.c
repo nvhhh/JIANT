@@ -1507,6 +1507,7 @@ static void track_col6(uint32_t c, uint32_t sel, uint32_t st, uint32_t mute, uin
                        int32_t rv, const char *b)
 {
     char v[8];
+    const uint32_t col = c - trk_base6();            /* (0.9.19) the column on screen: c is the track */
     int32_t k, lv = (int32_t)lvl * 14 / 127, mt = ts.meter[c] * 14 / TS_MH, pw = T6_W - 8;
     uint16_t lc = hot == 1u ? T_ACCENT : lvl ? (mute ? T_DIM : T_TEXT) : T_DIM;
     cv_begin(T6_W, H_GRAPH, T_BG);
@@ -1538,7 +1539,7 @@ static void track_col6(uint32_t c, uint32_t sel, uint32_t st, uint32_t mute, uin
                         settings.palette == UI_JIANT_INDEX ? heat_col(60 + v * 3) : T_THEME);
             cv_text(4 + k * 8, 106 - AF_X_CAP_Y, &AF_X, SN[k], T_DIM);
         }
-        cv_blit((uint32_t)T6_X(c), lz_on() ? graph_y() + 9u : Y_GRAPH);
+        cv_blit((uint32_t)T6_X(col), lz_on() ? graph_y() + 9u : Y_GRAPH);
         return;
     }
     for (k = 0; k < 14; k++) {                       /* LEVEL: cold at the bottom, hot at the top */
@@ -1563,13 +1564,13 @@ static void track_col6(uint32_t c, uint32_t sel, uint32_t st, uint32_t mute, uin
     cv_rect(4, 113, pw, 3, T_RAISE);                 /* the REV send */
     if (rv)
         cv_rect(4, 113, rv * pw / 127 + 1, 3, mute ? T_DIM : hot == 3u ? T_ACCENT : heat_col(40 + rv * 3 / 2));
-    cv_blit((uint32_t)T6_X(c), lz_on() ? graph_y() + 9u : Y_GRAPH);   /* (0.8.5: GLO's lens, the panel under the cards) */
+    cv_blit((uint32_t)T6_X(col), lz_on() ? graph_y() + 9u : Y_GRAPH);   /* (0.8.5: GLO's lens, the panel under the cards) */
 }
 static void draw_tracks(void)
 {
     uint32_t c, sk = strip_kind() == SK_TRK, six = !sk;   /* (0.6.80: the six columns with every COLOR and STYLE;
                                                          * MENU > LARGE: four, bigger) */
-    uint32_t b4 = six ? 0u : trk_base4(), n = six ? NTRK : 4u;
+    uint32_t b4 = six ? trk_base6() : trk_base4(), n = six ? 6u : 4u;
     if (ui.force) {
         lcd_fill(0, graph_y(), 240, graph_h(), T_BG);
         if (ux.style && !six)                        /* LINE: the strips divided as the cards above (four) */
@@ -1581,7 +1582,7 @@ static void draw_tracks(void)
                 ts.meter[c] = 0;
     }
     ts.frame = ui.frame;
-    for (c = b4; c < b4 + n; c++) {                  /* (JIANT 0.6: the six, or four of them) */
+    for (c = b4; c < b4 + n; c++) {                  /* (JIANT 0.6: the six, or four of them; 0.9.19: of the eight) */
         track_t *t = &trk[c];
         uint32_t sel = c == song.sel, lvl = trk_level(c), mute = t->p[P_MUTE] != 0;
         uint32_t arm = (song.rec >> c) & 1u, st = arm ? (song.playing ? 1u : 2u) : mute ? 3u : 0u, sig;

@@ -90,7 +90,7 @@ static void cpu_test_song(void)
 {
     uint32_t k, i, n = trk_live;
     if (song.playing) transport_req = 2;
-    cpt_arm = n == NPART;                               /* (0.9.14) its load measured when it plays (ui_menu.c cpt_poll) */
+    cpt_arm = n >= 6u;                               /* (0.9.14) its load measured when it plays (ui_menu.c cpt_poll) */
     song.g[G_BPM] = 160;
     song.g[G_RTYPE] = 4;                                /* (CLOUD: the heaviest reverb) */
     song.g[G_DPIT] = 12;                                /* (the delay's pitch shifter on) */

@@ -539,7 +539,7 @@ typedef struct {
  * kept with the settings, not in the song). An id past the globals (no song.g of its own): trks_ui mirrors the setting
  * (ui.c rp_apply), a turn writes it back (ui_input.c knob_turn) */
 #define G_TRKS 0xFEu
-static const char *const N_TRKS[] = {"4", "6"};
+static const char *const N_TRKS[] = {"4", "6", "8"};
 static const param_desc_t TRKS_DESC = PE("TRACKS", N_TRKS, 0);
 static int16_t trks_ui;
 /* (0.6.30) .. and LOAD, next to it (ui.c ui_load, voice.c sys_load): the heavy parts lightened or gone while they
