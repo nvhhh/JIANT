@@ -75,7 +75,7 @@ static uint32_t mtab_pages(uint32_t t)                 /* .. and how many it has
 /* STYLE (ui_style, gfx.c ST_*): FLAT the filled cards; LINE black areas divided by 1 px rules (#50, #57: the 0.9 look)
  * (1.0.2: PIXEL retired, a saved PIXEL reads as LINE) */
 static const char *const STYLE_N[2] = {"FLAT", "LINE"};
-static const char *const SCOPEOPT_N[2] = {"OFF", "ON"};   /* (0.9.7) ui.c ui_scope */
+static const char *const SCOPEOPT_N[4] = {"OFF", "ON", "BUBBLES", "ORBIT"};   /* (0.9.7) ui.c ui_scope; (0.9.18) 2, 3 */
 /* (0.8.9) SKIN (ui_skin, gfx.c SKIN_*): COLORS the lens in the 0.6 colours (older settings: 0); HUD the picture full
  * screen, the words floating over it; (0.9.7) AIR, HUD's look with the knobs' row on top (the default of new settings).
  * The menu steps them AIR COLORS HUD (SKIN_MENU: the editor's MENU_DESC lists them so too). (0.9.17) BOTTOM retired: a
@@ -165,7 +165,7 @@ static const menu_flag_t *menu_flag(uint32_t row)
 /* a row's value as 0..menu_n(row) - 1 in the order the menu steps it (LEDS: OFF DIM LO DIM HI INV, LEDS_MENU) */
 static uint32_t menu_n(uint32_t row)
 {
-    return row == MI_COLOR ? NPALETTES : row == MI_SKIN ? SKIN_MENU_N : row == MI_LOWCUT || (row >= MI_CLICK && row <= MI_COUNTIN) || row == MI_LOAD ? 3u :
+    return row == MI_COLOR ? NPALETTES : row == MI_SKIN ? SKIN_MENU_N : row == MI_SCOPE ? 4u : row == MI_LOWCUT || (row >= MI_CLICK && row <= MI_COUNTIN) || row == MI_LOAD ? 3u :
            row == MI_HOLD || row == MI_MIDIOUT ? 4u : row == MI_USB ? 6u : row == MI_SERIAL ? 5u : row == MI_LEDS ? LEDS_COUNT : row == MI_SCROFF ? NELEM(SCROFF_N) : 2u;
 }
 static uint32_t menu_get(uint32_t row)
@@ -177,7 +177,7 @@ static uint32_t menu_get(uint32_t row)
     switch (row) {
     case MI_COLOR: return settings.palette % NPALETTES;
     case MI_SKIN: return skin_pos(ui_skin);
-    case MI_SCOPE: return ui_scope != 0u;
+    case MI_SCOPE: return ui_scope % 4u;
     case MI_STYLE: return ui_style == ST_LINE;
     case MI_LOWCUT: return settings.lowcut % 3u;
     case MI_USB: return (ui_prefs & PREF_USB_FIXED) ? 1u + usb_lvl % 5u : 0u;
@@ -204,7 +204,8 @@ static const char *menu_vname(uint32_t row, uint32_t v)
     switch (row) {
     case MI_COLOR: return UI_PALETTES[v % NPALETTES].name;
     case MI_SKIN: return SKIN_NAME[v % SKIN_MENU_N];
-    case MI_SCOPE: case MI_LEARN: return SCOPEOPT_N[v & 1u];
+    case MI_SCOPE: return SCOPEOPT_N[v & 3u];
+    case MI_LEARN: return SCOPEOPT_N[v & 1u];
     case MI_STYLE: return STYLE_N[v & 1u];
     case MI_LOWCUT: return SPK_EQ[v % 3u];
     case MI_USB: return USBLVL_N[v % 6u];
@@ -242,7 +243,7 @@ static void menu_put(uint32_t row, uint32_t v)
         ui.force = 1;
         break;
     case MI_SKIN: ui_skin = SKIN_MENU[v % SKIN_MENU_N]; break;              /* (ui_draw.c style_apply: the next frame) */
-    case MI_SCOPE: ui_scope = (uint8_t)(v & 1u); ui.force = 1; break;   /* (0.9.7) the EDIT pages so from the next frame */
+    case MI_SCOPE: ui_scope = (uint8_t)(v & 3u); ui.force = 1; break;   /* (0.9.7) the EDIT pages so from the next frame */
     case MI_STYLE: ui_style = (uint8_t)(v ? ST_LINE : ST_FLAT); break;   /* (drawn so from the next frame) */
     case MI_LOWCUT: settings.lowcut = v; fx_lowcut = (uint8_t)v; break;
     case MI_USB:                                   /* (at once; every frame too: ui_input) */
