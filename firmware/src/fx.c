@@ -438,6 +438,9 @@ static __attribute__((noinline)) void duck_block(void)
  * full MASTER level, USB audio takes that (audio.c uac_tap), and only then does MASTER scale what the DAC gets
  * (usb_fixed_dac). MASTER (0, the default): MASTER before master_out, as always (USB follows the knob) */
 static volatile uint8_t fx_usb_fixed;
+/* MENU > USB LOOPBACK (ui.c uin_loop_on): ON (the default) mixes the host's audio, so USB records it too; OFF leaves it
+ * out of the mix (uin_mix) and uin_direct adds it to the DAC alone, after USB has its copy (audio.c audio_block) */
+static volatile uint8_t fx_uin_loop = 1;
 /* (0.7.0) MENU > USB LEVEL past FIXED: USB audio attenuated (-6 .. -24 dB, Q12) whatever the knob does, for a phone
  * or a computer whose input clips at the full level (usb.c uac_tap reads it) */
 static volatile int32_t fx_usb_gain = 4096;
@@ -1819,6 +1822,19 @@ static __attribute__((noinline)) void uin_mix(int32_t *ol, int32_t *or_, int32_t
     }
     *peak = pk;
 }
+/* (USB LOOPBACK OFF) the host's audio for the DAC only: no LEVEL, PAN, sends, DUCK or master, since none of those may
+ * reach what USB records. Called after the USB tap, so the record never holds it (audio.c audio_block) */
+static __attribute__((noinline)) void uin_direct(int32_t *out, uint32_t n)
+{
+    uint32_t i;
+    if (fx_uin_loop || !uin_on)
+        return;
+    for (i = 0; i < n; i++) {
+        int32_t l = out[2u * i] + uin_l[i], r = out[2u * i + 1u] + uin_r[i];
+        out[2u * i] = l > 32767 ? 32767 : l < -32768 ? -32768 : l;
+        out[2u * i + 1u] = r > 32767 ? 32767 : r < -32768 ? -32768 : r;
+    }
+}
 /* a part's level (Q12) over the block from l0 to l1, ducked: its start << 8, its step a sample in *dl (a block is
  * CTL: no divide) */
 static __attribute__((noinline)) int32_t duck_ramp(int32_t l0, int32_t l1, int32_t *dl)
@@ -2015,7 +2031,8 @@ static inline __attribute__((always_inline)) void mix_part(track_t *t, uint32_t 
                 stem_pre(pre, ol, or_, n);
                 st = NPART;
             }
-            uin_mix(ol, or_, sc, sd, sr, n, lq0, dl, gl0, dgl, gr0, dgr, c, d, r, pm1, &pk);
+            if (fx_uin_loop)
+                uin_mix(ol, or_, sc, sd, sr, n, lq0, dl, gl0, dgl, gr0, dgr, c, d, r, pm1, &pk);
         }
         t->peak = pk;
         if (fx_stems)

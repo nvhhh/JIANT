@@ -127,6 +127,13 @@ static void prefs_update(void)
 #define ui_rec_prefs (favorites.factory[15][28])
 #define PREF_REC 0xFF00u                       /* (menu_items.c MENU_FLAGS: a bit of ui_rec_prefs, << 8) */
 #define PREF_SCALE_LEDS (0x40u << 8)
+/* MENU > USB LOOPBACK (menu_items.c MI_LOOP): ON by default, the host's audio is recorded over USB as well (as before).
+ * Stored in favorites.factory[15][31], the byte that held the unused 0.9.5 layers-seen value: 0 (every older setting)
+ * reads as ON. OFF is stored as UI_LOOP_OFF, an unlikely value for that byte to hold already (an unused byte kept as
+ * saved): a settings file carrying it would read as OFF, and that is the one case to watch */
+#define ui_loop_store (favorites.factory[15][31])
+#define UI_LOOP_OFF 0xB1u
+#define uin_loop_on() (ui_loop_store != UI_LOOP_OFF)
 #define ui_load (favorites.factory[15][26])    /* (JIANT 0.6.30) LOAD (voice.c sys_load): 0 FULL, 1 LITE, 2 ECO; a byte no
                                                 * engine uses, 0 in older settings (0.6.29's 6 LITE: 1, LITE) */
 #define midi_out_mode (favorites.factory[15][24])   /* (JIANT 0.6.72) MENU > MIDI OUT (seq.c MO_*): 0 KEYS (older settings,

@@ -338,6 +338,7 @@ static const char *menu_short(uint32_t row)          /* a card's label: a whole 
 {
     static const struct { uint8_t row; char s[9]; } SH[] = {
         {MI_LOWCUT, "SPEAKER"}, {MI_CPU, "CORES"}, {MI_CLKLVL, "LEVEL"}, {MI_USB, "LEVEL"}, {MI_SERIAL, "USB AUD"},
+        {MI_LOOP, "LOOPBACK"},
         {MI_ANIM, "ANIMATE"}, {MI_SCROFF, "SLEEP"}, {MI_HOLD, "HOLD"}, {MI_ACCEL, "SPEEDUP"}, {MI_SCLLED, "SCALE"},
         {MI_RESTORE, "RESTORE"}, {MI_CLOCK, "CPU MHZ"}, {MI_PANEL, "CALIB"}, {MI_LCLEAR, "CLEAR"}};   /* (no two alike on a
                                                          * page: tests/ui_test.c) */
@@ -383,6 +384,8 @@ static const struct { uint8_t row, v; const char *s; } MI_HELP[] = {
     {MI_SERIAL, 2, "8 CHANNELS: EVERY TRACK + FX"},
     {MI_SERIAL, 3, "STEREO BOTH WAYS"},
     {MI_SERIAL, 4, "THE STEMS + THE COMPUTER'S AUDIO"},
+    {MI_LOOP, 0, "COMPUTER AUDIO IS RECORDED TOO"},
+    {MI_LOOP, 1, "USB RECORDS THE FM-1 ONLY"},
     {MI_USB, 0, "USB FOLLOWS THE MASTER KNOB"},
     {MI_USB, 255, "USB AT A FIXED LEVEL"},
     {MI_HOLD, 255, "HOLD THIS LONG FOR ITS LAYER"},

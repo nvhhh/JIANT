@@ -2500,11 +2500,13 @@ static int test_menu_tabs(void)
     turn(EN_K1, 1); ok &= settings_hold == HOLD_DEF + 1u && ui.menu_sel == MI_HOLD && ui.hot_t && ui.hot_col == 0u;
     turn(EN_K1, -1); ok &= settings_hold == HOLD_DEF;
     ui_prefs = 0;
-    turn(EN_ALGO, -1);                                 /* USB: AUDIO, LEVEL; KNOB 3 and 4 nothing */
+    turn(EN_ALGO, -1);                                 /* USB: AUDIO, LEVEL, LOOPBACK; KNOB 4 nothing */
     ok &= ui.menu_sel == MI_SERIAL;
     turn(EN_K2, 1); ok &= (ui_prefs & PREF_USB_FIXED) && fx_usb_fixed && ui.menu_sel == MI_USB;
     turn(EN_K2, -1); ok &= !(ui_prefs & PREF_USB_FIXED) && !fx_usb_fixed;
-    turn(EN_K3, 1); turn(EN_K4, 1); ok &= ui.menu_sel == MI_USB && !(ui_prefs & PREF_USB_FIXED);
+    turn(EN_K3, 1); ok &= ui.menu_sel == MI_LOOP && ui_loop_store == UI_LOOP_OFF && !fx_uin_loop && !uin_loop_on();
+    turn(EN_K3, -1); ok &= uin_loop_on() && fx_uin_loop;   /* (KNOB 3: USB LOOPBACK, back ON) */
+    turn(EN_K4, 1); ok &= ui.menu_sel == MI_LOOP && uin_loop_on() && !(ui_prefs & PREF_USB_FIXED);
     bad += check("0.9.18 MENU: KNOB n changes the page's setting n (the one turned framed, its card lit), an empty card nothing", ok && ui.menu == 1);
 
     /* OCT+ / OCT-: the next / previous value on every kind of row (as the knobs: stopping at the ends; COLOR wraps) */
@@ -2647,7 +2649,7 @@ static int test_menu_tabs(void)
     turn(EN_SELECT, 1); frame();
     ok &= lz_crumb_is("MENU \xB7 SYSTEM") && lz_count_is("9/9");
     menu_close();
-    bad += check("0.9.18 MENU: five tabs (the page's lit), MENU . TAB . page (MENU . page when named as its tab) and n/9; ALGORITHM the tab, KNOB n the value", ok && MI_COUNT == 29u);
+    bad += check("0.9.18 MENU: five tabs (the page's lit), MENU . TAB . page (MENU . page when named as its tab) and n/9; ALGORITHM the tab, KNOB n the value", ok && MI_COUNT == 30u);   /* (USB LOOPBACK added: 30 rows) */
     return bad;
 }
 

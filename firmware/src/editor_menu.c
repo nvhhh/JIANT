@@ -26,6 +26,7 @@ static const uint8_t ED_MENU[][2] = {
                                                         * HUD; 0.9.17: AIR COLORS HUD), a row of DISPLAY */
     {MI_SCOPE, 22},                                    /* (0.9.7) SCOPE OFF / ON, a row of DISPLAY */
     {MI_CPU, 23}, {MI_CLOCK, 24},                      /* (0.9.12) CPU 1 CORE / 2 CORES, CPU CLOCK 360 / 320 MHZ, SYSTEM */
+    {MI_LOOP, 25},                                     /* (USB LOOPBACK) ON / OFF, a row of USB */
 };
 #define ED_MENU_N NELEM(ED_MENU)
 

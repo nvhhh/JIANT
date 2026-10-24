@@ -227,6 +227,45 @@ static void uin_run(int32_t level, int32_t pan, int mute, int32_t rev, int on, d
     uin_on = 0;
     *lr = sqrt(l / 9600.0); *rr = sqrt(r / 9600.0); *wr = sqrt(w / 9600.0);
 }
+/* (USB LOOPBACK, fx.c uin_mix / uin_direct) the host's audio alone: ON records it over USB (host_tap) and the DAC gets it
+ * through the mix; OFF keeps it out of the mix, so USB records nothing of it (the synth is silent) while the DAC still
+ * plays it, dry, after the USB tap */
+static void loop_run(int loop, double *rec, double *dac)
+{
+    int32_t out[2 * 32];
+    uint32_t b, i, ph = 0;
+    fresh();
+    lim_env = LIM_T; lev_env = 0; lev_g = lev_cur = 32768; lev_dg = 0; dc_l = dc_r = dce_l = dce_r = 0;
+    song.master_q12 = 4096;
+    for (i = 0; i < NTRK; i++) trk[i].p[P_DIST] = trk[i].p[P_CHOR] = trk[i].p[P_DLY] = trk[i].p[P_REV] = 0;
+    trk[trk_live - 1u].p[P_LEVEL] = 100;
+    fx_uin_loop = (uint8_t)loop;
+    *rec = *dac = 0;
+    for (b = 0; b < 400u; b++) {
+        for (i = 0; i < 32u; i++, ph++) {
+            uin_l[i] = (int32_t)(8000.0 * sin(2.0 * M_PI * 440.0 * ph / 44100.0));
+            uin_r[i] = uin_l[i];
+        }
+        uin_on = 1;
+        audio_block(out, 32);
+        if (b >= 100u) {
+            *rec += block_rms(host_tap, 32);
+            *dac += block_rms(out, 32) / (1 << OUT_SHIFT);
+        }
+    }
+    uin_on = 0;
+    fx_uin_loop = 1;
+    *rec /= 300.0; *dac /= 300.0;
+}
+static void usb_loop(void)
+{
+    double rec_on, dac_on, rec_off, dac_off;
+    loop_run(1, &rec_on, &dac_on);
+    loop_run(0, &rec_off, &dac_off);
+    check("USB LOOPBACK ON: the host's audio is in the USB record and the DAC", rec_on > 100.0 && dac_on > 100.0);
+    check("USB LOOPBACK OFF: the USB record has none of the host's audio (rms < 1 of ~5600)", rec_off < 1.0);
+    check("USB LOOPBACK OFF: the DAC still plays the host's audio, dry", dac_off > 100.0);
+}
 static void usb_in(void)
 {
     double l, r, w, l0, r0, w0;
@@ -394,6 +433,7 @@ int main(void)
     usb_level();
     boot_keys();
     overload(); dma(); governor();
+    usb_loop();                                        /* (USB LOOPBACK on / off: the host's audio, before the reverb tail below) */
     usb_in();                                          /* (last: its reverb tail would reach the tests after it) */
     printf(bad ? "audio: %d FAILED\n" : "audio: all passed\n", bad);
     return bad != 0;

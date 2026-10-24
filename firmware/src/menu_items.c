@@ -15,7 +15,7 @@
 #include "cpu_safe.c"        /* (0.9.12) MENU > SYSTEM > CPU CORES, CPU CLOCK; the last crash kept in the settings */
 enum { MI_COLOR, MI_SKIN, MI_SCOPE, MI_STYLE, MI_LARGE, MI_ANIM, MI_LEDS, MI_SCROFF, MI_HOLD, MI_ACCEL, MI_LATCH, MI_BPMLOCK, MI_SCLLED,
        MI_LOWCUT, MI_USB,
-       MI_CLICK, MI_CLKLVL, MI_COUNTIN, MI_TRACKS, MI_LOAD, MI_MIDIOUT, MI_LEARN, MI_LCLEAR, MI_SERIAL, MI_RESTORE, MI_CPU,
+       MI_CLICK, MI_CLKLVL, MI_COUNTIN, MI_TRACKS, MI_LOAD, MI_MIDIOUT, MI_LEARN, MI_LCLEAR, MI_SERIAL, MI_LOOP, MI_RESTORE, MI_CPU,
        MI_CLOCK, MI_PANEL, MI_ABOUT, MI_COUNT };   /* (1.1: the metronome's rows; 1.2: RESTORE LAST, SCALE LEDS; 0.9.12: MIDI
                       * OUT, LEARN, LEARN CLEAR; CPU, CPU CLOCK, cpu_safe.c; 0.9.18: INIT SYSTEM gone, SAVE > TOOLS > NEW
                       * PROJECT is the same) */
@@ -26,7 +26,7 @@ static int menu_valued(uint32_t row) { return row < MI_VALUES && row != MI_LCLEA
 static const char *const MI_NAME[MI_COUNT] = {"COLOR", "SKIN", "SCOPE", "STYLE", "LARGE", "ANIMATION", "LED GLOW", "SCREEN SLEEP",
                                               "HOLD TIME", "KNOB SPEEDUP", "FX LATCH", "BPM LOCK", "SCALE LEDS",
                                               "SPEAKER EQ", "USB LEVEL", "CLICK", "CLICK LEVEL", "COUNT-IN", "TRACKS", "LOAD",
-                                              "MIDI OUT", "LEARN", "LEARN CLEAR", "USB AUDIO",
+                                              "MIDI OUT", "LEARN", "LEARN CLEAR", "USB AUDIO", "USB LOOPBACK",
                                               "RESTORE LAST", "CPU CORES", "CPU CLOCK", "CALIBRATION", "ABOUT"};
 /* (0.9.18) the MENU as the rest of the system (rule 1..6): pages of four knobs, KNOB n the page's setting n, SELECT walks
  * the pages, ALGORITHM jumps to the next / previous tab; the tabs the groups (a dot a page), the footer MENU . TAB . page
@@ -44,7 +44,7 @@ static const menu_page_t MPAGE[MP_COUNT] = {   /* (a page opens on its first set
     {"AUDIO", MTAB_AUDIO, {MI_LOWCUT, MI_TRACKS, MI_LOAD, MI_BPMLOCK}},
     {"CLICK", MTAB_AUDIO, {MI_CLICK, MI_CLKLVL, MI_COUNTIN, MI_NONE}},
     {"MIDI", MTAB_MIDI, {MI_MIDIOUT, MI_LEARN, MI_LCLEAR, MI_NONE}},
-    {"USB", MTAB_USB, {MI_SERIAL, MI_USB, MI_NONE, MI_NONE}},
+    {"USB", MTAB_USB, {MI_SERIAL, MI_USB, MI_LOOP, MI_NONE}},
     {"CONTROLS", MTAB_SYSTEM, {MI_HOLD, MI_ACCEL, MI_LATCH, MI_PANEL}},
     {"SYSTEM", MTAB_SYSTEM, {MI_RESTORE, MI_CPU, MI_CLOCK, MI_ABOUT}},   /* (RESTORE LAST, CPU CORES, CPU CLOCK: at power-on) */
 };
@@ -119,6 +119,9 @@ static const char *const USBLVL_N[6] = {"MASTER", "FIXED", "-6 dB", "-12 dB", "-
  * audio as the last track mixed it and as it came; the phone app records a voice through the FM-1 and moves it by
  * the latency). ui.c usb_out */
 static const char *const USBOUT_N[5] = {"CONSOLE", "STEREO", "STEMS", "IN+OUT", "STEMS+IN"};
+/* (USB LOOPBACK, ui.c uin_loop_on) ON: USB records the computer's audio that the FM-1 plays too (as before); OFF: USB
+ * records the FM-1 alone, the computer's audio goes to the DAC only (fx.c uin_direct). Applies in IN+OUT and STEMS+IN */
+static const char *const USBLOOP_N[2] = {"ON", "OFF"};
 static const char *const HOLD_N[4] = {"0.3 s", "0.4 s", "0.5 s", "0.6 s"};   /* (HOLD TIME: the menu's and the editor's names) */
 /* 1.1 (Discussion #131): the metronome (click.c) and the count-in (seq.c); ui.c ui_rec_prefs holds them */
 static const char *const CLICK_N[3] = {"OFF", "REC", "ON"};          /* REC: while a track is armed and playing */
@@ -182,6 +185,7 @@ static uint32_t menu_get(uint32_t row)
     case MI_LOWCUT: return settings.lowcut % 3u;
     case MI_USB: return (ui_prefs & PREF_USB_FIXED) ? 1u + usb_lvl % 5u : 0u;
     case MI_SERIAL: return usb_out == 3u ? 4u : usb_out == 2u ? 3u : usb_out ? 2u : (ui_prefs & PREF_SERIAL_OFF) ? 1u : 0u;
+    case MI_LOOP: return uin_loop_on() ? 0u : 1u;
     case MI_HOLD: return settings_hold % 4u;
     case MI_SCROFF: return scr_get();
     case MI_CLICK: case MI_CLKLVL: case MI_COUNTIN: return rp_get(row - MI_CLICK);
@@ -209,6 +213,7 @@ static const char *menu_vname(uint32_t row, uint32_t v)
     case MI_LOWCUT: return SPK_EQ[v % 3u];
     case MI_USB: return USBLVL_N[v % 6u];
     case MI_SERIAL: return USBOUT_N[v % 5u];
+    case MI_LOOP: return USBLOOP_N[v & 1u];
     case MI_HOLD: return HOLD_N[v & 3u];
     case MI_CLICK: return CLICK_N[v % 3u];
     case MI_CLKLVL: return CLKLVL_N[v % 3u];
@@ -254,6 +259,10 @@ static void menu_put(uint32_t row, uint32_t v)
     case MI_SERIAL:                                /* (0.7.1) applied when the menu closes (usb_serial_apply) */
         ui_prefs = (uint8_t)(v ? ui_prefs | PREF_SERIAL_OFF : ui_prefs & ~PREF_SERIAL_OFF);
         usb_out = (uint8_t)(v == 2u ? 1u : v == 3u ? 2u : v == 4u ? 3u : 0u);   /* (0.7.5: 2 IN+OUT; 0.8.0: 3 STEMS+IN) */
+        break;
+    case MI_LOOP:                                  /* (at once: the next block, fx.c uin_direct) */
+        ui_loop_store = (uint8_t)(v ? UI_LOOP_OFF : 0u);
+        fx_uin_loop = v == 0u;
         break;
     case MI_HOLD: settings_hold = (uint8_t)v; break;
     case MI_SCROFF: scr_put(v); break;                 /* (read every frame: ui.c scr_frame) */
