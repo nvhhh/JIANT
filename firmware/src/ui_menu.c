@@ -338,7 +338,7 @@ static const char *menu_short(uint32_t row)          /* a card's label: a whole 
 {
     static const struct { uint8_t row; char s[9]; } SH[] = {
         {MI_LOWCUT, "SPEAKER"}, {MI_CPU, "CORES"}, {MI_CLKLVL, "LEVEL"}, {MI_USB, "LEVEL"}, {MI_SERIAL, "USB AUD"},
-        {MI_ANIM, "ANIMATE"}, {MI_SCROFF, "SLEEP"}, {MI_HOLD, "HOLD"}, {MI_ACCEL, "SPEEDUP"}, {MI_SCLLED, "SCALE"},
+        {MI_ANIM, "ANIMATE"}, {MI_SCROFF, "SLEEP"}, {MI_ECO, "ECO"}, {MI_HOLD, "HOLD"}, {MI_ACCEL, "SPEEDUP"}, {MI_SCLLED, "SCALE"},
         {MI_RESTORE, "RESTORE"}, {MI_CLOCK, "CPU MHZ"}, {MI_PANEL, "CALIB"}, {MI_LCLEAR, "CLEAR"}};   /* (no two alike on a
                                                          * page: tests/ui_test.c) */
     uint32_t k;
@@ -476,7 +476,7 @@ static void draw_menu(void)
           settings_leds * 6151u + ui_prefs * 4099u + ui_style * 257u + ui_skin * 1543u + song.rec * 65537u + song.sel * 13u +
           ui_rec_prefs * 92821u + ui_scr * 131071u + (ui.hot_t ? ui.hot_col + 1u : 0u) * 0x9E3779B1u +
           (ui.menu == 1 && ui.msg_t ? str_hash(0x70A57u, ui.msg) : 0u) + ml_count() * 977u + ml.on * 3u + usb_out * 61u +
-          midi_out_mode * 89u + cpu_cfg * 197u + ui_load * 433u + ui_scope * 71u +
+          midi_out_mode * 89u + cpu_cfg * 197u + ui_load * 433u + ui_scope * 71u + eco_goob * 1187u +
           (ui.menu >= 2 ? ui.menu_scroll * 48611u : 0u) + (ui.menu == 3 ? prf_seq * 2971u + 1u : 0u) +
           (ui.menu == 2 ? (song.cpu_q8 >> 3) * 7741u + load_diag.peak * 3329u + load_diag.late * 1931u +
                           load_diag.shed * 2671u : 0u);   /* (0.6.19) ABOUT's AUDIO LOAD: live (NOW in ~3 % steps) */

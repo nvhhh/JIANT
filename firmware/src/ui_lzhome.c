@@ -243,13 +243,26 @@ static uint32_t routes_count(void)                      /* the MOD slots whose S
  * the theme's colour; a mutation landed, white). (0.8.9) Drawn into the canvas as the water's x0, y0 .. (eco_draw); SKIN HUD's HOME: the
  * water is the screen, every strip draws the part of it under it (eco_backdrop; a being off the strip skipped), the
  * numbers and the MACROS words in the middle strip only (words), clear of the floating ones */
+static void eco_macros(int hud)                     /* MACROS: the routes counted at the top left, LATCH / HOLD LFO at the right */
+{
+    char b[16];
+    int32_t y = hud ? (int32_t)graph_y() + 3 : 2;
+    fmt_int(b, (int32_t)routes_count());
+    str_cpy(b + str_len(b), " ROUTES", 8);
+    cv_text(6, y, &AF_X, b, hud ? T_TEXT : T_DIM);
+    cv_text_r(234, y, &AF_X, mac_latch ? "LATCH" : "HOLD LFO", mac_latch ? T_ACCENT : hud ? T_TEXT : T_DIM, T_SURF);
+}
+#include "ui_goob.c"                                /* (ECO STYLE GOOBERS, the other ECO: favorites.factory[15][14]) */
 static void eco_draw(int32_t x0, int32_t y0, int words)
 {
     uint32_t c, k, still = (ui_prefs & PREF_ANIM_OFF) != 0u;
     int32_t bx[ECO_N], by[ECO_N], bot = eco_bot(), hud = hud_home();
     (void)eco_step();                                   /* (the swim, once a frame) */
     (void)bg_energy();                                  /* (the output's level kept as it was read: once a frame) */
-    char b[16];
+    if (eco_goob) {
+        goob_draw(x0, y0, words);
+        return;
+    }
     cv_oy = -y0;
     for (k = 0; k < 22u; k++) {                         /* the cytoplasm: granules drifting */
         uint32_t h = k * 2654435761u;
@@ -273,13 +286,8 @@ static void eco_draw(int32_t x0, int32_t y0, int words)
             cv_text_in(px - 30 - x0, ny, 60, &AF_S, num, mut_flash[c] ? vk_heat(255) : c == song.sel ? T_THEME : eco_off(c) ? T_DIM :
                        hud ? T_TEXT : T_MID, T_SURF);   /* (0.9.0 HUD: TEXT, over the beings; 0.9.7: a mutation, white) */
     }
-    if (words && home_set()) {                          /* MACROS: the routes, LATCH */
-        int32_t y = hud ? (int32_t)graph_y() + 3 : 2;
-        fmt_int(b, (int32_t)routes_count());
-        str_cpy(b + str_len(b), " ROUTES", 8);
-        cv_text(6, y, &AF_X, b, hud ? T_TEXT : T_DIM);
-        cv_text_r(234, y, &AF_X, mac_latch ? "LATCH" : "HOLD LFO", mac_latch ? T_ACCENT : hud ? T_TEXT : T_DIM, T_SURF);
-    }
+    if (words && home_set())
+        eco_macros(hud);
     cv_oy = 0;
 }
 static void graph_eco(void) { eco_draw(0, 0, 1); }

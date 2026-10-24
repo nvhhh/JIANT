@@ -194,6 +194,9 @@ static void rp_put(uint32_t f, uint32_t v)
  * the SCOPE card, the chips); 0 OFF (the default: new settings and older ones, which never held it), the creature on the
  * whole panel, centred, the page's and the sound's names in its corners. A byte no engine uses (engine 15) */
 #define ui_scope (favorites.factory[15][19])
+/* (ECO STYLE, MENU > SCREEN 2) the HOME ECO panel: 0 OG, the beings swimming free; 1 GOOBERS, the mushrooms walking a
+ * forest (ui_goob.c). A byte no engine uses; 0 in every older setting, so OG stays the default */
+#define eco_goob (favorites.factory[15][14])
 static void draw_rules(uint32_t y, uint32_t h);       /* (ui_draw.c) */
 
 static uint8_t sync_reload;                  /* engine / preset / project / user preset loaded: editor RELOAD push */

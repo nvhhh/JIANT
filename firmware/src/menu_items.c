@@ -13,7 +13,7 @@
  * CLEAR is an action: OCT+ clears the map (ml_clear_all), its card shows how many CCs are learned. Neither is offered
  * to the editor (editor_menu.c ED_MENU); the map travels with the settings */
 #include "cpu_safe.c"        /* (0.9.12) MENU > SYSTEM > CPU CORES, CPU CLOCK; the last crash kept in the settings */
-enum { MI_COLOR, MI_SKIN, MI_SCOPE, MI_STYLE, MI_LARGE, MI_ANIM, MI_LEDS, MI_SCROFF, MI_HOLD, MI_ACCEL, MI_LATCH, MI_BPMLOCK, MI_SCLLED,
+enum { MI_COLOR, MI_SKIN, MI_SCOPE, MI_STYLE, MI_LARGE, MI_ANIM, MI_LEDS, MI_SCROFF, MI_ECO, MI_HOLD, MI_ACCEL, MI_LATCH, MI_BPMLOCK, MI_SCLLED,
        MI_LOWCUT, MI_USB,
        MI_CLICK, MI_CLKLVL, MI_COUNTIN, MI_TRACKS, MI_LOAD, MI_MIDIOUT, MI_LEARN, MI_LCLEAR, MI_SERIAL, MI_RESTORE, MI_CPU,
        MI_CLOCK, MI_PANEL, MI_ABOUT, MI_COUNT };   /* (1.1: the metronome's rows; 1.2: RESTORE LAST, SCALE LEDS; 0.9.12: MIDI
@@ -23,7 +23,7 @@ enum { MI_COLOR, MI_SKIN, MI_SCOPE, MI_STYLE, MI_LARGE, MI_ANIM, MI_LEDS, MI_SCR
 #define MI_NONE 0xFFu
 static int menu_valued(uint32_t row) { return row < MI_VALUES && row != MI_LCLEAR; }   /* (a row with a value) */
 /* (0.9.18) the full names (the panel's rows, the editor's MENU_DESC; plain words, at most 12 characters) */
-static const char *const MI_NAME[MI_COUNT] = {"COLOR", "SKIN", "SCOPE", "STYLE", "LARGE", "ANIMATION", "LED GLOW", "SCREEN SLEEP",
+static const char *const MI_NAME[MI_COUNT] = {"COLOR", "SKIN", "SCOPE", "STYLE", "LARGE", "ANIMATION", "LED GLOW", "SCREEN SLEEP", "ECO STYLE",
                                               "HOLD TIME", "KNOB SPEEDUP", "FX LATCH", "BPM LOCK", "SCALE LEDS",
                                               "SPEAKER EQ", "USB LEVEL", "CLICK", "CLICK LEVEL", "COUNT-IN", "TRACKS", "LOAD",
                                               "MIDI OUT", "LEARN", "LEARN CLEAR", "USB AUDIO",
@@ -39,7 +39,7 @@ static const char *const MTAB_NAME[MTAB_COUNT] = {"SCREEN", "AUDIO", "MIDI", "US
 typedef struct { char name[9]; uint8_t tab, row[4]; } menu_page_t;
 static const menu_page_t MPAGE[MP_COUNT] = {   /* (a page opens on its first setting: a value, never an action) */
     {"SCREEN", MTAB_SCREEN, {MI_COLOR, MI_SKIN, MI_STYLE, MI_LARGE}},
-    {"SCREEN 2", MTAB_SCREEN, {MI_SCOPE, MI_ANIM, MI_SCROFF, MI_NONE}},
+    {"SCREEN 2", MTAB_SCREEN, {MI_SCOPE, MI_ANIM, MI_SCROFF, MI_ECO}},
     {"LEDS", MTAB_SCREEN, {MI_LEDS, MI_SCLLED, MI_NONE, MI_NONE}},
     {"AUDIO", MTAB_AUDIO, {MI_LOWCUT, MI_TRACKS, MI_LOAD, MI_BPMLOCK}},
     {"CLICK", MTAB_AUDIO, {MI_CLICK, MI_CLKLVL, MI_COUNTIN, MI_NONE}},
@@ -75,6 +75,7 @@ static uint32_t mtab_pages(uint32_t t)                 /* .. and how many it has
 /* STYLE (ui_style, gfx.c ST_*): FLAT the filled cards; LINE black areas divided by 1 px rules (#50, #57: the 0.9 look)
  * (1.0.2: PIXEL retired, a saved PIXEL reads as LINE) */
 static const char *const STYLE_N[2] = {"FLAT", "LINE"};
+static const char *const ECO_STYLE_N[2] = {"OG", "GOOBERS"};   /* (ui_goob.c) the HOME ECO panel: eco_goob */
 static const char *const SCOPEOPT_N[4] = {"OFF", "ON", "BUBBLES", "ORBIT"};   /* (0.9.7) ui.c ui_scope; (0.9.18) 2, 3 */
 /* (0.8.9) SKIN (ui_skin, gfx.c SKIN_*): COLORS the lens in the 0.6 colours (older settings: 0); HUD the picture full
  * screen, the words floating over it; (0.9.7) AIR, HUD's look with the knobs' row on top (the default of new settings).
@@ -178,6 +179,7 @@ static uint32_t menu_get(uint32_t row)
     case MI_COLOR: return settings.palette % NPALETTES;
     case MI_SKIN: return skin_pos(ui_skin);
     case MI_SCOPE: return ui_scope % 4u;
+    case MI_ECO: return eco_goob & 1u;
     case MI_STYLE: return ui_style == ST_LINE;
     case MI_LOWCUT: return settings.lowcut % 3u;
     case MI_USB: return (ui_prefs & PREF_USB_FIXED) ? 1u + usb_lvl % 5u : 0u;
@@ -206,6 +208,7 @@ static const char *menu_vname(uint32_t row, uint32_t v)
     case MI_COLOR: return UI_PALETTES[v % NPALETTES].name;
     case MI_SKIN: return SKIN_NAME[v % SKIN_MENU_N];
     case MI_SCOPE: return SCOPEOPT_N[v & 3u];
+    case MI_ECO: return ECO_STYLE_N[v & 1u];
     case MI_LEARN: return SCOPEOPT_N[v & 1u];
     case MI_STYLE: return STYLE_N[v & 1u];
     case MI_LOWCUT: return SPK_EQ[v % 3u];
@@ -245,6 +248,7 @@ static void menu_put(uint32_t row, uint32_t v)
         ui.force = 1;
         break;
     case MI_SKIN: ui_skin = SKIN_MENU[v % SKIN_MENU_N]; break;              /* (ui_draw.c style_apply: the next frame) */
+    case MI_ECO: eco_goob = (uint8_t)(v & 1u); ui.force = 1; break;   /* (ui_goob.c: the HOME panel from the next frame) */
     case MI_SCOPE: ui_scope = (uint8_t)(v & 3u); ui.force = 1; break;   /* (0.9.7) the EDIT pages so from the next frame */
     case MI_STYLE: ui_style = (uint8_t)(v ? ST_LINE : ST_FLAT); break;   /* (drawn so from the next frame) */
     case MI_LOWCUT: settings.lowcut = v; fx_lowcut = (uint8_t)v; break;

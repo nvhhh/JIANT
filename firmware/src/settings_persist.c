@@ -44,6 +44,8 @@ static int settings_import(persist_t *p, int n)
     if (p->favorites.factory[15][19] > 3u)         /* SCOPE (0.9.7, ui.c ui_scope; 0.9.18: 2 BUBBLES, 3 ORBIT): unknown = OFF (0,
                                                      * older settings too: 0 and 1 keep their meaning) */
         p->favorites.factory[15][19] = 0;
+    if (p->favorites.factory[15][14] > 1u)         /* ECO STYLE (ui.c eco_goob): unknown = OG (0) */
+        p->favorites.factory[15][14] = 0;
     if (p->favorites.factory[15][29] > 1u)        /* STYLE (ui.c ui_style): 2, the retired PIXEL = LINE; unknown = FLAT */
         p->favorites.factory[15][29] = p->favorites.factory[15][29] == 2u ? 1u : 0u;
     {   /* CLICK, CLICK LEVEL, COUNT-IN (ui.c ui_rec_prefs): two bits each, 3 is no value: the default (0) */

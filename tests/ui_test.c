@@ -2647,7 +2647,7 @@ static int test_menu_tabs(void)
     turn(EN_SELECT, 1); frame();
     ok &= lz_crumb_is("MENU \xB7 SYSTEM") && lz_count_is("9/9");
     menu_close();
-    bad += check("0.9.18 MENU: five tabs (the page's lit), MENU . TAB . page (MENU . page when named as its tab) and n/9; ALGORITHM the tab, KNOB n the value", ok && MI_COUNT == 29u);
+    bad += check("0.9.18 MENU: five tabs (the page's lit), MENU . TAB . page (MENU . page when named as its tab) and n/9; ALGORITHM the tab, KNOB n the value", ok && MI_COUNT == 30u);
     return bad;
 }
 

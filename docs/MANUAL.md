@@ -310,6 +310,11 @@ COMP's); FX's **SENDS** is the FX page; SAVE's PROJECT page is **SECTIONS** (the
 LIBRARY level); the DRUM kit's EDIT 1 / EDIT 2 are **KIT** / **KIT 2**. The new **BAR** page is PATTERN's picture of
 the bars with KNOB 1 the bar and KNOB 2 LEN.
 
+- **ECO STYLE** (MENU > SCREEN 2): **OG**, the beings described below; or **GOOBERS**: one mushroom per track (4, 6 or 8,
+  as TRACKS) walking a forest along the floor. Now and then two of them **swap places**, each hopping over the other. A
+  hit makes its goober **sing out** the note it plays (the name over its cap, its mouth open; the HUD keeps the mouth
+  alone), and the tree behind it grows and sways with the sound: played notes, the sequence and live keys alike.
+  The numbers and MACROS line are as OG's.
 - **ECO**: the six tracks' beings swimming free over the whole panel by themselves (0.8.8: as before 0.8.5), each
   swelling with its sound (a hit kicks it on), its number under it; the selected one larger, its number violet.
   (0.9.7, "today's being with a face") Each being is its species' spiky outline (the spikes as it sounds) in **three

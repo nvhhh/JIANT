@@ -665,7 +665,7 @@ enum { S_HOME, S_HOME_IDLE, S_MESSAGE, S_MESSAGE_KEY, S_MESSAGE_NOFILE, S_PRESET
        S_LIVE_RIELES, S_LIVE_RIELES_T3, S_LIVE_MANO, S_LIVE_MANO_KEYS,
        S_MIXER_T4, S_HOME_T4, S_MOCK_HOME, S_MOCK_PRESETS, S_MOCK_SEQ, S_MOCK_DRUM, S_MOCK_MIXER, S_MOCK_DIALOG, S_MOCK_MENU,
        S_TOAST_ENV, S_TOAST_MUTATE, S_TOAST_MUTATE_HINT, S_TOAST_MOTION, S_TOAST_MOTION_LOCKS, S_TOAST_PUNCH, S_TOAST_AUTO_LIST,
-       S_TOAST_AUTO_LIST_DRUM, S_TOAST_PATTERN, S_TOAST_FM6_OP, S_TOAST_ANALOG, S_PRESETS_TYPE, S_MENU_MIDI, S_MENU_SCREEN2, S_V6_SHRUB, S_V6_SHRUB_FULL, S_V6_MSEQ_MOTION, S_COUNT };
+       S_TOAST_AUTO_LIST_DRUM, S_TOAST_PATTERN, S_TOAST_FM6_OP, S_TOAST_ANALOG, S_PRESETS_TYPE, S_MENU_MIDI, S_MENU_SCREEN2, S_V6_SHRUB, S_V6_SHRUB_FULL, S_V6_MSEQ_MOTION, S_GOOB_HOME, S_GOOB_T8, S_COUNT };
 static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "message_key", "message_nofile", "presets", "presets_nofav", "user",
     "phrases", "project", "tools", "song_empty", "song", "step", "pattern", "chance", "comp", "comp_trig", "comp_echo", "mutate", "morph", "dx_image", "dx_send", "page_flash", "page_flash_home", "fugue", "motion", "drum",
     "drum_hand", "drum_cym", "mixer", "mixer_pan", "env", "env_dest", "lfo", "mod", "fx", "slicer", "slbus", "slpitch", "dly", "scl", "shift", "arp",
@@ -703,7 +703,7 @@ static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "mes
     "live_rieles", "live_rieles_t3", "live_mano", "live_mano_keys",
     "mixer_tracks4", "home_tracks4", "mock_home", "mock_presets", "mock_seq", "mock_drum", "mock_mixer", "mock_dialog", "mock_menu",
     "toast_env", "toast_mutate", "toast_mutate_hint", "toast_motion", "toast_motion_locks", "toast_punch", "toast_auto_list",
-    "toast_auto_list_drum", "toast_pattern", "toast_fm6_op", "toast_analog", "presets_pluck", "menu_midi", "menu_screen2", "v6_shrub", "v6_shrub_full", "v6_mseq_motion"};
+    "toast_auto_list_drum", "toast_pattern", "toast_fm6_op", "toast_analog", "presets_pluck", "menu_midi", "menu_screen2", "v6_shrub", "v6_shrub_full", "v6_mseq_motion", "goob_home", "goob_t8"};
 
 /* (0.9.11) GLO > LIVE: six sequences of their own lengths (16 32 7 16 . 1/8 20 4 . 1/4, as the mock-up's), modifiers on
  * T2 (THIN 70 %), T3 (x2 RATCH x3), T4 (LOOP 8), T5 (2/3), played two seconds from PLAY so the playheads and ghosts are
@@ -1213,6 +1213,8 @@ static void setup(int s)
     case S_MIXER_T4:                             /* (0.6.22) TRACKS 4: T5, T6 asleep, grey, OFF */
         go_page(GR_TRK); trk_live = 4; break;
     case S_HOME_T4: trk_live = 4; break;
+    case S_GOOB_HOME: eco_goob = 1; break;     /* (ECO STYLE GOOBERS: ui_goob.c, the tracks as TRACKS 4 / 8) */
+    case S_GOOB_T8: eco_goob = 1; trk_live = 8; break;
     case S_HOME_MUT: {                           /* (0.9.7) HOME A: MUTATE on, one landed on T2 (it looks up, its number white,
                                                   * its ring opening), T5 asleep */
         uint32_t k;
