@@ -116,7 +116,7 @@ static struct {
  * full screen, words floating over it). The branches that still read these see the constants below */
 #define UX_STYLE 0u                  /* ST_FLAT: the filled SURF cards (was MENU > STYLE, FLAT or LINE) */
 #define UX_SKIN 3u                   /* SKIN_AIR (was MENU > SKIN: AIR, COLORS, HUD) */
-#define UI_HEAT_ON 0                 /* (GARDEN) the JIANT heat look is retired: its branches are off */
+/* (GARDEN) UI_HEAT_ON, the JIANT heat look, retired with its branches */
 /* the layout numbers of the retired SKIN choice (only AIR is used now: UX_SKIN) */
 #define SKIN_COLORS 0u
 #define SKIN_BOTTOM_OLD 1u
@@ -190,7 +190,8 @@ static uint32_t palette_from_stored(uint32_t v)
     return 0;                                    /* GARDEN, the only palette: every older id reads as it (index 0) */
 }
 static uint32_t palette_to_stored(uint32_t i) { return UI_PAL_TAG + i % NPALETTES; }
-static int palette_stored_ok(uint32_t v) { return v < 20u || (v >= UI_PAL_TAG && v - UI_PAL_TAG < NPALETTES); }
+#define UI_PAL_OLD_N 12u                         /* the tagged ids of the firmware before GARDEN (GREY .. GARDEN): still valid */
+static int palette_stored_ok(uint32_t v) { return v < 20u || (v >= UI_PAL_TAG && v - UI_PAL_TAG < UI_PAL_OLD_N); }
 
 static inline uint16_t swap16(uint32_t c) { return (uint16_t)(((c >> 8) & 0xFFu) | ((c & 0xFFu) << 8)); }
 

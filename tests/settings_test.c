@@ -28,39 +28,37 @@ int main(void)
 {
     persist_t original = {0}, p;
     original.magic = PERSIST_MAGIC;
-    original.palette = 4; original.bold = original.lowcut = original.zoom = 1;   /* old id 4: MONO, now GREY */
+    original.palette = 4; original.bold = original.lowcut = original.zoom = 1;   /* old id 4: MONO, now GARDEN */
     original.panel = PANEL_DEFAULT; original.panel.enc[0] = 3;
     original.favorites.factory[8][0] = 1;
     original.favorites.user = 1u << 31; original.favorites.filter = 1;
-    p = original;                                 /* (JIANT 0.6.81) at power-on, no mark yet: the palette set to JIANT once,
-                                                   * marked; marked: kept */
+    p = original;                                 /* (JIANT 0.6.81) at power-on, no mark yet: the palette set once
+                                                   * (GARDEN: to GARDEN), marked; marked: kept */
     assert(settings_import(&p, sizeof p) == 1);
     settings_jiant_once(&p);
-    assert(settings.palette == UI_JIANT_INDEX && p.favorites.factory[15][23] == JIANT_PAL_SEEN &&
-           p.palette == palette_to_stored(UI_JIANT_INDEX));
-    p.palette = palette_to_stored(5);
+    assert(settings.palette == 0u && p.favorites.factory[15][23] == JIANT_PAL_SEEN &&
+           p.palette == palette_to_stored(0u));
+    p.palette = palette_to_stored(0u);
     assert(settings_import(&p, sizeof p) == 1);
     settings_jiant_once(&p);
-    assert(settings.palette == 5u);
+    assert(settings.palette == 0u);
     p = original;
     assert(settings_import(&p, sizeof p) == 1); settings_init();
-    assert(settings.palette == UI_GREY_INDEX && fx_lowcut && settings.zoom && panel.enc[0] == 3);
-    assert(p.palette == palette_to_stored(UI_GREY_INDEX));        /* migrated in place */
-    {   /* every old id maps to a palette; tagged ids round trip; anything else is GREY */
+    assert(settings.palette == 0u && fx_lowcut && settings.zoom && panel.enc[0] == 3);
+    assert(p.palette == palette_to_stored(0u));                  /* migrated in place */
+    {   /* GARDEN, the one palette: every old id (below 20) and every tagged id of the palettes before it reads as
+         * GARDEN and is valid; GARDEN's tagged id round trips; anything else is not valid */
         persist_t q = original;
-        for (uint32_t i = 0; i < 20u; i++) assert(palette_from_stored(i) < NPALETTES);
-        assert(palette_from_stored(13) == 6u && palette_from_stored(11) == 7u && palette_from_stored(19) == 7u);
-        for (uint32_t i = 0; i < NPALETTES; i++) assert(palette_from_stored(palette_to_stored(i)) == i);
-        assert(palette_from_stored(40) == UI_GREY_INDEX && !palette_stored_ok(40) && palette_stored_ok(3));
-        /* 1.0.2: the old MONO keeps its id as GREY (a saved MONO looks the same); the new black and white MONO is
-         * appended, a new id */
-        assert(palette_from_stored(UI_PAL_TAG + 0u) == UI_GREY_INDEX && !strcmp(UI_PALETTES[UI_GREY_INDEX].name, "GREY"));
-        assert(UI_BW_INDEX == NPALETTES - 2u && UI_JIANT_INDEX == NPALETTES - 1u && !strcmp(UI_PALETTES[UI_BW_INDEX].name, "MONO") &&
-               palette_from_stored(UI_PAL_TAG + UI_BW_INDEX) == UI_BW_INDEX && palette_stored_ok(UI_PAL_TAG + UI_BW_INDEX));
-        q.palette = palette_to_stored(5);
-        assert(settings_import(&q, sizeof q) == 1 && settings.palette == 5u);
+        assert(NPALETTES == 1u && !strcmp(UI_PALETTES[0].name, "GARDEN"));
+        for (uint32_t i = 0; i < 20u; i++) assert(palette_from_stored(i) == 0u && palette_stored_ok(i));
+        for (uint32_t i = 0; i < 12u; i++)
+            assert(palette_from_stored(UI_PAL_TAG + i) == 0u && palette_stored_ok(UI_PAL_TAG + i));
+        assert(palette_from_stored(palette_to_stored(0u)) == 0u);
+        assert(palette_from_stored(40) == 0u && !palette_stored_ok(40) && !palette_stored_ok(UI_PAL_TAG + 12u));
+        q.palette = UI_PAL_TAG + 5u;                             /* (the old ROSE) */
+        assert(settings_import(&q, sizeof q) == 1 && settings.palette == 0u && q.palette == palette_to_stored(0u));
         settings.magic = SETTINGS_MAGIC_OLD; settings.palette = 13; settings_init();   /* retained SET3 */
-        assert(settings.magic == SETTINGS_MAGIC && settings.palette == 6u);
+        assert(settings.magic == SETTINGS_MAGIC && settings.palette == 0u);
         p = original; assert(settings_import(&p, sizeof p) == 1); settings_init();
     }
 #ifdef FELUCCA_FAVORITES

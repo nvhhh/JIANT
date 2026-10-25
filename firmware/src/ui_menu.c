@@ -404,7 +404,7 @@ static uint16_t menu_vcol(uint32_t c, uint32_t row)   /* a value's colour, as it
 {
     int32_t r = menu_ratio(row);
     uint16_t k = knob_col(c, r, 0);
-    return r < 0 ? T_MID : heat_on(r) ? ux_mix(k, T_TEXT, 20) : k;
+    return r < 0 ? T_MID : k;
 }
 static void menu_cards(void)
 {

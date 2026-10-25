@@ -439,12 +439,12 @@ static int screens(void)
             t->step[0] = kind[k];
             step_set_ratchet(&t->step[0], 2);
             memset(host_screen, 0, sizeof host_screen); ui.force = 1; ui_draw();
-            dim[k] = card_px(2, T_DIM); thm[k] = card_px(2, T_TEXT);   /* (0.8.5: a value TEXT) */
+            dim[k] = card_px(2, T_DIM); thm[k] = card_px(2, T_K(2));   /* (0.8.5: a value TEXT; GARDEN, AIR: its knob's colour) */
         }
         t->step[0] = kind[3]; t->step[0].hit = 1u;   /* a NOTE step of lane hits only: it plays */
         step_set_ratchet(&t->step[0], 2);
         memset(host_screen, 0, sizeof host_screen); ui.force = 1; ui_draw();
-        ok = card_px(2, T_DIM) == dim[0] && card_px(2, T_TEXT) == thm[0];
+        ok = card_px(2, T_DIM) == dim[0] && card_px(2, T_K(2)) == thm[0];
         for (k = 1; k < 4u; k++)
             ok &= dim[k] > dim[0] && thm[k] < thm[0];
         bad += check("  RATCH shows dimmed on a REST, a TIE or an empty step (a note or a hit: not)", ok);

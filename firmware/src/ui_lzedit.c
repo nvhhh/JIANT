@@ -83,7 +83,7 @@ static void graph_sound_lz(const track_t *t)
         str_cpy(v + str_len(v), u, sizeof v - str_len(v));
         GFX_HOOK_ALIGN(0, y, 0, y + 12, AL_V | AL_N(2), "EDIT chip on its row");
         cv_clip_text(x + (bare ? 2 : 6), y + 3 - AF_X_CAP_Y, &AF_X, d->label, hot ? T_TEXT : T_MID, tb, 58);
-        cv_text_r(x + w - (bare ? 2 : 4), y + 3 - AF_X_CAP_Y, &AF_X, v, heat_on(r) ? ux_mix(kc, T_TEXT, 20) : kc, tb);
+        cv_text_r(x + w - (bare ? 2 : 4), y + 3 - AF_X_CAP_Y, &AF_X, v, kc, tb);
     }
     str_cpy(b, two ? "1/2" : "2/2", sizeof b);          /* the other page's names, as many as fit */
     for (k = 0; k < 4u; k++) {
@@ -124,7 +124,7 @@ static void graph_filter_lz(const track_t *t, const page_t *pg)
         cv_rect(64 + k * 54, 6, 1, 99, T_RAISE);
     for (x = 10; x <= 226; x++) {
         int32_t y = ed_resp(ty, x, xc, r[2]);
-        cv_rect(x, y, 1, 105 - y, ux_mix(T_SURF, UI_HEAT_ON ? heat_col(40 + x * 160 / 226) : T_THEME, 30));
+        cv_rect(x, y, 1, 105 - y, ux_mix(T_SURF, T_THEME, 30));
         if (x > 10)
             cv_line_t(x - 1, py, x, y, T_THEME, 2);
         py = y;
@@ -166,7 +166,7 @@ static void graph_voice_lz(const track_t *t, const page_t *pg)
         ed_cap(14, y, n, i < nv ? T_MID : T_DIM);
         cv_rect(26, y, 202, 7, i < nv ? T_RAISE : T_LINE);
         if (lv > 0)
-            cv_rect(26, y, lv, 7, UI_HEAT_ON ? heat_col(60 + lv) : T_ACCENT);
+            cv_rect(26, y, lv, 7, T_ACCENT);
     }
     param_format(track_desc(t, P_VOICE), t->p[P_VOICE], b, &u);
     str_cpy(b + str_len(b), pg->id[0] == P_ALLOC ? " \xB7 ALLOC " : " \xB7 PRIO ", 40 - str_len(b));

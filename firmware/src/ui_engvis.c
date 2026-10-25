@@ -116,33 +116,17 @@ static struct {
     uint32_t mms;                                        /* .. when it was placed (fm1_ms) */
 } vxs VX_POOL;
 
-/* DRUM-X's beings in the thermal ramp of the mock-up the kit was chosen from (cyan blue violet red orange yellow white:
- * the 0.6's, the JIANT palette); every other palette as the beings (bg_col) */
-static const uint8_t VK_HP[8] = {0, 26, 51, 82, 118, 154, 200, 255};
-static const uint16_t VK_HC[8] = {0x13D4u, 0x2DFCu, 0x4B5Fu, 0x8B7Fu, 0xFA49u, 0xFC43u, 0xFE87u, 0xFFFFu};
+/* a being's colour (bg_col; GARDEN: DRUM-X's thermal kit ramp, JIANT's, retired) */
 static uint16_t vx_col(int32_t h)
 {
-    uint32_t k = 0;
     if (h < -1)                                          /* (0.9.6: -2 the theme's: the operator picked, the mock-up's) */
         return T_THEME;
     if (h < 0)                                           /* (a muted sound: dim, as the colony's) */
         return T_DIM;
-    h = clamp(h, 0, 255);
-    if (!vxs.kc || !UI_HEAT_ON)
-        return bg_col(h);
-    while (k < 6u && h > VK_HP[k + 1u]) k++;
-    return ux_mix(VK_HC[k], VK_HC[k + 1u], (h - VK_HP[k]) * 100 / (VK_HP[k + 1u] - VK_HP[k]));
+    return bg_col(clamp(h, 0, 255));
 }
-/* (0.9.7) HOME's beings (ui_lzhome.c, variant A): the same ramp on JIANT, every other palette as the beings (bg_col) */
-static uint16_t vk_heat(int32_t h)
-{
-    uint32_t k = 0;
-    h = clamp(h, 0, 255);
-    if (!UI_HEAT_ON)
-        return bg_col(h);
-    while (k < 6u && h > VK_HP[k + 1u]) k++;
-    return ux_mix(VK_HC[k], VK_HC[k + 1u], (h - VK_HP[k]) * 100 / (VK_HP[k + 1u] - VK_HP[k]));
-}
+/* (0.9.7) HOME's beings (ui_lzhome.c, variant A): as the beings (bg_col) */
+static uint16_t vk_heat(int32_t h) { return bg_col(clamp(h, 0, 255)); }
 static void vx_line(const vxf_t *f, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t h)
 {
     int32_t X0 = f->cx + ((x0 * f->s) >> 8), Y0 = f->cy + ((y0 * f->s) >> 8);

@@ -65,26 +65,12 @@ static int32_t graph_ht = 100;
 #include "ui_organic.c"                              /* JIANT FM's organic line art (drawn by code) */
 #include "ui_fm6op.c"                                /* (0.6.10, from Felucca 1.5) EDIT > OPERATOR, OP ENV, OPERATOR 2 */
 static uint16_t heat_col(int32_t v);
-/* (0.9.5, as the 0.6.36) JIANT (thermal): a card's colour its value as heat (ratio 0..1000, -1 none); bipolar (its range
- * across 0): by the distance from the centre, cold in the middle */
-static int heat_on(int32_t ratio) { return UI_HEAT_ON && ratio >= 0; }
-static uint16_t card_heat(int32_t ratio, int bip)
-{
-    int32_t r = clamp(ratio, 0, 1000);
-    if (bip)
-        r = (r > 500 ? r - 500 : 500 - r) * 2;
-    return heat_col(r * 256 / 1000);
-}
-/* knob c's colour on a lens card, a layer's KNOBS, EDIT's chips: JIANT its value's heat; another palette the knob's own
- * (UI_KNOBS) */
+/* knob c's colour on a lens card, a layer's KNOBS, EDIT's chips: the knob's own (UI_KNOBS; GARDEN: JIANT's heat,
+ * heat_on / card_heat / heat_y, retired) */
 static uint16_t knob_col(uint32_t c, int32_t ratio, int bip)
 {
-    return heat_on(ratio) ? card_heat(ratio, bip) : T_K(c);
-}
-/* JIANT (thermal): a curve's colour at canvas row y, hot at the top (y0) and cold at the bottom (y1); else c */
-static uint16_t heat_y(int32_t y, int32_t y0, int32_t y1, uint16_t c)
-{
-    return UI_HEAT_ON && y1 > y0 ? heat_col(24 + (y1 - y) * 232 / (y1 - y0)) : c;
+    (void)ratio; (void)bip;
+    return T_K(c);
 }
 #include "ui_being.c"                                /* (JIANT 0.5) the beings: the engine pages' creatures */
 #include "ui_engvis.c"                               /* (0.9.4) VOICE's head, ANIMAL's creature, DRUM-X's kit */
@@ -101,24 +87,24 @@ static void graph_adsr(const track_t *t, uint16_t c)
     int32_t e = 32768;                                                  /* exp(-4.6 u), Q15 */
 #define EGY(lvl) (bot - (lvl) * (bot - top) / 1000)
     cv_rect(PANEL_X0, bot + 2, PANEL_W, 1, T_RAISE);
-    cv_line_t(x0, bot, x1, top, heat_y((bot + top) / 2, top, bot, c), 2);                                  /* attack: linear */
+    cv_line_t(x0, bot, x1, top, c, 2);                                  /* attack: linear */
     px = x1;
     py = top;
     for (i = 1; i <= d; i++) {                                          /* decay: exponential to SUS */
         int32_t lvl;
         e = (e * (32768 - 150733 / d)) >> 15;           /* k^d = exp(-4.6) */
         lvl = sus + ((1000 - sus) * e >> 15);
-        cv_line_t(px, py, x1 + i, EGY(lvl), heat_y(py, top, bot, c), 2);
+        cv_line_t(px, py, x1 + i, EGY(lvl), c, 2);
         px = x1 + i;
         py = EGY(lvl);
     }
-    cv_line_t(px, py, x3, EGY(sus), heat_y(py, top, bot, c), 2);                               /* sustain */
+    cv_line_t(px, py, x3, EGY(sus), c, 2);                               /* sustain */
     px = x3;
     py = EGY(sus);
     e = 32768;
     for (i = 1; i <= r; i++) {                                          /* release: exponential to 0 */
         e = (e * (32768 - 150733 / r)) >> 15;
-        cv_line_t(px, py, x3 + i, EGY(sus * e >> 15), heat_y(py, top, bot, c), 2);
+        cv_line_t(px, py, x3 + i, EGY(sus * e >> 15), c, 2);
         px = x3 + i;
         py = EGY(sus * e >> 15);
     }
@@ -158,7 +144,7 @@ static void graph_lfo(const track_t *t, uint16_t c)
             y = cy - ((int32_t)((((px >> 29) + 1u) * 2654435761u) >> 16) - 32768) * a / 32768;
         if (x)
             cv_line_t(PANEL_X0 + x - 1, py, PANEL_X0 + x, y,
-                      x < xp ? ux_mix(T_SURF, heat_y(y, cy - a, cy + a, c), 45) : heat_y(y, cy - a, cy + a, c), 2);
+                      x < xp ? ux_mix(T_SURF, c, 45) : c, 2);
         py = y;
     }
     cv_rect(PANEL_X0 + xp, cy - a - 4, 1, 2 * a + 8, T_MID);   /* the playhead */
@@ -444,9 +430,7 @@ static void pr_split(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c, uin
  * little warmer), an accent near white (243); another palette the notes ACCENT, an accent TEXT (the highlight) */
 static uint16_t lz_note(const step_t *st, int acc, uint16_t c)
 {
-    (void)c;
-    if (UI_HEAT_ON)
-        return heat_col(acc ? 243 : st->n > 1u ? 146 : 115);
+    (void)c; (void)st;
     return acc ? T_TEXT : T_ACCENT;
 }
 /* a step's component mark (3 x 3 at y): an arpeggio ACCENT, another THEME; none: nothing */
@@ -939,19 +923,12 @@ static void page_title(char *ti)
     }
 }
 /* the strip's title: L centred (M when L lacks a glyph or is too wide) */
-/* the thermal ramp (JIANT): a value 0..256 as heat, as a thermal camera sees it: cyan (cold) .. blue .. violet .. red
- * .. orange .. yellow .. white (other palettes: their surface toward their accent and text) */
+/* a value 0..256 as a ramp: the surface toward the accent, then toward the text (GARDEN: the thermal ramp, JIANT's,
+ * retired; Phases 4 and 5 replace what still draws with it) */
 static uint16_t heat_col(int32_t v)
 {
-    static const uint16_t H[7] = {0x3955u, 0x82DFu, 0xFA09u, 0xFBA3u, 0xFDEBu, 0xFF99u, 0xFFFFu};   /* (0.8.9, the skins' mock-up: the 0.6's
-                                                         * ramp, indigo violet red orange amber cream white; was cyan blue violet
-                                                         * red orange yellow white) */
-    int32_t k;
     v = clamp(v, 0, 256);
-    if (!UI_HEAT_ON)
-        return v < 128 ? ux_mix(T_SURF, T_ACCENT, v * 100 / 128) : ux_mix(T_ACCENT, T_TEXT, (v - 128) * 100 / 128);
-    k = v * 6 / 257;
-    return ux_mix(H[k], H[k + 1], (v * 6 - k * 256) * 100 / 256);
+    return v < 128 ? ux_mix(T_SURF, T_ACCENT, v * 100 / 128) : ux_mix(T_ACCENT, T_TEXT, (v - 128) * 100 / 128);
 }
 
 /* DRUM (DRUM-X): the eight sounds as columns, each as high and as hot as its hit now (a muted one crossed); the MORPH
@@ -1536,7 +1513,7 @@ static void track_col6(uint32_t c, uint32_t sel, uint32_t st, uint32_t mute, uin
             cv_rect(4 + k * 8, 38, 6, 62, T_RAISE);
             if (v)
                 cv_rect(4 + k * 8, 100 - v, 6, v, mute ? T_DIM : sel && hot == (uint32_t)k + 1u ? T_ACCENT :
-                        UI_HEAT_ON ? heat_col(60 + v * 3) : T_THEME);
+                        T_THEME);
             cv_text(4 + k * 8, 106 - AF_X_CAP_Y, &AF_X, SN[k], T_DIM);
         }
         cv_blit((uint32_t)T6_X(col), lz_on() ? graph_y() + 9u : Y_GRAPH);
@@ -1698,7 +1675,7 @@ static void scope_bubbles(const int16_t *snap, uint32_t trig, int32_t peak, int3
         }
         y = cy - s * a / peak;
         r = 1 + lv * 4 / peak;
-        col = UI_HEAT_ON ? heat_col(40 + (y > cy ? y - cy : cy - y) * 216 / a) : c;
+        col = c;
         for (k = 2; k >= 1; k--) {                          /* the trail: the samples 3 and 6 back, dimmer and smaller */
             int32_t j = (int32_t)trig + x - 3 * k, ty;
             if (j < 0)
@@ -1728,10 +1705,8 @@ static void scope_orbit(const int16_t *snap, uint32_t trig, int32_t peak, int32_
     for (n = start + 1; n <= end; n++) {
         int32_t x1 = cx + snap[n - 1] * a / peak, y1 = cy - snap[n - 1 - D] * a / peak;
         int32_t x2 = cx + snap[n] * a / peak, y2 = cy - snap[n - D] * a / peak;
-        int32_t lv = snap[n] < 0 ? -snap[n] : snap[n];
-        uint16_t col = UI_HEAT_ON ? heat_col(40 + lv * 216 / peak) : c;
-        cv_line_t(x1, y1, x2, y2, ux_mix(T_SURF, col, 35), 4);   /* the glow */
-        cv_line_t(x1, y1, x2, y2, col, 2);
+        cv_line_t(x1, y1, x2, y2, ux_mix(T_SURF, c, 35), 4);   /* the glow */
+        cv_line_t(x1, y1, x2, y2, c, 2);
     }
 }
 /* .. pw px wide from x0, about the line cy, +-a px (0.8.5: EDIT's SOUND, in its well) */
@@ -1764,8 +1739,7 @@ static void scope_at(int32_t x0, int32_t pw, int32_t cy, int32_t a, uint16_t c)
     for (x = 0; x < pw; x++) {
         int32_t y = cy - snap[trig + (uint32_t)x] * a / peak;    /* auto-scaled */
         if (x)                                                   /* JIANT: each stroke as hot as it is loud */
-            cv_line_t(x0 - 1 + x, py, x0 + x, y, UI_HEAT_ON ?
-                      heat_col(40 + (y > cy ? y - cy : cy - y) * 216 / a) : c, 2);
+            cv_line_t(x0 - 1 + x, py, x0 + x, y, c, 2);
         py = y;
     }
 }
@@ -1780,8 +1754,7 @@ static void graph_mseq(const track_t *t, uint16_t c)
     int32_t y0 = 92, hmax = 80;
     for (i = 0; i < 16u; i++) {
         int32_t x = 13 + (int32_t)i * 13, h = t->p[P_MS0 + i] * hmax / 127;
-        uint16_t col = i >= len ? T_RAISE : i == now ? T_ACCENT : UI_HEAT_ON ?
-                       heat_col(48 + t->p[P_MS0 + i] * 200 / 127) : c;
+        uint16_t col = i >= len ? T_RAISE : i == now ? T_ACCENT : c;
         cv_rrect(x, y0 - hmax, 10, hmax, 2, T_RAISE, T_SURF);
         if (h > 0)
             cv_rrect(x, y0 - (h < 3 ? 3 : h), 10, h < 3 ? 3 : h, 2, col, T_RAISE);
@@ -1799,9 +1772,8 @@ static void graph_mseq(const track_t *t, uint16_t c)
  * the bars in all. KNOB 1 the row, 2 its section (on END: STOP / x2 .. / LOOP), 3 its bars, 4 its scene */
 static uint16_t sec_col(uint32_t s)
 {
-    static const uint8_t HJ[4] = {0, 85, 171, 213}, HO[4] = {120, 160, 200, 240};   /* (0.8.5: JIANT the mock-up's cyan
-                                                         * violet orange yellow; was 60 115 175 230) */
-    return heat_col(UI_HEAT_ON ? HJ[s & 3u] : HO[s & 3u]);
+    static const uint8_t HO[4] = {120, 160, 200, 240};   /* (was 60 115 175 230; JIANT's, HJ, retired) */
+    return heat_col(HO[s & 3u]);
 }
 #include "ui_tech.c"                                /* (JIANT 0.5) the technical graphs (FX, DEST, VOICE, GLOBAL) */
 #include "ui_lzsave.c"                              /* (0.8.5) SAVE's lens: its levels' panels */

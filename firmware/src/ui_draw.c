@@ -490,13 +490,13 @@ static void card_mot_of(const int16_t *vp)
 static uint8_t card_bip;                                /* the card being drawn: a bipolar parameter (ratio_of) */
 static uint16_t gauge_col(int32_t ratio)
 {
-    return heat_on(ratio) ? card_heat(ratio, card_bip) : T_THEME;
+    return T_THEME;
 }
 static uint16_t value_col(uint16_t vc, int32_t ratio)
 {
     if (vc != T_THEME)
         return vc;
-    return heat_on(ratio) ? ux_mix(gauge_col(ratio), T_TEXT, 20) : T_TEXT;
+    return T_TEXT;
 }
 static uint8_t card_free_next;                          /* (0.8.5) the next draw_column's value is a name: free text */
 static uint8_t card_arm_next;                           /* (0.8.5) the next draw_column is an action armed (OCT+ does it):
@@ -694,7 +694,7 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
     if (lz_on() && kind != LK_TALL) {
         if (kid < 0 && (vc == T_THEME || vc == T_ACCENT)) {
             gk = knob_col(c, ratio, card_bip);          /* (the gauge's, the frame's) */
-            vc = heat_on(ratio) ? ux_mix(gk, T_TEXT, 20) : gk;
+            vc = gk;
         }
         lc = arm || mot ? T_THEME : low && !hot && !hud ? T_MID : T_TEXT;   /* (0.9.0 HUD's HOME: TEXT, over the beings) */
     }

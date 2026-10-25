@@ -117,7 +117,7 @@ static void tech_retrig(const track_t *t)
         int32_t ph = on ? (i % (w / 4)) * 1000 / (w / 4) : i * 1000 / w;
         int32_t y = base - ph * (base - top) / 1000;
         if (i && !(on && i % (w / 4) == 0))
-            cv_line_t(x0 + i - 1, py, x0 + i, y, heat_y(y, base, top, T_THEME), 2);
+            cv_line_t(x0 + i - 1, py, x0 + i, y, T_THEME, 2);
         else if (i)
             cv_rect(x0 + i, y, 1, py - y + 1, T_RAISE);  /* (back to 0) */
         py = y;
