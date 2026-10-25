@@ -2460,6 +2460,7 @@ static int test_menu_tabs(void)
 
     ui_power_on();
     hold(B_HOME);
+    turn(EN_SELECT, -40);
     ok = ui.menu == 1 && ui.menu_sel == MI_LARGE && menu_page() == 0u && menu_tab() == MTAB_SCREEN;
     turn(EN_SELECT, 1); ok &= menu_page() == 1u && ui.menu_sel == MI_SCOPE;   /* (SELECT: a page a detent, its first) */
     turn(EN_SELECT, 1); ok &= menu_page() == 2u && ui.menu_sel == MI_LEDS && menu_tab() == MTAB_SCREEN;
@@ -2609,6 +2610,7 @@ static int test_menu_tabs(void)
      * page's place among the nine; a page named as its tab ("SCREEN", "SCREEN 2", "AUDIO") not repeated: MENU . page */
     ui_power_on();
     hold(B_HOME);
+    turn(EN_SELECT, -40);                           /* (the menu opens on its first page) */
     frame();
     ok = ui.menu == 1 && lz_on() && lz_fam() == LZ_MENU && lz_tabs() == 5u && lz_tab_lit(0) &&
          lz_crumb_is("MENU \xB7 SCREEN") && lz_count_is("1/10");
@@ -2628,7 +2630,7 @@ static int test_menu_tabs(void)
     turn(EN_SELECT, 1); frame();
     ok &= lz_crumb_is("MENU \xB7 SYSTEM") && lz_count_is("10/10");
     menu_close();
-    bad += check("0.9.18 MENU: five tabs (the page's lit), MENU . TAB . page (MENU . page when named as its tab) and n/10; ALGORITHM the tab, KNOB n the value", ok && MI_COUNT == 30u);   /* (ECO STYLE: one more row) */
+    bad += check("0.9.18 MENU: five tabs (the page's lit), MENU . TAB . page (MENU . page when named as its tab) and n/10; ALGORITHM the tab, KNOB n the value", ok && MI_COUNT == 28u);   /* (COLOR, SKIN, STYLE gone; MOTION added) */
     return bad;
 }
 
@@ -3079,13 +3081,6 @@ static int test_roll(void)
     bad += check("roll: a page, track, palette or engine change and ui.force snap", ok);
     palette_set(0);
 
-    /* MONO: every roll frame is gray */
-    ui_power_on(); roll_settle();
-    ok = 1;
-    song.g[G_BPM] += 9; frame();
-    turn(EN_K4, -1);
-    for (k = 0; k < ROLL_FRAMES; k++) { ok &= screen_gray(); frame(); }
-    bad += check("roll: MONO roll frames are gray", ok);
     ui_power_on();
     return bad;
 }
@@ -3427,6 +3422,7 @@ static int test_presets_knob(void)
     bad += check("0.9.2 the DRUM grid: KNOB 1 the cursor (and the page; wraps), PRESETS the patterns (was the cursor too)", grid_ok);
     ui_power_on();
     hold(B_HOME);
+    turn(EN_SELECT, -40);                           /* (the menu opens on its first page) */
     i = ui.menu_sel;
     turn(EN_PRESET, 1);
     bad += check("0.9.2 the menu: PRESETS does nothing (rule 3; was the row)", ui.menu == 1 && ui.menu_sel == i);
@@ -6394,6 +6390,7 @@ static int test_screen_off(void)
     ui_power_on();                                    /* in the MENU: OCT+ / a knob step it */
     menu_put(MI_SCROFF, 3u);
     hold(B_HOME);
+    turn(EN_SELECT, -40);                             /* (the menu opens on its first page) */
     turn(EN_SELECT, 1);                               /* (0.9.18: SCREEN 2, KNOB 3) */
     ok = ui.menu == 1 && ui.menu_sel == MI_SCOPE && menu_page_of(MI_SCROFF) == 1u;
     turn(EN_K3, 1); ok &= scr_get() == 4u && ui.menu_sel == MI_SCROFF;
@@ -9859,12 +9856,14 @@ static int lg_value_rows(uint32_t c)                    /* rows of card c's valu
 static int test_large(void)
 {
     int bad = 0, ok;
-    uint32_t c;
+    uint32_t c, pre_prefs;
     static uint16_t off[240 * 240];
     ui_power_on();
     song.playing = 0;
+    pre_prefs = ui_prefs;
     frame();
-    ok = !(ui_prefs & PREF_LARGE) && large_kind() == LK_OFF && card_h() == LZ_CARD_H && graph_y() == LZ_GRAPH_Y;   /* (HOME's
+    ok = !(ui_prefs & PREF_LARGE) && large_kind() == LK_OFF && card_h() == LB_CARD_H && graph_y() == LA_HOME_GRAPH_Y;   /* (HOME's AIR layout, the one layout now: was COLORS' lens) */
+    /* (HOME's
                                                          * lens) */
     ok &= str_eq(MI_NAME[MI_LARGE], "LARGE") && menu_flag(MI_LARGE) &&
           str_eq(menu_flag(MI_LARGE)->name[0], "OFF") && str_eq(menu_flag(MI_LARGE)->name[1], "ON");
@@ -9877,9 +9876,9 @@ static int test_large(void)
     press(B_OCTUP); ok &= (ui_prefs & PREF_LARGE) && ui.menu;     /* OCT+: ON */
     press(B_OCTDN); ok &= !(ui_prefs & PREF_LARGE) && ui.menu;    /* OCT-: OFF */
     press(B_OCTUP);
-    ok &= (ui_prefs & ~PREF_ACCEL_OFF) == PREF_LARGE;          /* (no other setting moved) */
+    ok &= (ui_prefs ^ pre_prefs) == PREF_LARGE;                /* (no other setting moved) */
     press(B_HOME);
-    bad += check("#15 MENU > LARGE: OFF by default, after STYLE (SCREEN KNOB 4); right / OCT+ ON, left / OCT- OFF", ok && !ui.menu);
+    bad += check("#15 MENU > LARGE: OFF by default, SCREEN KNOB 1; right / OCT+ ON, left / OCT- OFF", ok && !ui.menu);
 
     /* HOME (0.8.5: a lens): tall cards under its tabs (rows 42..146) and the strip (150..212); the footer as it was */
     frame();
@@ -10079,12 +10078,7 @@ static int test_home_a(void)
         ha_eco_at(5000);
         ok &= memcmp(a, host_screen, sizeof a) != 0;
         mut_flash[0] = 0;
-        if (sk == SKIN_COLORS)
-            ok &= ha_loose() <= 22u * 4u;                         /* (away from the beings the granules only: 22, 4 px at most) */
-        bad += check(sk == SKIN_COLORS ? "0.9.7 HOME A (COLORS): no critters, no MUTATE ring until a mutation lands" :
-                     sk == SKIN_BOTTOM_OLD ? "0.9.7 HOME A (BOTTOM, read as AIR): no MUTATE ring until a mutation lands" :
-                     sk == SKIN_HUD ? "0.9.7 HOME A (HUD): no MUTATE ring until a mutation lands" :
-                     "0.9.7 HOME A (AIR): no MUTATE ring until a mutation lands", ok);
+        bad += check("0.9.7 HOME A (AIR): no MUTATE ring until a mutation lands", ok);
     }
     ui_prefs = 0;
     ui_power_on();
@@ -10199,7 +10193,7 @@ static int test_menu_prefs(void)
     ui_power_on();
     ui_prefs = 0;
     hold(B_HOME);
-    ui.menu_sel = 0;
+    ui.menu_sel = MPAGE[0].row[0];
     for (k = 0; k < MP_COUNT; k++) {                /* (0.9.18) SELECT every page, each drawn its own */
         ok &= menu_page() == k && ui.menu_sel == MPAGE[k].row[0];
         seen |= 1u << menu_tab();
@@ -10210,7 +10204,7 @@ static int test_menu_prefs(void)
     }
     ok &= seen == (1u << MTAB_COUNT) - 1u && menu_page() == MP_COUNT - 1u;
     turn(EN_SELECT, -40);
-    ok &= ui.menu_sel == 0u;
+    ok &= ui.menu_sel == MPAGE[0].row[0];
     bad += check("0.9.18 MENU: SELECT reaches every page (every tab), each a screen of its own", ok);
     /* ANIM (SCREEN 2, KNOB 2) */
     turn(EN_SELECT, 1);
@@ -10579,6 +10573,8 @@ static int lz_tab_lit(uint32_t l)
     uint8_t cnt[8];
     uint32_t lv, at, n = tabs_now(nm, tab, cnt, &lv, &at), k;
     int ok = lv == l;
+    if (lz_low())                                   /* (AIR: the lit group is its word in THEME, no raised tab to probe) */
+        return ok;
     for (k = 0; k < n; k++)
         ok &= swap16(host_screen[(LT_Y + LT_H / 2) * 240 + TAB_X(k, n) + 2]) == (k == l ? T_THEME : T_RAISE);
     return ok;
