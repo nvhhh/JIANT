@@ -40,7 +40,10 @@ static void fm1_delay_ms(uint32_t ms) { (void)ms; }
 static uint8_t t_stems;                                  /* fx.c's fx_stems: 1 the 8 channels, 2 the 10 */
 #define UAC_STEMS() t_stems
 #define UAC_STEMS_SRC 1
-static int32_t stem_buf[7][32], stem_fx[2][32];
+#ifndef NPART
+#define NPART 8                  /* (core.h: the tracks; usb.c uses it, this test does not include core.h) */
+#endif
+static int32_t stem_buf[NPART + 1][32], stem_fx[2][32];   /* [0..7] the tracks, [NPART]: STEMS+IN's host audio as mixed (usb.c) */
 static int32_t uin_l[64], uin_r[64];
 static volatile uint8_t uin_on;
 #define UIN_SRC 1
@@ -85,7 +88,7 @@ static void render_block(void)
             }
             if (c < 6u) stem_buf[c][i] = v;
             else if (c < 8u) stem_fx[c - 6u][i] = v;
-            else if (c == 8u) stem_buf[6][i] = v;
+            else if (c == 8u) stem_buf[8][i] = v;          /* STEMS+IN's ninth channel: the host's audio as mixed (NPART) */
             else uin_l[i] = uin_r[i] = v;
         }
     uin_on = nch == 10u;

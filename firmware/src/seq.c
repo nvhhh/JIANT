@@ -2209,7 +2209,7 @@ static void seq_tick(track_t *t, uint32_t n)
 /* MIDI in: the track a channel plays (0..15): G_ROUTE CH1-4 (0) channels 1..4 their parts (5..16 never get
  * here: midi_event drops them), SEL (1) every channel the selected track */
 static uint8_t midi_route;                 /* the G_ROUTE events_block last saw (a change to CH1-4: midi_route_ch14) */
-static track_t *midi_track(uint32_t ch) { return ch < NPART && !song.g[G_ROUTE] ? &trk[ch] : TSEL; }
+static track_t *midi_track(uint32_t ch) { return ch < NROUTE_CH && !song.g[G_ROUTE] ? &trk[ch] : TSEL; }
 
 #include "midi_control.c"
 #include "midi_clock.c"

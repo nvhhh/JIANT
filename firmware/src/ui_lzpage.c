@@ -40,26 +40,26 @@ static int32_t env_now(const track_t *t)                /* the loudest voice's l
 static void graph_env_tracks(int dest)
 {
     uint32_t c, k;
-    for (c = 0; c < NTRK; c++) {
+    for (c = 0; c < NTRK; c++) {                        /* (0.9.19: eight tracks, four to a row, two rows of 56 px) */
         const track_t *t = &trk[c];
-        int32_t x = 4 + (int32_t)(c % 3u) * 78, y = 2 + (int32_t)(c / 3u) * 68, sel = c == song.sel, lv;
+        int32_t x = 4 + (int32_t)(c % 4u) * 58, y = 2 + (int32_t)(c / 4u) * 68, sel = c == song.sel, lv;
         uint16_t bg = sel ? T_TINT : T_RAISE, ink = c >= trk_live ? T_DIM : sel ? T_THEME : T_MID;
         char n[3] = {'T', (char)('1' + c), 0};
-        cv_rect(x, y, 76, 66, bg);
+        cv_rect(x, y, 56, 66, bg);
         if (sel) {
-            cv_rect(x, y, 76, 1, T_THEME); cv_rect(x, y + 65, 76, 1, T_THEME);
-            cv_rect(x, y, 1, 66, T_THEME); cv_rect(x + 75, y, 1, 66, T_THEME);
+            cv_rect(x, y, 56, 1, T_THEME); cv_rect(x, y + 65, 56, 1, T_THEME);
+            cv_rect(x, y, 1, 66, T_THEME); cv_rect(x + 55, y, 1, 66, T_THEME);
         }
         cv_text(x + 4, y + 4 - AF_X_CAP_Y, &AF_X, n, ink);
-        cv_clip_text(x + 22, y + 4 - AF_X_CAP_Y, &AF_X, trk_engp(t)->name, T_DIM, bg, 50);
-        env_mini(t, x + 5, y + 16, 66, dest ? 34 : 44, c >= trk_live ? T_DIM : settings.palette == UI_JIANT_INDEX ?
+        cv_clip_text(x + 22, y + 4 - AF_X_CAP_Y, &AF_X, trk_engp(t)->name, T_DIM, bg, 30);
+        env_mini(t, x + 5, y + 16, 46, dest ? 34 : 44, c >= trk_live ? T_DIM : settings.palette == UI_JIANT_INDEX ?
                  heat_col(150) : T_THEME, sel ? 2 : 1);
         if (!dest && (lv = env_now(t)) >= 0)
-            og_node((x + 70) * 16, (y + 60 - lv * 44 / 1000) * 16, 2, T_TEXT);
+            og_node((x + 50) * 16, (y + 60 - lv * 44 / 1000) * 16, 2, T_TEXT);
         for (k = 0; dest && k < 3u; k++) {              /* FILTER PITCH SHAPE: a bar each from the middle */
-            int32_t v = t->p[P_ED_FLT + k], w = v * 34 / 128;
-            cv_rect(x + 5, y + 54 + (int32_t)k * 4, 66, 1, T_LINE);
-            cv_rect(w < 0 ? x + 38 + w : x + 38, y + 53 + (int32_t)k * 4, w < 0 ? -w : w ? w : 1, 3,
+            int32_t v = t->p[P_ED_FLT + k], w = v * 22 / 128;
+            cv_rect(x + 5, y + 54 + (int32_t)k * 4, 46, 1, T_LINE);
+            cv_rect(w < 0 ? x + 28 + w : x + 28, y + 53 + (int32_t)k * 4, w < 0 ? -w : w ? w : 1, 3,
                     k == 0u ? T_THEME : k == 1u ? T_ACCENT : T_MID);
         }
     }
@@ -388,8 +388,8 @@ static void graph_system(void)
         cv_text_in(8 + (int32_t)c * 22, 12 - AF_X_CAP_Y, 20, &AF_X, n, c < trk_live ? T_INK : T_DIM, bg);
     }
     fmt_int(b, (int32_t)trk_live);
-    str_cpy(b + str_len(b), " TRACKS PLAY", 24 - str_len(b));
-    ed_cap(144, 13, b, T_TEXT);
+    str_cpy(b + str_len(b), " TRACKS", 24 - str_len(b));   /* (0.9.19: the eight tabs always; the caption past them) */
+    ed_cap(186, 13, b, T_TEXT);
     for (k = 0; k < 3u; k++) {
         uint16_t bg = k == ld ? T_THEME : T_RAISE;
         cv_rect(8 + (int32_t)k * 40, 34, 38, 14, bg);

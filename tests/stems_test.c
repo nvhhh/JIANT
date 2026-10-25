@@ -4,7 +4,9 @@
 /* (0.9.8) MENU > USB STEMS, the render side (fx.c stem_buf / stem_fx, what usb.c uac_tap8 sends), on the host build of
  * the UI tests: dense DICE (EXPLORE) songs of six tracks played for seconds, the stems tapped each block as the audio
  * ISR does, against each track rendered alone in the same take (the others played but left out of the mix: mix_skip, as
- * the emulator's offline stems), from the same state (fork):
+ * the emulator's offline stems), from the same state (fork). The USB STEMS are SIX track stems (tracks 1..6, mono) and
+ * the FX return (L R): 8 channels. Tracks 7 and 8 are not exported: in every take they are played but left out of the
+ * mix (mix_skip), so the mix the sum is checked against is the six tracks' mix:
  *   null       every stem bit for bit its track's solo render, in LOAD FULL, LITE and ECO, one core and CORES 2 (no bleed,
  *              no sound of a voice in another track's stem, no block given to the wrong part, the PAN out, LEVEL, DIST,
  *              DUCK, mutes in);
@@ -21,7 +23,9 @@
 #include <sys/mman.h>
 #include <sys/wait.h>
 
-#define NCH 9                                            /* T1..T6, FX L R, and (sum check) a flag */
+#define NSTEM 6                                          /* the track stems: T1..T6 (USB STEMS; T7 and T8 are not exported) */
+#define NCH (NSTEM + 2)                                  /* the stems, then the FX return L R: the 8 channels */
+#define OUT_MASK (((1u << NPART) - 1u) & ~((1u << NSTEM) - 1u))   /* T7, T8: out of the mix and the stems */
 static int st_fail;
 static int st_check(const char *what, int ok)
 {
@@ -57,7 +61,7 @@ static void play(int32_t (*d)[NCH], uint32_t nb, uint32_t skip, uint32_t cores, 
 {
     uint32_t b, i, k;
     song.master_q12 = 4096;
-    mix_skip = (uint8_t)skip;
+    mix_skip = (uint8_t)(skip | OUT_MASK);               /* (T7, T8 are played but not in the mix: not exported) */
     mc_host = (uint8_t)cores;
     transport_req = 1;
     sum_ok = sum_n = worst = 0;
@@ -70,21 +74,22 @@ static void play(int32_t (*d)[NCH], uint32_t nb, uint32_t skip, uint32_t cores, 
             load_tight = 1;                              /* (the load budget held: a render over 50 % on ECO) */
         mix_block(o, CTL);
         for (i = 0; i < CTL; i++) {
-            for (k = 0; k < NPART; k++)
+            for (k = 0; k < NSTEM; k++)
                 d[b * CTL + i][k] = stem_buf[k][i];
-            d[b * CTL + i][6] = stem_fx[0][i];
-            d[b * CTL + i][7] = stem_fx[1][i];
+            d[b * CTL + i][NSTEM] = stem_fx[0][i];
+            d[b * CTL + i][NSTEM + 1] = stem_fx[1][i];
         }
-        if (!clip_g && !djf.mode && !skip) {             /* the mix as the buses hear it: mix_l + wet (master_out's input) */
+        if (!clip_g && !djf.mode && !(skip & ((1u << NSTEM) - 1u))) {   /* the mix as the buses hear it: mix_l + wet (master_out's
+                                                         * input), when no track of the six is left out (a solo render: no) */
             uint32_t bad = 0;
             for (i = 0; i < CTL; i++) {
                 int32_t s = 0, m = mix_l[i] + mix_r[i] + 2 * wet[i], e;
-                for (k = 0; k < NPART; k++)
+                for (k = 0; k < NSTEM; k++)
                     s += 2 * stem_buf[k][i];
                 s += stem_fx[0][i] + stem_fx[1][i];
                 e = s > m ? s - m : m - s;
                 if (e > (int32_t)worst) worst = (uint32_t)e;
-                bad |= e > (slicer_on() ? 6 : 2) * NPART;  /* (each stem's >> 1 floors: up to 1 off, doubled; through
+                bad |= e > (slicer_on() ? 6 : 2) * NSTEM;  /* (each stem's >> 1 floors: up to 1 off, doubled; through
                                                          * the SLICER its gain's too) */
             }
             sum_n++;
@@ -116,11 +121,11 @@ static uint32_t take(uint32_t nb, uint32_t cores, int tight, uint32_t *sounding,
     waitpid(p, 0, 0);
     *gave = res[0];
     *sums = res[2] && res[1] == res[2];
-    for (k = 0; k < NPART; k++) {
+    for (k = 0; k < NSTEM; k++) {
         uint32_t nd = 0;
         double e = 0;
         if (!(p = fork())) {
-            play(solo, nb, 0x3Fu & ~(1u << k), cores, tight);
+            play(solo, nb, ((1u << NPART) - 1u) & ~(1u << k), cores, tight);   /* (the other seven left out of the mix) */
             _exit(0);
         }
         waitpid(p, 0, 0);
@@ -173,7 +178,7 @@ int main(void)
         int32_t (*d)[NCH] = mmap(0, sz, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
         uint32_t i, nz = 0, e = 0;
         song_from(42, LOAD_FULL);
-        for (i = 0; i < NSTEP; i++) trk[5].step[i].time = ST_REST;
+        for (i = 0; i < NSTEP; i++) trk[5].step[i].time = ST_REST;   /* (T6: stem 6 of the six) */
         for (i = 0; i < NVOICE; i++) trk[5].v[i].active = 0;
         play(d, 2000u, 0, 1, 0);
         for (i = 0; i < CTL * 2000u; i++) { nz += d[i][5] != 0; e += d[i][0] != 0; }

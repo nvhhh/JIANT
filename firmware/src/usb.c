@@ -390,7 +390,8 @@ _Static_assert(UAC_MAXP8 >= (45u + 1u) * 16u && UAC_MAXP10 >= (45u + 1u) * 20u &
 #define AUD_NIF (2 + FELUCCA_UAC)
 #define AUD_LEN (92 + (63 + FMT_LEN) * FELUCCA_UAC)
 #if FELUCCA_UAC
-#define D_AUDIO8(a) D_AC8(a) D_MIDI((a) + 1) D_AS8((a) + 2)   /* (0.7.1) the stems: 8 channels */
+#define D_AUDIO8(a) D_AC8(a) D_MIDI((a) + 1) D_AS8((a) + 2)   /* (0.7.1) the stems: 8 channels = tracks 1..6 (mono), FX return L R
+                                                             * (tracks 7 and 8 are not exported) */
 #define AUD_LEN8 (92 + 63 + FMT_LEN8)
 #define D_AUDIO_DUP(a) D_AC_DUP(a) D_MIDI((a) + 1) D_AS((a) + 2) D_AS_OUT((a) + 3)   /* (0.7.5) in + out */
 #define AUD_LEN_DUP (92 + 63 + FMT_LEN + 22 + 52)
@@ -1448,11 +1449,12 @@ static __attribute__((noinline)) void uac_tap(const int32_t *out, uint32_t n)   
     ua_w = w + n;
 }
 #ifdef UAC_STEMS_SRC
-/* (0.7.1) MENU > USB STEMS: a block as 8 channels (fx.c stem_buf: the six parts mono, stem_fx: the FX return L R),
- * 16 bit each, four words a frame; the ring, the priming and the packets as the stereo stream's (44.1 kHz only).
+/* (0.7.1) MENU > USB STEMS: a block as 8 channels, 16 bit each, four words a frame: the six TRACK STEMS (tracks 1..6,
+ * stem_buf[0..5], each mono) and the FX return (stem_fx, L R). Tracks 7 and 8 are in the mix but are NOT exported
+ * (their stem_buf entries are never sent). The ring, the priming and the packets as the stereo stream's (44.1 kHz only).
  * (0.8.0) STEMS+IN: two more, a fifth word: the host's audio as the mix took it (stem_buf[NPART]: its LEVEL, PAN and
- * MUTE, in its own channel so the host can move it by the latency) and as it came (uin_l / uin_r halved: the
- * reference the host finds its latency against) */
+ * MUTE, in its own channel so the host can move it by the latency; fx.c zeroes stem_buf each block, so it is 0 when the
+ * host's audio is not in the mix) and as it came (uin_l / uin_r halved: the reference the host finds its latency against) */
 static __attribute__((noinline)) void uac_tap8(uint32_t n)
 {
     uint32_t w = ua_w, i, k;
@@ -1468,7 +1470,7 @@ static __attribute__((noinline)) void uac_tap8(uint32_t n)
             f[k] = (uint32_t)(uint16_t)uac_s16(stem_buf[2u * k][i]) | (uint32_t)(uint16_t)uac_s16(stem_buf[2u * k + 1u][i]) << 16;
         f[3] = (uint32_t)(uint16_t)uac_s16(stem_fx[0][i]) | (uint32_t)(uint16_t)uac_s16(stem_fx[1][i]) << 16;
         if (UA_FW == 5u)
-            f[4] = (uint32_t)(uint16_t)uac_s16(stem_buf[6][i]) |
+            f[4] = (uint32_t)(uint16_t)uac_s16(stem_buf[NPART][i]) |
                    (uint32_t)(uint16_t)(uin_on ? (int16_t)((uin_l[i] + uin_r[i]) >> 1) : 0) << 16;
     }
     RING_PUBLISH();

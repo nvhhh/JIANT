@@ -20,8 +20,8 @@
  *          with their routes drawn to their destinations ("T1 CUT+40")
  * Nothing in the audio path: the parts' peaks and the scope the UI already reads. */
 #define ECO_N NTRK
-static const int16_t ECO_PX[ECO_N] = {44, 120, 196, 64, 146, 206}, ECO_PY[ECO_N] = {34, 28, 40, 84, 78, 86};   /* (where they
-                                                         * start, as 0.8.4's HOME) */
+static const int16_t ECO_PX[ECO_N] = {44, 120, 196, 64, 146, 206, 92, 172}, ECO_PY[ECO_N] = {34, 28, 40, 84, 78, 86, 58, 112};   /* (where they
+                                                         * start, as 0.8.4's HOME; 7 and 8 (0.9.19) in the gaps) */
 static struct {
     int32_t en[ECO_N], pen[ECO_N];                      /* each track's level now (0..256, slewed), the frame before */
     int32_t sx[ECO_N], sy[ECO_N], vx[ECO_N], vy[ECO_N];   /* the swim: where it is in the panel and its speed, Q8 px */
@@ -282,8 +282,10 @@ static void eco_draw(int32_t x0, int32_t y0, int words)
     }
     cv_oy = 0;
 }
-static void graph_eco(void) { eco_draw(0, 0, 1); }
-static void eco_backdrop(int32_t x0, int32_t y0, int words) { eco_draw(x0, y0, words); }
+int goobers_on(void);                                   /* (ui_goobers.c, included at the end of this file: ECO's GOOBERS look) */
+static void goobers_draw(int32_t x0, int32_t y0, int words);
+static void graph_eco(void) { if (goobers_on()) goobers_draw(0, 0, 1); else eco_draw(0, 0, 1); }
+static void eco_backdrop(int32_t x0, int32_t y0, int words) { if (goobers_on()) goobers_draw(x0, y0, words); else eco_draw(x0, y0, words); }
 /* BEING: the track's being large, its HOME knobs as organs at the corners */
 static const int16_t ORG_X[4] = {30, 210, 30, 210}, ORG_Y[4] = {28, 28, 116, 116};
 static void organ(uint32_t k, int32_t cx, int32_t cy)
@@ -376,3 +378,6 @@ static void graph_home_lz(void)
     else
         graph_eco();
 }
+
+/* (GOOBERS, ui_goobers.c) ECO's other look, by ui_eco_style: its drawing, state and note hook; the helpers above it are its */
+#include "ui_goobers.c"

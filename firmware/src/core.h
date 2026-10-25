@@ -12,6 +12,7 @@
 #define NVOICE 8                 /* voices per part, and the budget shared by all parts */
 #define NPART 8                  /* synth parts: tracks 1..8 (JIANT 0.6: was 4; 0.9.19: 6 -> 8) */
 #define NTRK NPART               /* tracks (the formats and the protocol count these): every track is a part */
+#define NROUTE_CH 6u             /* (0.9.19) MIDI IN ROUT CH1-6: channels 1..6 play tracks 1..6; 7..16 are ignored (or SEL's): the label, the manual */
 #define NSTEP 64
 #define HALF_FRAMES 128          /* I2S half buffer: 2.9 ms at 44.1 kHz (a key waits 0..1 half, then plays 1 half later) */
 #ifndef FELUCCA_FM4

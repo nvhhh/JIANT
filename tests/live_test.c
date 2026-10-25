@@ -341,21 +341,21 @@ static int pages(void)
 {
     int bad = 0, ok = 1;
     uint32_t k, v0, kx2, kb1, kb3, kd2, ksyn = 0, kdrm = 0;
-    static const uint8_t TG[7] = {0x3F, 1, 2, 4, 8, 16, 32};
+    static const uint8_t TG[9] = {0xFF, 1, 2, 4, 8, 16, 32, 64, 128};   /* (0.9.19: ALL = the eight tracks) */
     lsetup();
     stop_transport();
     for (k = 0; k < NTRK; k++)
         *(drum_track(&trk[k]) ? &kdrm : &ksyn) |= 1u << k;
     nav_put(SEC_GLO, "RIELES");
     frame();
-    ok = lv_tracks() == 0x3Fu;
-    for (k = 1; k < 9u; k++) {
+    ok = lv_tracks() == 0xFFu;
+    for (k = 1; k < 11u; k++) {
         turn(EN_K1, 1);
-        ok &= lv.tgt == k && lv_tracks() == (k < 7u ? TG[k] : k == 7u ? ksyn : kdrm);
+        ok &= lv.tgt == k && lv_tracks() == (k < 9u ? TG[k] : k == 9u ? ksyn : kdrm);
     }
-    for (k = 0; k < 9u; k++) turn(EN_K1, -1);
-    ok &= lv.tgt == 0 && lv_tracks() == 0x3Fu && song.grid == 0;
-    bad += check("RIELES KNOB 1 PISTAS: ALL, then T1 .. T6 one by one, then SYN and DRM; the keys play notes here", ok);
+    for (k = 0; k < 11u; k++) turn(EN_K1, -1);
+    ok &= lv.tgt == 0 && lv_tracks() == 0xFFu && song.grid == 0;
+    bad += check("RIELES KNOB 1 PISTAS: ALL, then T1 .. T8 one by one, then SYN and DRM; the keys play notes here", ok);
     turn(EN_K1, 3);                                     /* T3: RATE x2, CORTE 8, DENS 70 % */
     turn(EN_K2, 2);
     turn(EN_K3, 5);
@@ -406,7 +406,7 @@ static int pages(void)
     fm1_in.notes = 0; keyboard_block(); frame();
     fm1_in.notes |= 1u << key_at(0, 5); keyboard_block(); frame();
     fm1_in.notes = 0; keyboard_block(); frame();
-    ok = lv.latch && lv.lt[5] == 0x3F && lv.want[4].cut == 4 && (lv.want[4].fl & LF_HERE);
+    ok = lv.latch && lv.lt[5] == 0xFF && lv.want[4].cut == 4 && (lv.want[4].fl & LF_HERE);
     fm1_in.notes |= 1u << key_at(0, 5); keyboard_block(); frame();
     fm1_in.notes = 0; keyboard_block(); frame();
     ok &= !lv.lt[5] && lv_neutral(&lv.want[4]);

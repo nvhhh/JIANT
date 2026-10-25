@@ -888,8 +888,8 @@ static int proj_pack_nt(project_store_t *out, const project_t *q, uint32_t nt, u
     if (!chain_valid(&q->chain) || !motion_valid(&q->motion) || P_COUNT > 127u || !dx_kit_ok(q->dx)) return 0;
     if (proj_packed_size(q) > PROJC_PFX_OFF) { proj_full = 1; return 0; }
     memset(out, 0, sizeof *out); memcpy(b, &magic, 4); memcpy(b + 4, &size, 4);
-    memcpy(b + 8, q->g, G_NSTORE * 2u); b[62] = q->sel; b[63] = q->parts; b[64] = q->phys; b[66] = P_COUNT;
-    b[67] = (uint8_t)nt;
+    memcpy(b + 8, q->g, G_NSTORE * 2u); b[62] = q->sel; b[63] = magic == PROJ_MAGIC ? (uint8_t)nt : q->parts; b[64] = q->phys; b[66] = P_COUNT;
+    b[67] = (uint8_t)nt;     /* (a FUNC: parts = its six, as firmware before 0.9.19 wrote) */
     for (t = 0; t < nt; t++) {
         uint32_t e = q->t[t].engine, map, fm = (uint32_t)proj_fm_kept(q, t);
         b[pos++] = (uint8_t)e; b[pos++] = q->t[t].preset; b[pos++] = (uint8_t)fm;

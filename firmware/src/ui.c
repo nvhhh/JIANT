@@ -91,7 +91,7 @@ static void list_put(uint32_t v)
 #define PREF_ACCEL_OFF 4u                      /* MENU > KNOB ACCEL OFF (#52; JIANT: ON by default, the bit now means OFF):
                                                 * fast turns of wide values x2..x16 */
 #define PREF_USB_FIXED 8u                      /* MENU > USB LEVEL FIXED: USB audio at the full level, MASTER after */
-#define usb_out (favorites.factory[15][21])   /* (0.7.1) MENU > USB STEMS: 1, USB audio as 8 channels (fx.c fx_stems, usb.c
+#define usb_out (favorites.factory[15][21])   /* (0.7.1) MENU > USB STEMS: 1, USB audio as 8 channels (tracks 1..6 + FX return; fx.c fx_stems, usb.c
                                                  * usb_stems); (0.7.5) 2 IN+OUT, the host's audio output too (usb.c
                                                  * usb_duplex); (0.8.0) 3 STEMS+IN, both; 0 stereo (every older setting) */
 #define usb_lvl (favorites.factory[15][22])   /* (0.7.0) MENU > USB LEVEL past FIXED: 0 FULL, 1..4 = -6 -12 -18 -24 dB
@@ -194,6 +194,10 @@ static void rp_put(uint32_t f, uint32_t v)
  * the SCOPE card, the chips); 0 OFF (the default: new settings and older ones, which never held it), the creature on the
  * whole panel, centred, the page's and the sound's names in its corners. A byte no engine uses (engine 15) */
 #define ui_scope (favorites.factory[15][19])
+/* MENU > SCREEN 2 > ECO STYLE (menu_items.c MI_ECO; the HOME ECO view): 0 OG, the beings (the default: new settings and older
+ * ones, which never held it); 1 GOOBERS, mushroom goobers in a forest, one per track. A byte no engine uses (engine 15, byte
+ * 14: 0..3 are the hints, 15 and 16 the CPU TEST); unknown = OG (settings_persist.c) */
+#define ui_eco_style (favorites.factory[15][14])
 static void draw_rules(uint32_t y, uint32_t h);       /* (ui_draw.c) */
 
 static uint8_t sync_reload;                  /* engine / preset / project / user preset loaded: editor RELOAD push */
