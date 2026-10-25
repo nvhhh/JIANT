@@ -55,6 +55,9 @@ PALETTES = [
     # white). The default since JIANT 0.1 (src/panel.c); 0.5: violet selection (was cyan), the heat everywhere
     ("JIANT",  (0, 0, 0),       (10, 9, 14),     (244, 241, 234), (184, 112, 255), (255, 122, 0)),   # (0.6.60: SURF black, no boxes;
     # 0.8.9, the skins' mock-up: the 0.6 colours, a near-black panel and near-black cards: RAISE_OF below)
+    # GARDEN (docs/GUI-REVAMP-GARDEN.md): off-white beige ground, pastel blue lines and fills, deep blue for values,
+    # pastel orange for the one active thing; the dark brown is the text
+    ("GARDEN", (243, 236, 223), (230, 218, 196), (43, 30, 22), (30, 70, 130), (150, 62, 20)),
 ]
 # (0.8.9) MENU > DISPLAY > SKIN (the approved mock-up opciones_skin.html, "0.6 COLORS"): each knob its colour, as the 0.6
 # firmware had them, on its card's value and gauge (and the EDIT chips, the knob row of BOTTOM and HUD): KNOB 1..4. The
@@ -71,6 +74,7 @@ KNOBS = {
     "NIGHT":  [(56, 220, 100), (200, 255, 120), (120, 240, 210), (150, 230, 170)],
     "MONO":   [(255, 255, 255)] * 4,
     "JIANT":  [(138, 108, 255), (255, 210, 60), (88, 116, 255), (255, 75, 75)],
+    "GARDEN": [(30, 70, 130), (150, 62, 20), (100, 50, 20), (40, 88, 140)],
 }
 # RAISE = mix(SURF, TEXT, RAISE_PCT); JIANT (0.8.9): the mock-up's near-black card (#131218) on its panel, 4 %
 RAISE_OF = {"JIANT": 4}
