@@ -363,7 +363,7 @@ static void midi_control(uint32_t ch, uint32_t cc, uint32_t value)
 static void __attribute__((noinline)) midi_route_ch14(void)
 {
     uint32_t ch, note;
-    for (ch = NPART; ch < 16u; ch++) {
+    for (ch = NROUTE_CH; ch < 16u; ch++) {
         midi_channel_t *c = midi_channel(ch);
         for (note = 0; note < 128u; note++)
             if (mn_get(ch, note))
@@ -395,7 +395,7 @@ static void __attribute__((noinline)) midi_event(uint32_t st, uint32_t ch, uint3
         midi_song_req = (uint8_t)(d1 + 1u);
         return;
     }
-    if (ch >= NPART && !song.g[G_ROUTE])
+    if (ch >= NROUTE_CH && !song.g[G_ROUTE])
         return;
     if (st == 0x90u || st == 0x80u)
         midi_note_event(ch, d1, st == 0x90u ? d2 : 0);

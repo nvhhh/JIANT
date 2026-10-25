@@ -903,7 +903,7 @@ int main(void)
         f.motion.count = 2; f.motion.on = 0x30;
         memcpy(f.name, "SIX", 3);
         f.sum = proj_sum(&f);
-        ok = proj_pack(&fs, &f) && ((uint32_t *)fs.raw)[0] == PROJ_MAGIC && fs.raw[67] == NTRK && proj_import(&g, &fs, sizeof fs);
+        ok = proj_pack(&fs, &f) && ((uint32_t *)fs.raw)[0] == PROJ_MAGIC_8 && fs.raw[67] == NTRK && proj_import(&g, &fs, sizeof fs);
         ok &= !memcmp(g.t, f.t, sizeof f.t) && !memcmp(g.fm6, f.fm6, sizeof f.fm6) && !memcmp(&g.motion, &f.motion, sizeof f.motion) &&
               !memcmp(g.name, "SIX", 3) && !memcmp(g.g, f.g, sizeof f.g) && !memcmp(g.dx, f.dx, sizeof f.dx);
         ok &= MOTION_TRK(&g.motion.event[0]) == 5u && MOTION_STEP(&g.motion.event[0]) == 9u && MOTION_VAL(&g.motion.event[0]) == 33 &&
@@ -916,7 +916,7 @@ int main(void)
             static project_t l1, l2;
             static project_store_t ls;
             static const char *const LY[NTRK] = {"la noche es azul", "", "", "you are my sunshine - oh",
-                                                 "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJK", "sakura"};
+                                                 "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJK", "sakura", "", ""};   /* (0.9.19: T7, T8 none) */
             uint32_t hv, nl = 0;
             int oky = 1;
             ok = proj_import(&l2, &fs, sizeof fs);          /* the FUNC above: written without lyrics */

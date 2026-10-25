@@ -32,7 +32,7 @@ static void tracks_edit(uint32_t slot, int32_t steps);
 static const char LV_WK[16][3] = {"/2", "x2", "TR", "DT", "L8", "L4", "L2", "L1", "RV", "PP", "R2", "R3", "TH", "O+", "O-",
                                   "RT"};
 static const char *const LV_RNAME[LV_NRATE] = {"/4", "/3", "/2", "2/3", "x1", "3/2", "x2", "x3", "x4"};
-static const char LV_TG[9][4] = {"ALL", "T1", "T2", "T3", "T4", "T5", "T6", "SYN", "DRM"};   /* RIELES' PISTAS */
+static const char LV_TG[NTRK + 3][4] = {"ALL", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "SYN", "DRM"};   /* RIELES' PISTAS (0.9.19: eight tracks) */
 static const char LV_BK[11] = {'1', '2', '3', '4', '5', '6', 'L', 'A', '<', '>', '?'};
 static const int8_t LV_KRATE[4] = {-2, 2, 1, -1};       /* F3 .. B3: /2 x2 3/2 2/3 */
 
@@ -52,7 +52,7 @@ static uint32_t lv_tracks(void)
     if (lv.tgt - 1u < NTRK)
         return 1u << (lv.tgt - 1u);
     for (i = 0; i < NTRK && lv.tgt; i++)
-        m |= (uint32_t)(drum_track(&trk[i]) == (lv.tgt == 8u)) << i;
+        m |= (uint32_t)(drum_track(&trk[i]) == (lv.tgt == NTRK + 2u)) << i;   /* (DRM last) */
     return lv.tgt ? m : LV_ALL;
 }
 static void lv_req(uint32_t m, uint32_t kind)           /* a request to the ISR for tracks m (seq_live.c live_q) */
@@ -287,7 +287,7 @@ static __attribute__((noinline)) void live_knob(uint32_t slot, int32_t steps)
         return;
     }
     if (!mano && !slot--) {                             /* PISTAS: ALL, T1 .. T6, SYN, DRM */
-        lv.tgt = (uint8_t)clamp((int32_t)lv.tgt + d, 0, 8);
+        lv.tgt = (uint8_t)clamp((int32_t)lv.tgt + d, 0, NTRK + 2);
         return;
     }
     v = slot == 0u ? clamp(lv.rate[f] + d, -4, 4) : slot == 1u ? clamp((int32_t)lv.cut[f] + d, 0, LV_NCUT - 1) :
@@ -318,7 +318,7 @@ static __attribute__((noinline)) void live_cards(void)
     char val[8];
     const char *u = "";
     if (!mano)
-        lv_card(c++, "PISTAS", LV_TG[lv.tgt % 9u], "", 1, (int32_t)lv.tgt * 125);
+        lv_card(c++, "PISTAS", LV_TG[lv.tgt % (NTRK + 3u)], "", 1, (int32_t)lv.tgt * 1000 / (NTRK + 2));
     lv_card(c, "RATE", LV_RNAME[r + LV_X1], "", r, ratio_of(-4, 4, r));
     fmt_int(val, LV_CUT[ci]);
     c++;

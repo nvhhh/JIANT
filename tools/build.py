@@ -371,7 +371,8 @@ def check(img, syms, dis, rt):
     ramcode = sym("_hot_end") - sym("_rt_start")
     notes.append(f"RAM code {ramcode} B of {RAMTEXT_END - sym('_rt_start')}; {len(targets)} calls into the image, the farthest "
                  f"{far[1]} with {reach} B of reach to spare (the image's end: {sym('_rt_start') + 0x400000 - sym('_etext')} B)")
-    if not targets and "call" in dis:
+    # (FELUCCA_HOTRAM=0: .hot_text is empty and the second core's loop calls nothing, so no call is expected)
+    if not targets and "call" in dis and sym("_hot_end") > sym("_hot_start"):
         errors.append("no call from RAM code found in the disassembly: the reach check cannot read it")
     if reach < 12288:                              # (12 KiB to spare beyond the farthest callee)
         errors.append(f"RAM code's farthest call ({far[1]}) has only {reach} B of reach to spare (< 12 KiB): "

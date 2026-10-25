@@ -2647,7 +2647,7 @@ static int test_menu_tabs(void)
     turn(EN_SELECT, 1); frame();
     ok &= lz_crumb_is("MENU \xB7 SYSTEM") && lz_count_is("9/9");
     menu_close();
-    bad += check("0.9.18 MENU: five tabs (the page's lit), MENU . TAB . page (MENU . page when named as its tab) and n/9; ALGORITHM the tab, KNOB n the value", ok && MI_COUNT == 29u);
+    bad += check("0.9.18 MENU: five tabs (the page's lit), MENU . TAB . page (MENU . page when named as its tab) and n/9; ALGORITHM the tab, KNOB n the value", ok && MI_COUNT == 30u);   /* (ECO STYLE: one more row) */
     return bad;
 }
 
@@ -7741,7 +7741,7 @@ static int test_clear_ghosts(void)
     int bad = 0;
     uint32_t k, i, on[NTRK];
     ui_power_on();
-    trk_live = NTRK; ui_rec_prefs |= 0x80u;
+    trk_live = 6u; ui_rec_prefs |= 0x80u;
     for (k = 0; k < NTRK; k++) my_steps(&trk[k]);
     memset(pfx_lane, 0, sizeof pfx_lane);
     pfx_ltgt = 0; pfx_tgt = 0; perf_latched = 0; scene_pfx = 0;
@@ -9153,7 +9153,7 @@ static int test_click_menu(void)
     hold(B_HOME);
     ui.menu_sel = MI_LOWCUT; ui.force = 1; ui_draw();   /* AUDIO: SPEAKER EQ, TRACKS, LOAD, CPU CORES */
     turn(EN_K2, -1); frame(); ok = trk_live == 4u && !(ui_rec_prefs & 0x80u);   /* (0.6.18) TRACKS 4 */
-    turn(EN_K2, 1); frame(); ok &= trk_live == NTRK && (ui_rec_prefs & 0x80u);  /* 6 */
+    turn(EN_K2, 1); frame(); ok &= trk_live == 6u && (ui_rec_prefs & 0x80u);  /* 6 */
     turn(EN_SELECT, 1);                                /* CLICK: CLICK, LEVEL, COUNT-IN, BPM LOCK */
     ok &= ui.menu_sel == MI_CLICK && menu_tab() == MTAB_AUDIO;
     turn(EN_K1, 1); ok &= click_mode == CLICK_REC;
@@ -9180,7 +9180,7 @@ static int test_click_menu(void)
         trk_note_on(&trk[4], 60, 100);
         events_block(CTL);
         for (k = 0; k < NVOICE; k++) on |= trk[4].v[k].gate;
-        ok &= trk_live == NTRK && on;
+        ok &= trk_live == 6u && on;
         trk_all_off(&trk[4]);
         events_block(CTL);
         song.sel = (uint8_t)sel; ui.msg_t = 0; ui.msg[0] = ui.msg2[0] = 0; frame();
@@ -9198,7 +9198,7 @@ static int test_click_menu(void)
         turn(EN_K1, -1); frame();
         ok = trk_live == 4u && !(ui_rec_prefs & 0x80u) && trks_ui == 0;
         turn(EN_K1, 1); frame();
-        ok &= trk_live == NTRK && (ui_rec_prefs & 0x80u) && trks_ui == 1 && msg_is("6 TRACKS: MORE CPU");
+        ok &= trk_live == 6u && (ui_rec_prefs & 0x80u) && trks_ui == 1 && msg_is("6 TRACKS: MORE CPU");
         ui_rec_prefs &= (uint8_t)~0x80u; frame();
         ok &= trks_ui == 0;                             /* (MENU's change shown there) */
         ui_rec_prefs |= 0x80u; frame();
@@ -9206,7 +9206,7 @@ static int test_click_menu(void)
         turn(EN_K2, -1); frame();
         ok &= load_ui == 1 && sys_load == LOAD_LITE && ui_load == 1u && msg_is("LOAD LITE: LIGHTER FX");
         turn(EN_K2, -1); frame();
-        ok &= load_ui == 0 && sys_load == LOAD_ECO && ui_load == 2u && trk_live == NTRK;   /* (TRACKS its own) */
+        ok &= load_ui == 0 && sys_load == LOAD_ECO && ui_load == 2u && trk_live == 6u;   /* (TRACKS its own) */
         load_put(2u); frame();
         ok &= load_ui == 2 && sys_load == LOAD_FULL && !ui_load;
         ui.msg_t = 0; ui.msg[0] = 0; press(B_HOME); frame();
@@ -10490,6 +10490,36 @@ static int test_scope(void)
         settings_fresh();
         ok &= ui_scope == 1u;                                     /* (settings_fresh leaves it: a new FM-1's byte is 0, OFF) */
         bad += check("SCOPE saved with the settings and read back; older settings, unknown values: OFF (idempotent)", ok);
+    }
+    {   /* (MENU > SCREEN 2 > ECO STYLE, ui.c ui_eco_style, favorites.factory[15][14]): OG by default (new settings and older
+         * ones), GOOBERS as the other value; saved with the settings; unknown values read as OG */
+        persist_t p, q;
+        ui_power_on(); frame();
+        ok = ui_eco_style == 0u && MI_ECO == MI_SCOPE + 1u && str_eq(MI_NAME[MI_ECO], "ECO STYLE") && mi_tab(MI_ECO) == MTAB_SCREEN &&
+             menu_n(MI_ECO) == 2u && str_eq(menu_vname(MI_ECO, 0), "OG") && str_eq(menu_vname(MI_ECO, 1), "GOOBERS") &&
+             menu_get(MI_ECO) == 0u && mi_tab(MI_SCOPE) == MTAB_SCREEN;
+        hold(B_HOME); ui.menu_sel = MI_ECO;
+        turn(EN_K4, 1); ok &= ui_eco_style == 1u && menu_get(MI_ECO) == 1u;
+        turn(EN_K4, 1); ok &= ui_eco_style == 1u;                 /* (stops at the end) */
+        press(B_OCTDN); ok &= ui_eco_style == 0u;
+        turn(EN_K4, 1); press(B_HOME); ok &= !ui.menu && ui_eco_style == 1u;
+        bad += check("ECO STYLE: a row of SCREEN 2 (KNOB 4), OG GOOBERS, OG by default; KNOB 4 / OCT- switch it", ok);
+        ui_eco_style = 1u;
+        settings_export(&p);
+        ok = p.favorites.factory[15][14] == 1u;
+        ui_eco_style = 0u;
+        ok &= settings_import(&p, (int)sizeof p) == 1 && ui_eco_style == 1u;
+        p.favorites.factory[15][14] = 0;
+        ok &= settings_import(&p, (int)sizeof p) == 1 && ui_eco_style == 0u;
+        p.favorites.factory[15][14] = 7;                          /* unknown: OG */
+        ok &= settings_import(&p, (int)sizeof p) == 1 && ui_eco_style == 0u && !p.favorites.factory[15][14];
+        q = p;
+        ok &= settings_import(&q, (int)sizeof q) == 1 && !memcmp(&p, &q, sizeof p);
+        memset(&p.favorites, 0, sizeof p.favorites);             /* older settings: byte 14 is 0 */
+        p.magic = 0x50455233u;
+        ui_eco_style = 1u;
+        ok &= settings_import(&p, (int)(sizeof p - sizeof p.favorites)) == 2 && ui_eco_style == 0u;
+        bad += check("ECO STYLE saved with the settings and read back; older settings and unknown values: OG", ok);
     }
     for (sk = 0; sk < SKIN_N; sk++)                               /* the EDIT pages of every engine with a creature */
         for (e = 0; e < NENGINES; e++) {
@@ -11981,7 +12011,7 @@ static void tk_start(uint32_t from)                     /* 0 home, 1 seq, 2 fxdl
 {
     uint32_t i;
     ui_power_on();
-    trk_live = NTRK;
+    trk_live = 6u;
     for (i = 0; i < NSTEP; i++) {                       /* (the mock-up's pattern: notes on 1 5 8 11 13 of each bar) */
         step_clear(&trk[0].step[i]);
         if (i % 16u == 0u || i % 16u == 4u || i % 16u == 7u || i % 16u == 10u || i % 16u == 12u) {
@@ -12074,7 +12104,7 @@ static int test_nav_tasks(void)
             break;
         default:                                        /* GLO: six tracks (SYSTEM > TRACKS) */
             tk_start(0); trks_put(0); frame(); tk_btn(B_GLO); tk_btn(B_GLO); tk_btn(B_GLO); tk_val(EN_K1, 1); frame();
-            ok = str_eq(cur_page()->title, "SYSTEM") && trk_live == NTRK;
+            ok = str_eq(cur_page()->title, "SYSTEM") && trk_live == 6u;
             break;
         }
         got[t] = tk_n;
@@ -12188,8 +12218,9 @@ static void ui_power_on_099(void)
  * each part sounds a note with no effects, none clipping */
 static int test_power_on_099(void)
 {
-    static const char *const ENG[NPART] = {"DRUM", "VOICE", "ANIMAL", "LOFI", "ANALOG", "FM6"};
-    static const char *const PRE[NPART] = {"DRUM-X", "SINGER EN", "CMOS BIRD", "BYTEBEAT", "FAT BASS", "TINE EP"};
+    static const char *const ENG[NPART] = {"DRUM", "VOICE", "ANIMAL", "LOFI", "ANALOG", "FM6", "ANALOG", "ANALOG"};
+    static const char *const PRE[NPART] = {"DRUM-X", "SINGER EN", "CMOS BIRD", "BYTEBEAT", "FAT BASS", "TINE EP",
+                                           "SAW LEAD", "SAW LEAD"};   /* (0.9.19) T7, T8: ANALOG preset 0 */
     int bad = 0, ok = 1;
     uint32_t i, k, b, drums = 0, live;
     int16_t p0[NTRK][P_COUNT];
@@ -12208,7 +12239,7 @@ static int test_power_on_099(void)
     bad += check("0.9.9 power-on: T1 DRUM-X, T2 VOICE SINGER EN, T3 ANIMAL CMOS BIRD, T4 LOFI BYTEBEAT, T5 ANALOG FAT BASS, T6 FM6 TINE EP", ok);
     ok = drums == 1u && drum_track(&trk[0]) && drum_elsewhere(&trk[1]) == 1u && !drum_elsewhere(&trk[0]) && perc_kit(&trk[0]);
     ok &= trk[1].p[P_VLANG] == LG_EN && trk[1].p[P_VLYR] != 0;     /* (VOICE sings English words, its LYRIC's) */
-    for (i = 0; i < NPART; i++)
+    for (i = 0; i < 6; i++)
         ok &= TRK_DEF[i][0] == eng_vis(i);                     /* (the display order's first six) */
     bad += check("  .. DRUM on T1 alone (its factory kit); VOICE sings words (EN); T1..T6 the display order's first six", ok);
     for (i = 0; i < NTRK; i++) memcpy(p0[i], trk[i].p, sizeof p0[i]);

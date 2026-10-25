@@ -6,7 +6,7 @@
  * palette: UI_PAL_TAG + index; an old id (below 20, earlier firmware) is migrated on import.
  * bold: no longer used (one font weight); kept as it was saved, unless it holds the HOLD setting (panel.c).
  * zoom: no longer used (the large readout); kept as it was saved, unless it holds the LEDS setting (panel.c).
- * favorites.factory[15][23]: JIANT_PAL_SEEN (JIANT 0.6.81). [15][20]: SKIN (JIANT 0.8.9; 0 = COLORS; 0.9.7: 3 AIR, new settings'; 0.9.17: 1, the retired BOTTOM, = AIR). [15][19]: SCOPE (0.9.7; 0 = OFF). favorites.factory[15][28..31]: CLICK / CLICK LEVEL / COUNT-IN (1.1), STYLE, MENU's flags, [31] the layers seen (0.9.5: unused, kept as saved) (bytes no
+ * favorites.factory[15][23]: JIANT_PAL_SEEN (JIANT 0.6.81). [15][14]: ECO STYLE (0 = OG, 1 = GOOBERS; 0 in older settings).[15][20]: SKIN (JIANT 0.8.9; 0 = COLORS; 0.9.7: 3 AIR, new settings'; 0.9.17: 1, the retired BOTTOM, = AIR). [15][19]: SCOPE (0.9.7; 0 = OFF). favorites.factory[15][28..31]: CLICK / CLICK LEVEL / COUNT-IN (1.1), STYLE, MENU's flags, [31] the layers seen (0.9.5: unused, kept as saved) (bytes no
  * engine uses; 0 in older settings = every one's default); [15][27]: SCREEN OFF (1.1.5; 0 = 30 MIN, the default).
  * [15][0..12] (0.9.5): how many times each teaching hint has been given (ui.c hint_given; 0 in older settings = not yet).
  * MENU's flags (ui.c PREF_*) are append-only bits whose 0 is the default: BPM LOCK (16) is clear in every older setting
@@ -44,6 +44,8 @@ static int settings_import(persist_t *p, int n)
     if (p->favorites.factory[15][19] > 3u)         /* SCOPE (0.9.7, ui.c ui_scope; 0.9.18: 2 BUBBLES, 3 ORBIT): unknown = OFF (0,
                                                      * older settings too: 0 and 1 keep their meaning) */
         p->favorites.factory[15][19] = 0;
+    if (p->favorites.factory[15][14] > 1u)         /* ECO STYLE (ui.c ui_eco_style): 0 OG, 1 GOOBERS; unknown = OG */
+        p->favorites.factory[15][14] = 0;
     if (p->favorites.factory[15][29] > 1u)        /* STYLE (ui.c ui_style): 2, the retired PIXEL = LINE; unknown = FLAT */
         p->favorites.factory[15][29] = p->favorites.factory[15][29] == 2u ? 1u : 0u;
     {   /* CLICK, CLICK LEVEL, COUNT-IN (ui.c ui_rec_prefs): two bits each, 3 is no value: the default (0) */
@@ -64,6 +66,8 @@ static int settings_import(persist_t *p, int n)
     if (p->favorites.factory[15][17] > 127u)       /* (0.9.12) MENU > SYSTEM > CPU, CPU CLOCK (cpu_safe.c cpu_cfg): unknown =
                                                      * 2 CORES, 360 MHZ (0, older settings too) */
         p->favorites.factory[15][17] = 0;
+    if (p->favorites.factory[15][31] != 0x5Au)     /* TRACKS 8 (0.9.19, ui.c trk8_pref, TRK8_ON): any other = 0 (4 or 6 as PREF_SIX says) */
+        p->favorites.factory[15][31] = 0;
     if (p->favorites.factory[15][27] > 7u)         /* SCREEN OFF (1.1.5, ui.c SCR_CODE): unknown = 0 (NEVER since 1.1.5.1) */
         p->favorites.factory[15][27] = 0;
     if (p->favorites.factory[15][18] >= 10u)       /* PRESETS' LIST type (JIANT 0.9.12, ui.c list_type; core.h PT_N): unknown

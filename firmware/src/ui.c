@@ -91,7 +91,7 @@ static void list_put(uint32_t v)
 #define PREF_ACCEL_OFF 4u                      /* MENU > KNOB ACCEL OFF (#52; JIANT: ON by default, the bit now means OFF):
                                                 * fast turns of wide values x2..x16 */
 #define PREF_USB_FIXED 8u                      /* MENU > USB LEVEL FIXED: USB audio at the full level, MASTER after */
-#define usb_out (favorites.factory[15][21])   /* (0.7.1) MENU > USB STEMS: 1, USB audio as 8 channels (fx.c fx_stems, usb.c
+#define usb_out (favorites.factory[15][21])   /* (0.7.1) MENU > USB STEMS: 1, USB audio as 10 channels (tracks 1..8 + FX return; fx.c fx_stems, usb.c
                                                  * usb_stems); (0.7.5) 2 IN+OUT, the host's audio output too (usb.c
                                                  * usb_duplex); (0.8.0) 3 STEMS+IN, both; 0 stereo (every older setting) */
 #define usb_lvl (favorites.factory[15][22])   /* (0.7.0) MENU > USB LEVEL past FIXED: 0 FULL, 1..4 = -6 -12 -18 -24 dB
@@ -133,6 +133,9 @@ static void prefs_update(void)
                                                 * as ever), 1 CLOCK, 2 ALL, 3 OFF; a byte no engine uses */
 #define PREF_SIX (0x80u << 8)                  /* (JIANT 0.6.18) MENU > TRACKS 6: all six tracks play; clear (the
                                                 * default): 4, T5 and T6 asleep (voice.c trk_live) */
+#define trk8_pref (favorites.factory[15][31])  /* (0.9.19) MENU > TRACKS 8: TRK8_ON = all eight tracks play (PREF_SIX is set
+                                                * too); anything else (0 in every older setting) is not */
+#define TRK8_ON 0x5Au
 enum { RP_CLICK, RP_LEVEL, RP_COUNTIN };
 static uint32_t rp_get(uint32_t f)                     /* a field as the MENU steps it: 0..2 */
 {
@@ -140,19 +143,30 @@ static uint32_t rp_get(uint32_t f)                     /* a field as the MENU st
     v = v == 3u ? 0u : v;
     return f == RP_LEVEL ? (v == 0u ? 1u : v == 1u ? 0u : 2u) : v;   /* (LEVEL: LOW MID HIGH, MID stored as 0) */
 }
+/* MENU > TRACKS (0.9.19: 4, 6, 8): the tracks that play, trk_live (voice.c). 4 is the default; 6 and 8 are T1..T6 and
+ * T1..T8, the tracks past 4 asleep otherwise */
+static uint32_t trks_count(void)
+{
+    return trk8_pref == TRK8_ON ? 8u : (ui_rec_prefs & (PREF_SIX >> 8)) ? 6u : 4u;
+}
+static uint32_t trks_pos(void)                         /* the same as 0 four, 1 six, 2 eight */
+{
+    return trks_count() == 8u ? 2u : trks_count() == 6u ? 1u : 0u;
+}
 static void rp_apply(void)                             /* the settings into click.c / seq.c (every frame: ui_input) */
 {
     click_mode = (uint8_t)rp_get(RP_CLICK);
     click_lvl = (uint8_t)rp_get(RP_LEVEL);
     cin_bars = (uint8_t)rp_get(RP_COUNTIN);
-    trk_live = (ui_rec_prefs & (PREF_SIX >> 8)) ? NTRK : 4u;
+    trk_live = trks_count();
     sys_load = (uint8_t)(ui_load <= LOAD_ECO ? ui_load : LOAD_FULL);   /* (0.6.30) LOAD (voice.c) */
-    trks_ui = trk_live == NTRK;                         /* (GLO > SYSTEM's TRACKS and LOAD show them) */
+    trks_ui = (int16_t)trks_pos();                      /* (GLO > SYSTEM's TRACKS and LOAD show them) */
     load_ui = (int16_t)(LOAD_ECO - sys_load);
 }
-static void trks_put(uint32_t v)                       /* TRACKS: 0 four, 1 six */
+static void trks_put(uint32_t v)                       /* TRACKS: 0 four, 1 six, 2 eight */
 {
     ui_rec_prefs = (uint8_t)(v ? ui_rec_prefs | PREF_SIX >> 8 : ui_rec_prefs & ~(PREF_SIX >> 8));
+    trk8_pref = v == 2u ? TRK8_ON : 0u;
     rp_apply();
 }
 /* (0.6.30) LOAD as MENU and GLO > SYSTEM step it, the lightest first: 0 ECO, 1 LITE, 2 FULL */
@@ -180,6 +194,10 @@ static void rp_put(uint32_t f, uint32_t v)
  * the SCOPE card, the chips); 0 OFF (the default: new settings and older ones, which never held it), the creature on the
  * whole panel, centred, the page's and the sound's names in its corners. A byte no engine uses (engine 15) */
 #define ui_scope (favorites.factory[15][19])
+/* MENU > SCREEN 2 > ECO STYLE (menu_items.c MI_ECO; the HOME ECO view): 0 OG, the beings (the default: new settings and older
+ * ones, which never held it); 1 GOOBERS, mushroom goobers in a forest, one per track. A byte no engine uses (engine 15, byte
+ * 14: 0..3 are the hints, 15 and 16 the CPU TEST); unknown = OG (settings_persist.c) */
+#define ui_eco_style (favorites.factory[15][14])
 static void draw_rules(uint32_t y, uint32_t h);       /* (ui_draw.c) */
 
 static uint8_t sync_reload;                  /* engine / preset / project / user preset loaded: editor RELOAD push */

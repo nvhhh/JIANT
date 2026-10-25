@@ -19,6 +19,7 @@
  *    before 0.9.1 reads: the rest of the project as it is) the sixteenth below.
  * 7. SEQ > NOTE's KNOB 4 a 64th a detent, -32 .. +31, "+5/64" (the editor's STEP_SET keeping a step's MICRO: editor_test.c). */
 #define UI_TEST_NO_MAIN 1
+#define PROJ_FUNC_WRITER 1                      /* (0.9.19) the FUNC of six tracks, as 0.9.0 wrote it (proj_pack_func) */
 #include "ui_test.c"
 
 static int bad;
@@ -83,7 +84,7 @@ static uint32_t old_pack(project_store_t *st, project_t *q)
 {
     old_steps();
     project_capture(q);
-    if (!proj_pack(st, q))
+    if (!proj_pack_func(st, q))                     /* (0.9.19: saves are FUND, eight tracks; the bytes of before are FUNC) */
         return 0;
     return mfnv(2166136261u, st->raw, sizeof st->raw);
 }

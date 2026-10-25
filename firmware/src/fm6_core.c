@@ -306,12 +306,13 @@ static const uint8_t FM6_ALG[32][6] = {      /* per operator (the sixth first): 
 
 /* bit k: operator k (the sixth first) is a carrier of algorithm a (0..31): it writes the output bus (msfa's
  * isCarrier also counts the modulators that add into bus 1 or 2) */
+/* fm6_carriers(a) for each algorithm, precomputed from FM6_ALG (bit k set: operator k's output bus is 0); read
+ * twice a block per note, so a lookup rather than a loop over six operators */
+static const uint8_t FM6_CARRIERS[32] = {40, 40, 36, 36, 42, 42, 40, 40, 40, 36, 36, 40, 40, 40, 40, 32,
+                                         32, 32, 38, 52, 54, 46, 54, 62, 62, 52, 52, 41, 58, 57, 62, 63};
 static uint32_t fm6_carriers(uint32_t a)
 {
-    uint32_t k, c = 0;
-    for (k = 0; k < 6u; k++)
-        c |= ((FM6_ALG[a & 31u][k] & 3u) ? 0u : 1u) << k;
-    return c;
+    return FM6_CARRIERS[a & 31u];
 }
 
 /* ------------------------------------------------------- the operators --- */

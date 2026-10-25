@@ -1764,10 +1764,11 @@ static void events_block(uint32_t n);                    /* seq.c */
 static int32_t send_c[CTL], send_d[CTL], send_r[CTL];   /* (mix_l mix_r wet: above, clip_block) */
 /* (JIANT 0.6.71) what the second core's parts add, summed into the above after it is done (mix_block) */
 static struct { int32_t l[CTL], r[CTL], c[CTL], d[CTL], rv[CTL], sl[CTL], sr[CTL]; } c1_mix;
-/* (0.7.1) MENU > USB STEMS: USB audio as 8 channels, each part mono (its LEVEL, DIST and MUTE in, its PAN not: what it
- * adds to the dry mix, L + R halved) and the FX return in stereo (the DELAY, REVERB and CHORUS buses, the SLICER's
- * when it is on), all before the master (no leveler, limiter, clip or MASTER knob: the mix's own scale). The parts
- * write stem_buf as they are mixed (one core or the other: a part is one core's), the return after the buses
+/* (0.7.1) MENU > USB STEMS: USB audio as 10 channels (stems-10; was 8, six tracks): the EIGHT TRACK STEMS (tracks 1..8,
+ * each mono: its LEVEL, DIST and MUTE in, its PAN not: what it adds to the dry mix, L + R halved) and the FX return in
+ * stereo (the DELAY, REVERB and CHORUS buses, the SLICER's when it is on), all before the master (no leveler, limiter,
+ * clip or MASTER knob: the mix's own scale). Every track is exported in STEMS and STEMS+IN (fx_stems 2); STEMS+IN has the host's audio in place of the FX return.
+ * The parts write stem_buf as they are mixed (one core or the other: a part is one core's), the return after the buses
  * (usb.c uac_tap8). mix_skip: parts left out of the mix, a bit each (the browser build renders a part alone) */
 /* (0.8.0) STEMS+IN (fx_stems 2): stem_buf[NPART] is the host's audio as the last live track mixed it, apart from the
  * track's own stem (the host moves it by the latency; usb.c uac_tap8 sends it with the input as it came) */

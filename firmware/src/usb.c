@@ -102,14 +102,16 @@ _Static_assert(UA_PRIME48 + 2u * UA_REND48 + UA_MAXF < UA_N, "the ring holds the
 #define UAC_MAXP (UA_MAXF * 4u)
 _Static_assert(UA_HI + HALF_FRAMES + UA_MAXF < UA_N, "the ring holds the band, a render and a packet");
 #define UA_W 5u                  /* (0.7.1) words a frame in the ring: 1 stereo (L | R << 16), 4 the stems (8 x 16 bit);
-                                  * (0.8.0) 5 the stems with the host's audio in (10 x 16 bit: STEMS+IN) */
-#define UA_NF10 409u             /* (0.8.0) STEMS+IN: the ring's frames, the 8-channel ring's words / 5 (the pool kept) */
+                                  * (0.8.0) 5 the stems with the host's audio in (10 x 16 bit: STEMS+IN); (stems-10) 5
+                                  * the stems too (10 x 16 bit: STEMS, tracks 1..8 and the FX return; STEMS+IN, tracks 1..8
+                                  * and the host's audio) */
+#define UA_NF10 409u             /* (0.8.0) the 10-channel ring: its frames, the 8-channel ring's words / 5 (the pool kept) */
 _Static_assert(UA_HI + UA_PAD_STEMS + HALF_FRAMES + UA_MAXF < UA_NF10 && UA_NF10 * 5u <= UA_N * 4u, "the 10-channel ring");
 static uint32_t ua_ring[UA_N * 4u] __attribute__((section(".pool")));   /* (8 KiB: in the pool, zeroed at boot) */
 #ifndef UAC_STEMS
 #define UAC_STEMS() 0            /* (a build without fx.c: the host tests of USB alone) */
 #endif
-#define UA_FW (UAC_STEMS() ? 3u + UAC_STEMS() : 1u) /* this mode's words a frame (UAC_STEMS: 1 the 8, 2 the 10) */
+#define UA_FW (UAC_STEMS() ? 5u : 1u) /* this mode's words a frame: 5 for both stem modes (UAC_STEMS: 1 the 10 stems, 2 the 10 + host) */
 #define UA_NF (UA_FW == 5u ? UA_NF10 : UA_N)        /* this mode's frames in the ring */
 /* a frame's slot in the ring: a power of two masked; STEMS+IN's 409 a modulo by a constant (a multiply, no divide;
  * the free-running index wraps every 2^32 frames, 27 hours of streaming: one glitch then) */
@@ -179,7 +181,7 @@ static struct {
 /* (0.8.9) all 160 phases in RAM (the pool, built from the 80 in the flash the first time the ring primes at 48 kHz):
  * one forward loop, no flash reads (the table no longer pushes the render's code out of the cache), and core 1 can
  * run it outside the audio ISR, with the flash off */
-static int32_t rs_tab[UAC_FIR_L][UAC_FIR_N] __attribute__((section(".pool")));   /* (15 KiB) */
+static int32_t rs_tab[UAC_FIR_L / 2u][UAC_FIR_N] __attribute__((section(".pool")));   /* (7.5 KiB: phases 0..79; 159 - p is p backwards) */
 static uint32_t rs_in[HALF_FRAMES] __attribute__((section(".pool")));            /* a half (CORES 2) or a block, 16-bit L | R */
 static struct {
     uint8_t c1;                  /* this stream resamples on core 1, a half at a time (chosen when it primes) */
@@ -336,23 +338,26 @@ static void midi_out_event(uint32_t pkt)            /* from the audio ISR */
     9, 5, 0x84, 0x05, (maxp) & 0xFF, (maxp) >> 8, 1, 0, 0,   /* EP4 IN isochronous async, 1 ms */       \
     7, 0x25, 1, 0x01, 0, 0, 0,                             /* CS endpoint: sampling frequency control */
 #define D_AS(s) D_AS_FMT(s, D_FMT, UAC_MAXP)
-/* (0.7.1) MENU > USB STEMS: 8 channels (the six parts mono, the FX return L R), 44.1 kHz only, 46 frames a packet at
- * most: 736 bytes. (0.9.8) It said 45 (720 bytes) while uac_packet sends 46 whenever it holds the ring's fill (+1 on a
- * 45-frame millisecond): the host took each such packet as babble (the FM-1's clock is fast, so +1 comes often), dropped
- * it and stalled the endpoint, the ring filled and whole blocks were dropped, ~100 times a second: stems full of clicks */
-#define D_FMT8 11, 0x24, 2, 1, 8, 2, 16, 1, 0x44, 0xAC, 0x00,
-#define FMT_LEN8 11
-#define UAC_MAXP8 (46u * 16u)
-#define D_AC8(a) D_AC_CH(a, 8, 0x00)
-#define D_AS8(s) D_AS_FMT(s, D_FMT8, UAC_MAXP8)
-/* (0.8.0) MENU > USB STEMS+IN: 10 channels (the stems, then the host's audio as the mix took it and as it came), 46
- * frames a packet at most: 920 bytes, within a full-speed isochronous packet's 1023 */
+/* (0.7.1) MENU > USB STEMS: 8 channels (the six parts mono, the FX return L R), 736 bytes a packet. (0.9.8) It said 45
+ * (720 bytes) while uac_packet sends 46 whenever it holds the ring's fill (+1 on a 45-frame millisecond): the host took
+ * each such packet as babble, dropped it and stalled the endpoint, the ring filled and whole blocks were dropped.
+ * (stems-10) MENU > USB STEMS: 10 channels, the eight TRACK STEMS mono (tracks 1..8) and the FX return L R, 16 bit,
+ * 44.1 kHz only, 46 frames a packet at most: 920 bytes (was 8 channels, 736). The descriptor fields that changed from
+ * 1.1: the input terminal's and the format's bNrChannels (8 -> 10), wMaxPacketSize of EP4 IN (736 -> 920), and the
+ * device's bcdDevice (+0x08, see DEV_DESC_PLAIN10S) so a host does not reuse what it learnt about the 8-channel one.
+ * The configuration's length, wTotalLength and the AC header are unchanged (the same descriptors, a byte each). */
+#define D_FMT10S 11, 0x24, 2, 1, 10, 2, 16, 1, 0x44, 0xAC, 0x00,
+#define FMT_LEN10S 11
+#define D_AC10S(a) D_AC_CH(a, 10, 0x00)
+#define D_AS10S(s) D_AS_FMT(s, D_FMT10S, UAC_MAXP10)
+/* (0.8.0) MENU > USB STEMS+IN: 10 channels (stems-10: tracks 1..8, then the host's audio as the mix took it and as it
+ * came; the FX return is not in it), 46 frames a packet at most: 920 bytes, within a full-speed isochronous packet's 1023 */
 #define D_FMT10 11, 0x24, 2, 1, 10, 2, 16, 1, 0x44, 0xAC, 0x00,
 #define UAC_MAXP10 (46u * 20u)
 #define D_AS10(s) D_AS_FMT(s, D_FMT10, UAC_MAXP10)
 /* (0.9.8) every packet uac_packet can send fits the endpoint's wMaxPacketSize, in every mode: 44.1 kHz's 45 + 1 frames */
-_Static_assert(UAC_MAXP8 >= (45u + 1u) * 16u && UAC_MAXP10 >= (45u + 1u) * 20u && UAC_MAXP >= UA_MAXF * 4u &&
-               UAC_MAXP8 <= 1023u && UAC_MAXP10 <= 1023u, "the largest packet fits wMaxPacketSize (full speed: 1023)");
+_Static_assert(UAC_MAXP10 >= (45u + 1u) * 20u && UAC_MAXP >= UA_MAXF * 4u && UAC_MAXP10 <= 1023u,
+               "the largest packet fits wMaxPacketSize (full speed: 1023)");
 /* (0.7.5) MENU > USB IN+OUT: the input as D_AC's, plus the host's output: input terminal 3 (USB streaming, L R) ->
  * output terminal 4 (speaker), and its streaming interface (EP4 OUT isochronous adaptive, 44.1 kHz only) */
 #define UIN_MAXP (UI_MAXF * 4u)
@@ -390,8 +395,9 @@ _Static_assert(UAC_MAXP8 >= (45u + 1u) * 16u && UAC_MAXP10 >= (45u + 1u) * 20u &
 #define AUD_NIF (2 + FELUCCA_UAC)
 #define AUD_LEN (92 + (63 + FMT_LEN) * FELUCCA_UAC)
 #if FELUCCA_UAC
-#define D_AUDIO8(a) D_AC8(a) D_MIDI((a) + 1) D_AS8((a) + 2)   /* (0.7.1) the stems: 8 channels */
-#define AUD_LEN8 (92 + 63 + FMT_LEN8)
+#define D_AUDIO10S(a) D_AC10S(a) D_MIDI((a) + 1) D_AS10S((a) + 2)   /* (stems-10) the stems: 10 channels = tracks 1..8 (mono),
+                                                             * FX return L R */
+#define AUD_LEN10S (92 + 63 + FMT_LEN10S)
 #define D_AUDIO_DUP(a) D_AC_DUP(a) D_MIDI((a) + 1) D_AS((a) + 2) D_AS_OUT((a) + 3)   /* (0.7.5) in + out */
 #define AUD_LEN_DUP (92 + 63 + FMT_LEN + 22 + 52)
 #define D_AUDIO_STIN(a) D_AC_DUP_CH(a, 10, 0x00) D_MIDI((a) + 1) D_AS10((a) + 2) D_AS_OUT((a) + 3)   /* (0.8.0) */
@@ -421,13 +427,15 @@ static const uint8_t DEV_DESC_PLAIN[18] = {D_DEV(0x0110, 0, 0, 0, 0)};
 static const uint8_t CFG_DESC_PLAIN[] = {D_CFG(CFG_LEN_PLAIN, AUD_NIF), D_AUDIO(0)};
 typedef char cfg_plain_len_ok[sizeof CFG_DESC_PLAIN == CFG_LEN_PLAIN ? 1 : -1];
 #if FELUCCA_UAC
-/* (0.7.1) MENU > USB STEMS: the plain device with the 8-channel audio function (bcdDevice + 0x40: a host never reuses
- * what it learnt about the stereo one). No console with it (usb_stems_switch turns it off) */
-#define CFG_LEN_PLAIN8 (9 + AUD_LEN8)
-static const uint8_t DEV_DESC_PLAIN8[18] = {D_DEV_LO(0x0110, 0, 0, 0, BCD_LO(0) + 0x40)};
-static const uint8_t CFG_DESC_PLAIN8[] = {D_CFG(CFG_LEN_PLAIN8, AUD_NIF), D_AUDIO8(0)};
-typedef char cfg_plain8_len_ok[sizeof CFG_DESC_PLAIN8 == CFG_LEN_PLAIN8 ? 1 : -1];
-static volatile uint8_t usb_stems;                         /* the device presents the 8 channels (fx.c fx_stems feeds them) */
+/* (0.7.1) MENU > USB STEMS: the plain device with the stems' audio function (bcdDevice + 0x40: a host never reuses
+ * what it learnt about the stereo one). No console with it (usb_stems_switch turns it off). (stems-10) 10 channels:
+ * bcdDevice + 0x48 (0x0368, was 0x0360 for the 8-channel stems): a host that cached the 8-channel descriptors under
+ * 0x0360 gets this one under a new key */
+#define CFG_LEN_PLAIN10S (9 + AUD_LEN10S)
+static const uint8_t DEV_DESC_PLAIN10S[18] = {D_DEV_LO(0x0110, 0, 0, 0, BCD_LO(0) + 0x48)};
+static const uint8_t CFG_DESC_PLAIN10S[] = {D_CFG(CFG_LEN_PLAIN10S, AUD_NIF), D_AUDIO10S(0)};
+typedef char cfg_plain10s_len_ok[sizeof CFG_DESC_PLAIN10S == CFG_LEN_PLAIN10S ? 1 : -1];
+static volatile uint8_t usb_stems;                         /* the device presents the stems (10 channels; fx.c fx_stems feeds them) */
 #define USB_STEMS usb_stems
 /* (0.7.5) MENU > USB IN+OUT: the plain device with the audio output as well (bcdDevice + 0x80), no console */
 #define CFG_LEN_DUP (9 + AUD_LEN_DUP)
@@ -498,7 +506,7 @@ static int get_desc(uint32_t wvalue, const uint8_t **d, uint16_t *l)
     case 1:
 #if FELUCCA_UAC
         if (USB_STEMS && USB_DUPLEX) { *d = DEV_DESC_STIN; *l = 18; return 1; }
-        if (USB_STEMS) { *d = DEV_DESC_PLAIN8; *l = 18; return 1; }
+        if (USB_STEMS) { *d = DEV_DESC_PLAIN10S; *l = 18; return 1; }
         if (USB_DUPLEX) { *d = DEV_DESC_DUP; *l = 18; return 1; }
 #endif
         *d = USB_CDC_ON ? DEV_DESC : DEV_DESC_PLAIN;
@@ -507,7 +515,7 @@ static int get_desc(uint32_t wvalue, const uint8_t **d, uint16_t *l)
     case 2:
 #if FELUCCA_UAC
         if (USB_STEMS && USB_DUPLEX) { *d = CFG_DESC_STIN; *l = (uint16_t)sizeof CFG_DESC_STIN; return 1; }
-        if (USB_STEMS) { *d = CFG_DESC_PLAIN8; *l = (uint16_t)sizeof CFG_DESC_PLAIN8; return 1; }
+        if (USB_STEMS) { *d = CFG_DESC_PLAIN10S; *l = (uint16_t)sizeof CFG_DESC_PLAIN10S; return 1; }
         if (USB_DUPLEX) { *d = CFG_DESC_DUP; *l = (uint16_t)sizeof CFG_DESC_DUP; return 1; }
 #endif
         *d = USB_CDC_ON ? CFG_DESC : CFG_DESC_PLAIN;
@@ -1213,7 +1221,6 @@ static void uac_rs_init(void)                           /* the resampler from si
         int32_t x = UAC_FIR0[0][i], a = UAC_FIR0[1][i], b = UAC_FIR0[2][i];
         for (p = 0; p < UAC_FIR_L / 2u; p++) {
             rs_tab[p][i] = x;
-            rs_tab[UAC_FIR_L - 1u - p][UAC_FIR_N - 1u - i] = x;   /* (phase 159 - p: phase p backwards) */
             x += a;
             a += b;
             if (p < UAC_FIR_L / 2u - 3u)
@@ -1300,19 +1307,14 @@ static UAC_C1_TEXT uint32_t uac_rs_run(const uint32_t *in, uint32_t n, uint32_t 
         s = (h - UAC_FIR_N) & (RS_H - 1u);              /* the window: oldest .. this frame */
         do {
             const int16_t *x = &rs.l[s];                /* R: x[2 * RS_H] */
-            const int32_t *c = rs_tab[ph];
+            const uint32_t rev = ph >= UAC_FIR_L / 2u;  /* phase 159 - p is phase p with its taps backwards */
+            const int32_t *c = rs_tab[rev ? UAC_FIR_L - 1u - ph : ph];
             int64_t al = 0, ar = 0;
             int32_t yl, yr;
-            for (j = UAC_FIR_N / 4u; j; j--, x += 4, c += 4) {
-                int32_t c0 = c[0], c1 = c[1], c2 = c[2], c3 = c[3];
-                al += (int64_t)c0 * x[0];
-                ar += (int64_t)c0 * x[2u * RS_H];
-                al += (int64_t)c1 * x[1];
-                ar += (int64_t)c1 * x[2u * RS_H + 1u];
-                al += (int64_t)c2 * x[2];
-                ar += (int64_t)c2 * x[2u * RS_H + 2u];
-                al += (int64_t)c3 * x[3];
-                ar += (int64_t)c3 * x[2u * RS_H + 3u];
+            for (j = 0; j < UAC_FIR_N; j++) {
+                int32_t cj = rev ? c[UAC_FIR_N - 1u - j] : c[j];
+                al += (int64_t)cj * x[j];
+                ar += (int64_t)cj * x[2u * RS_H + j];
             }
             yl = (int32_t)((al + (1 << (UAC_FIR_Q - 1))) >> UAC_FIR_Q);
             yr = (int32_t)((ar + (1 << (UAC_FIR_Q - 1))) >> UAC_FIR_Q);
@@ -1448,11 +1450,12 @@ static __attribute__((noinline)) void uac_tap(const int32_t *out, uint32_t n)   
     ua_w = w + n;
 }
 #ifdef UAC_STEMS_SRC
-/* (0.7.1) MENU > USB STEMS: a block as 8 channels (fx.c stem_buf: the six parts mono, stem_fx: the FX return L R),
- * 16 bit each, four words a frame; the ring, the priming and the packets as the stereo stream's (44.1 kHz only).
+/* (0.7.1) MENU > USB STEMS: a block as 16 bit channels, five words a frame (stems-10: 10 channels): the EIGHT TRACK
+ * STEMS (tracks 1..8, stem_buf[0..7], each mono, words 0..3) and the FX return (stem_fx, L R, word 4). (0.7.1 had six
+ * track stems and no tracks 7 and 8: 8 channels.) The ring, the priming and the packets as the stereo stream's (44.1 kHz only).
  * (0.8.0) STEMS+IN: two more, a fifth word: the host's audio as the mix took it (stem_buf[NPART]: its LEVEL, PAN and
- * MUTE, in its own channel so the host can move it by the latency) and as it came (uin_l / uin_r halved: the
- * reference the host finds its latency against) */
+ * MUTE, in its own channel so the host can move it by the latency; fx.c zeroes stem_buf each block, so it is 0 when the
+ * host's audio is not in the mix) and as it came (uin_l / uin_r halved: the reference the host finds its latency against) */
 static __attribute__((noinline)) void uac_tap8(uint32_t n)
 {
     uint32_t w = ua_w, i, k;
@@ -1464,11 +1467,14 @@ static __attribute__((noinline)) void uac_tap8(uint32_t n)
     }
     for (i = 0; i < n; i++) {
         uint32_t *f = &ua_ring[ua_slot(w + i) * UA_FW];
-        for (k = 0; k < 3u; k++)
+        /* (stems-10) both modes: tracks 1..8 in words 0..3 (stem_buf[0..7], each pair a word). Word 4: STEMS, the FX
+         * return L R; STEMS+IN, the host's audio as the mix took it (stem_buf[NPART]) and as it came (uin_l / uin_r) */
+        for (k = 0; k < 4u; k++)
             f[k] = (uint32_t)(uint16_t)uac_s16(stem_buf[2u * k][i]) | (uint32_t)(uint16_t)uac_s16(stem_buf[2u * k + 1u][i]) << 16;
-        f[3] = (uint32_t)(uint16_t)uac_s16(stem_fx[0][i]) | (uint32_t)(uint16_t)uac_s16(stem_fx[1][i]) << 16;
-        if (UA_FW == 5u)
-            f[4] = (uint32_t)(uint16_t)uac_s16(stem_buf[6][i]) |
+        if (UAC_STEMS() == 1u)
+            f[4] = (uint32_t)(uint16_t)uac_s16(stem_fx[0][i]) | (uint32_t)(uint16_t)uac_s16(stem_fx[1][i]) << 16;
+        else
+            f[4] = (uint32_t)(uint16_t)uac_s16(stem_buf[NPART][i]) |
                    (uint32_t)(uint16_t)(uin_on ? (int16_t)((uin_l[i] + uin_r[i]) >> 1) : 0) << 16;
     }
     RING_PUBLISH();
@@ -1567,7 +1573,7 @@ static uint32_t uac_packet(uint32_t *d)
 /* TIMER5, every tick (10 kHz), also nested in the render: the host takes one packet per 1 ms frame; queue the
  * next one as soon as the last has gone (TxPktRdy clear). Not paced on SOF-pending (see usb_poll).
  * (0.9.10) Every tick, not every 5th: TxPktRdy stays set while the packet is on the wire ((bytes + 9) x 8 x ~1.04
- * / 12 MHz: STEMS+IN's 920 bytes ~0.65 ms, STEMS' 736 ~0.52 ms), so the next one could only be queued in the
+ * / 12 MHz: STEMS and STEMS+IN both 920 bytes ~0.65 ms), so the next one could only be queued in the
  * ~0.35 ms before the next IN token, less than 2 kHz's 0.5 ms. Whenever TIMER5's phase drifted into it against the
  * host's frames, tokens found nothing, the ring overran and uac_tap8 dropped 32-frame blocks, in bursts, in every
  * stem (tests/stems_usb_test.c). Nothing to do costs the guard; streaming, two SIE round trips (ep4_tx).

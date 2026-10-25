@@ -2125,6 +2125,7 @@ every setting, its values and its meaning: nothing changes in the saved settings
 | SCREEN › SCREEN 2 | 1 | SCOPE | **OFF** (default), ON — (0.9.7) an engine's EDIT pages: OFF the creature on the whole panel, centred, the page's name and the sound's name small in its corners; ON the creature on the left, the SCOPE card and the chips as before. Settings saved before 0.9.7 load as OFF |
 | | 2 | ANIMATION | ON, OFF (values snap; the power-on signature appears whole) — was ANIM |
 | | 3 | SCREEN SLEEP | **NEVER** (default), 5 MIN, 15 MIN, 30 MIN, 60 MIN — the screen dark after that long without a touch (was SCREEN OFF) |
+| | 4 | ECO STYLE | **OG** (default, the beings), GOOBERS — ECO STYLE: OG (the beings) or GOOBERS (mushroom goobers in a forest, one per track). Settings saved before it load as OG |
 | SCREEN › LEDS | 1 | LED GLOW | OFF, LOW, **HIGH** (default), INVERT — how the idle keys and buttons glow (was LEDS: OFF, DIM LO, DIM HI, INV); (0.7.3) the glow's LEDs take turns frame to frame, so it no longer hums through the speaker once the music stops |
 | | 2 | SCALE LEDS | OFF, ON — the keys of the scale glow, the root brighter |
 | AUDIO › AUDIO | 1 | SPEAKER EQ | FLAT, LOWCUT, BASS+ (an EQ on the master for the small speaker; also reaches the outputs and USB) |
@@ -2137,7 +2138,7 @@ every setting, its values and its meaning: nothing changes in the saved settings
 | MIDI › MIDI | 1 | MIDI OUT | **KEYS**, CLOCK, ALL, OFF — what goes out over USB MIDI (see [14](#14-midi-and-usb)) |
 | | 2 | LEARN | **OFF**, ON — (0.9.12) arms MIDI LEARN: a knob turned picks its parameter, the next CC is learned to it (see [MIDI LEARN](#midi-learn-0912)); not saved, OFF at power-on |
 | | 3 | LEARN CLEAR | an action: the card shows how many CCs are learned (NONE, 3 CC …); KNOB 3 right arms it, OCT+ forgets them all |
-| USB › USB | 1 | USB AUDIO | CONSOLE (the serial console with stereo USB audio, the default), STEREO (audio + MIDI only, class 0: helps macOS 13–15 see the USB audio input), STEMS (0.7.1: an 8-channel audio input, see "Stems" below), IN+OUT (0.7.5: stereo audio both ways, see "USB audio in" below), STEMS+IN (0.8.0: the stems with the audio output too, see "Stems with a voice" below) — was SYSTEM › USB; applied when the MENU closes |
+| USB › USB | 1 | USB AUDIO | CONSOLE (the serial console with stereo USB audio, the default), STEREO (audio + MIDI only, class 0: helps macOS 13–15 see the USB audio input), STEMS (0.7.1, 10 channels from stems-10: tracks 1–8 and the FX return L R, see "Stems" below), IN+OUT (0.7.5: stereo audio both ways, see "USB audio in" below), STEMS+IN (0.8.0: the stems with the audio output too, 10 channels: 1–8 the tracks, as STEMS, 9 the host's audio as the mix took it, 10 as it came; no FX return, see "Stems with a voice" below) — was SYSTEM › USB; applied when the MENU closes |
 | | 2 | USB LEVEL | MASTER (USB follows the MASTER knob), FIXED (USB at full level), −6 / −12 / −18 / −24 dB (USB fixed and attenuated: for a phone or a computer whose input clips at the full level) |
 | SYSTEM › CONTROLS | 1 | HOLD TIME | 0.3 s, **0.4 s** (default), 0.5 s, 0.6 s — how long until a held button opens its layer (was HOLD) |
 | | 2 | KNOB SPEEDUP | **ON** (default), OFF — fast turns take bigger steps (was KNOB ACCEL) |
@@ -2239,12 +2240,14 @@ Any knob of a track's sound to any CC of your controller, on the device (from Fe
 
 Two ways to get each track on its own, to post-process them one by one in a DAW:
 
-- **Over USB, live: MENU › USB › USB AUDIO STEMS.** The device re-enumerates as an 8-channel USB audio input at 44.1 kHz,
-  16 bit (set the DAW's input to the device, 8 channels): channels 1–6 are the six tracks, each mono with its LEVEL,
-  DIST, SLICER routing and mutes in and its PAN left out (what it adds to the mix, L + R halved); channels 7–8 are the
-  FX return in stereo (the DELAY, REVERB and CHORUS buses, the SLICER's when it is on). All before the master: no
-  leveler, limiter, CLIP or MASTER knob on them, so the sum of the eight is the mix as the buses hear it. USB LEVEL at
-  −6 dB or lower gives headroom. The serial console is off in this mode; USB-MIDI, the editor and the installer still
+- **Over USB, live: MENU › USB › USB AUDIO STEMS.** The device re-enumerates as a 10-channel USB audio input at 44.1 kHz,
+  16 bit (set the DAW's input to the device, 10 channels): **channels 1–8 are the eight track stems, T1 to T8**, each mono
+  with its LEVEL, DIST, SLICER routing and mutes in and its PAN left out (what it adds to the mix, L + R halved);
+  **channels 9–10 are the FX return** in stereo (the DELAY, REVERB and CHORUS buses, the SLICER's when it is on). All
+  before the master: no leveler, limiter, CLIP or MASTER knob on them. Every track is exported, so the sum of the ten
+  channels is the mix of tracks 1–8 as the buses hear it. (Before this change STEMS was 8 channels: T1–T6 and the FX
+  return; T7 and T8 were not in it. A DAW set up for the 8 must be set to 10 channels.) USB LEVEL
+  at −6 dB or lower gives headroom. The serial console is off in this mode; USB-MIDI, the editor and the installer still
   work. The speaker and the headphones play the master as always.
 
   **0.9.8: clean stems.** Until 0.9.7 the 8-channel endpoint said 720 bytes (45 frames) while the FM-1 sends 46 frames
@@ -2258,7 +2261,7 @@ Two ways to get each track on its own, to post-process them one by one in a DAW:
   last one left; it is queued in time now. Takes recorded before cannot be repaired: record them again.
   A track through the **SLICER** now has its own sound as the SLICER let it
   through in its stem (its repeats in the first such track's stem, or with the SLICER's FX ON in the FX return), so the
-  eight still add up to the mix (until 0.9.7 that track was in its stem dry and again, sliced, in the FX return).
+  eight still add up to the mix of tracks 1–6 (until 0.9.7 that track was in its stem dry and again, sliced, in the FX return).
   What a stem is: exactly what the track adds to the mix in that take, so it nulls against the track rendered alone
   in the same take. The things that make one track depend on the others are in it, as in the mix: **DUCK** (the kick's
   pump on the other tracks), and the **shared voices** (8 among all tracks; **LOAD ECO**: 6, 4 a track, and with the
@@ -2288,12 +2291,12 @@ with your computer or phone.
 
 **MENU › USB › USB AUDIO STEMS+IN** is STEMS and IN+OUT together, for the phone app: the phone's microphone goes out to
 the FM-1, comes into the **last track** as IN+OUT's input does (its LEVEL, PAN, MUTE and its CHORUS, DELAY and REVERB
-sends: your voice through that track's effects), and **10 channels** come back: T1–T6, the FX return L R, then **the
+sends: your voice through that track's effects), and **10 channels** come back: **T1–T8** (the eight track stems, as in STEMS), then **the
 voice as the track mixed it** and **the voice as it came**. The voice has a channel of its own (not in the track's
 stem), so the app can move it earlier by the round trip's latency and the voice lands in time with what you heard;
-the second voice channel is the reference the app measures that latency against. The voice's share of the FX return
-cannot be moved (it is mixed with every track's): its reverb and delays stay the latency late (~20–30 ms: in a
-reverb it sounds like pre-delay). The phone app reads and writes the FM-1 with its own USB driver (Android passes
+the second voice channel is the reference the app measures that latency against. STEMS+IN has no FX return: the
+buses' reverb and delays are in the tracks' stems (as they are in the mix), so the voice's own reverb and delays
+stay with the voice in its track's stem, and they land the latency late (~20–30 ms: in a reverb it sounds like pre-delay). The phone app reads and writes the FM-1 with its own USB driver (Android passes
 only some of a USB device's channels to apps). Test version: the app is JIANT Probe for now (its test 7).
 
 ---

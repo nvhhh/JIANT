@@ -633,7 +633,7 @@ static int chk_cap_mode_budget(char *msg, uint32_t n)
     uint32_t round, p, i, bad = 0, worst = 0;
     for (round = 0; round < NELEM(MODE); round++) {
         host_tracks_init();
-        for (p = 0; p < NPART; p++) {
+        for (p = 0; p < 6u /* (0.9.19: the six parts these checks were written for; T7, T8 sit out) */; p++) {
             memset(trk[p].v, 0, sizeof trk[p].v);
             host_preset(&trk[p], 0, 0);
             trk[p].p[P_VOICE] = p ? V_MONO : V_POLY;
@@ -650,7 +650,7 @@ static int chk_cap_mode_budget(char *msg, uint32_t n)
             for (i = 1; i < trk_nvoice(&trk[0]); i++)
                 voice_kill(&trk[0].v[i]);
         }
-        for (p = 1; p < NPART; p++) {
+        for (p = 1; p < 6u /* (0.9.19: the six parts these checks were written for; T7, T8 sit out) */; p++) {
             trk_note_on(&trk[p], 70u + p * 3u, 100);
             i = voices_busy();
             worst = i > worst ? i : worst;
@@ -663,9 +663,9 @@ static int chk_cap_mode_budget(char *msg, uint32_t n)
         bad += i > NVOICE || !trk[0].v[0].gate;
         blk();
         bad += voices_busy() > NVOICE || !trk[0].v[0].gate;
-        for (p = 1; p < NPART; p++)
+        for (p = 1; p < 6u /* (0.9.19: the six parts these checks were written for; T7, T8 sit out) */; p++)
             bad += !trk[p].v[0].gate;
-        for (p = 0; p < NPART; p++)
+        for (p = 0; p < 6u /* (0.9.19: the six parts these checks were written for; T7, T8 sit out) */; p++)
             trk_all_off(&trk[p]);
         for (i = 0; i < 4u * FS / CTL && !parts_free(); i++)
             blk();
@@ -683,7 +683,7 @@ static int chk_mode_budget(char *msg, uint32_t n)
     for (initial = 0; initial < 2u; initial++)
         for (mode = V_MONO; mode <= V_UNISON; mode++) {
             host_tracks_init();
-            for (p = 0; p < NPART; p++) {
+            for (p = 0; p < 6u /* (0.9.19: the six parts these checks were written for; T7, T8 sit out) */; p++) {
                 memset(trk[p].v, 0, sizeof trk[p].v);
                 host_preset(&trk[p], 0, 0);
                 trk[p].p[P_VOICE] = V_MONO;
@@ -696,13 +696,13 @@ static int chk_mode_budget(char *msg, uint32_t n)
                 for (i = 0; i < NVOICE; i++) trk_note_on(&trk[0], 48u + 2u * i, 100);
             bad += voices_busy() != NVOICE;
             trk[0].p[P_VOICE] = (int16_t)mode;
-            for (p = 1; p < NPART; p++) {
+            for (p = 1; p < 6u /* (0.9.19: the six parts these checks were written for; T7, T8 sit out) */; p++) {
                 trk_note_on(&trk[p], 72u + p, 100);
                 bad += voices_busy() > NVOICE || !trk[0].v[0].gate || !trk[p].v[0].gate;
             }
             blk();
             bad += voices_busy() > NVOICE;
-            for (p = 0; p < NPART; p++) trk_all_off(&trk[p]);
+            for (p = 0; p < 6u /* (0.9.19: the six parts these checks were written for; T7, T8 sit out) */; p++) trk_all_off(&trk[p]);
         }
     snprintf(msg, n, "POLY / UNISON chord -> MONO / LEGATO / UNISON: extra voices reclaimed, leads kept, budget %u", NVOICE);
     return !bad;

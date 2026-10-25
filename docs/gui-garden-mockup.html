@@ -1,0 +1,627 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  body { margin:0; font:13px/1.4 system-ui, sans-serif; color:#2B1E16; background:transparent; }
+  .wrap { display:grid; grid-template-columns: repeat(3, 360px); gap:18px; padding:8px 0; justify-content:start; }
+  .cell { display:flex; flex-direction:column; gap:6px; }
+  .lbl { font-weight:600; letter-spacing:.04em; }
+  .lbl small { font-weight:400; color:#6b5a4c; }
+  canvas { width:360px; height:360px; image-rendering:pixelated; border-radius:14px; border:2px solid #2B1E16; display:block; }
+  .bar { display:flex; gap:8px; align-items:center; margin:4px 0 10px; flex-wrap:wrap; }
+  .sw { width:64px; height:34px; border-radius:8px; border:1px solid #2B1E16; font-size:10px; display:flex; align-items:flex-end; padding:3px; box-sizing:border-box; }
+  .ctl { display:flex; gap:10px; align-items:center; font-size:12px; }
+  input[type=range] { width:200px; }
+</style></head>
+<body>
+<div class="bar">
+  <div class="sw" style="background:#F3ECDF">BG</div>
+  <div class="sw" style="background:#E6DAC4">SURF</div>
+  <div class="sw" style="background:#2B1E16;color:#F3ECDF">TEXT</div>
+  <div class="sw" style="background:#3F6FA8;color:#F3ECDF">THEME</div>
+  <div class="sw" style="background:#F5A66B">ACCENT</div>
+  <div class="sw" style="background:#A9CBEA">FILL</div>
+  <div class="sw" style="background:#C8602A;color:#F3ECDF">BURNT</div>
+  <div class="sw" style="background:#C2A07E">DIRT</div>
+  <div class="ctl">Music level <input id="lvl" type="range" min="0" max="100" value="70"></div>
+  <div class="ctl">Tempo <input id="bpm" type="range" min="60" max="180" value="120"></div>
+</div>
+<div class="wrap" id="wrap"></div>
+<script>
+const C = { bg:'#F3ECDF', surf:'#E6DAC4', ink:'#2B1E16', blue:'#3F6FA8', pblue:'#A9CBEA',
+            orange:'#F5A66B', burnt:'#C8602A', mid:'#6b5a4c', line:'#d6c9b2',
+            dirt:'#C2A07E', dirtLt:'#D9C2A6', dirtDk:'#A6876A' };
+// the ground's five shades: the three dirt colours and two blends between them (still the same palette)
+const SHADES = [C.dirtLt, lerpHex(C.dirtLt, C.dirt, 0.5), C.dirt, lerpHex(C.dirt, C.dirtDk, 0.5), C.dirtDk];
+const lvlEl = document.getElementById('lvl'), bpmEl = document.getElementById('bpm');
+
+// simulated music: beat envelope + two tones; 0..1
+function music(t) {
+  const beat = t * (+bpmEl.value) / 60;
+  const env = Math.pow(1 - (beat % 1), 3);
+  const bass = 0.5 + 0.5 * Math.sin(t * 2 * Math.PI * 0.5);
+  const lead = 0.5 + 0.5 * Math.sin(t * 2 * Math.PI * 1.7 + Math.sin(t * 0.9) * 2);
+  return Math.min(1, env * 0.55 + bass * 0.25 + lead * 0.2) * (+lvlEl.value / 100);
+}
+function lerpHex(a, b, k) {
+  const p = h => [1, 3, 5].map(i => parseInt(h.substr(i, 2), 16));
+  const A = p(a), B = p(b);
+  return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * k).toString(16).padStart(2, '0')).join('');
+}
+function rnd(s) { return (Math.sin(s * 127.1 + 311.7) * 43758.5453) % 1 * 0.5 + 0.5; }
+// smooth value noise on a lattice (0..1): the soil's clumps come from it
+function vnoise(x, y) {
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  // an integer hash: the old sine-based one lined the values up along diagonals, which read as shine
+  const h = (a, b) => { let s = Math.imul(a | 0, 374761393) + Math.imul(b | 0, 668265263); s = Math.imul(s ^ (s >>> 13), 1274126177); return ((s ^ (s >>> 16)) >>> 0) / 4294967295; };
+  const top = h(xi, yi) + (h(xi + 1, yi) - h(xi, yi)) * u;
+  const bot = h(xi, yi + 1) + (h(xi + 1, yi + 1) - h(xi, yi + 1)) * u;
+  return top + (bot - top) * v;
+}
+function poly(ctx, pts, col) {
+  ctx.fillStyle = col; ctx.beginPath();
+  pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+  ctx.closePath(); ctx.fill();
+}
+// a wobbly n-sided blob (never a circle); e = music
+function blobby(ctx, x, y, r, n, col, e, seed, sx = 1, sy = 1) {
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const a = i / n * Math.PI * 2;
+    const k = 1 + 0.14 * Math.sin(a * 3 + seed) + 0.1 * e * Math.sin(a * 5 + seed * 1.7);
+    pts.push([x + Math.cos(a) * r * k * sx, y + Math.sin(a) * r * k * sy]);
+  }
+  poly(ctx, pts, col);
+}
+// a scalloped dirt mound: a bed with a bumpy top and no box
+function mound(ctx, x, y, w, col) {
+  const h = w * 0.55, pts = [[x - w, y]];
+  for (let i = 0; i <= 12; i++) {
+    const a = Math.PI * (1 - i / 12);
+    pts.push([x - Math.cos(a) * w, y - Math.sin(a) * h * (1 + 0.14 * Math.sin(i * 2.3))]);
+  }
+  pts.push([x + w, y]);
+  poly(ctx, pts, col);
+}
+function leaf(ctx, x, y, a, L, W, col, vein = C.ink) {
+  if (L < 1) return;
+  ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+  ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, 0);
+  ctx.bezierCurveTo(L * 0.3, -W, L * 0.75, -W * 0.9, L, 0);
+  ctx.bezierCurveTo(L * 0.75, W * 0.9, L * 0.3, W, 0, 0); ctx.fill();
+  ctx.strokeStyle = vein; ctx.lineWidth = 0.7; ctx.beginPath(); ctx.moveTo(1, 0); ctx.lineTo(L * 0.8, 0); ctx.stroke();
+  ctx.restore();
+}
+function stemPath(ctx, x0, y0, x1, y1, bend, col) {
+  const cx = (x0 + x1) / 2 + bend, cy = (y0 + y1) / 2;
+  ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo(cx, cy, x1, y1); ctx.stroke();
+  ctx.lineWidth = 1;
+  return s => {
+    const u = 1 - s;
+    const px = u * u * x0 + 2 * u * s * cx + s * s * x1, py = u * u * y0 + 2 * u * s * cy + s * s * y1;
+    const dx = 2 * u * (cx - x0) + 2 * s * (x1 - cx), dy = 2 * u * (cy - y0) + 2 * s * (y1 - cy);
+    return [px, py, Math.atan2(dy, dx)];
+  };
+}
+// growth: a plant grows a leaf at a time over 16 beats (4 bars), then starts again
+function growth(t, seed) {
+  const phase = ((t * (+bpmEl.value) / 60) / 16 + seed * 0.137) % 1;
+  return { phase, leaves: Math.max(1, Math.floor(phase * 4) + 1), h: 16 + 40 * phase };
+}
+// a tulip: stem, uneven leaves (each side its own size), and a cup that opens as it grows
+function tulip(ctx, x, by, t, e, seed, scale = 1, col = C.burnt) {
+  const g = growth(t, seed), h = g.h * scale;
+  const bend = Math.sin(t * 2 + seed) * (1 + 3 * e) * scale;
+  const at = stemPath(ctx, x, by, x + bend * 0.3, by - h, bend, C.ink);
+  for (let i = 0; i < g.leaves; i++) {
+    const s = 0.3 + i * 0.22, [px, py, ang] = at(s);
+    const grow = Math.min(1, g.phase * 4 - i + 1);
+    const sway = Math.sin(t * 2 + seed + i) * (0.1 + 0.15 * e);
+    const lL = (5 + 8 * rnd(seed * 5 + i * 3)) * scale * grow, lR = (5 + 8 * rnd(seed * 7 + i * 5 + 1)) * scale * grow;
+    leaf(ctx, px, py, ang - 0.9 - sway, lL, 3 * scale, C.blue, C.surf);
+    leaf(ctx, px, py, ang + 0.6 + sway, lR, 3 * scale, C.burnt, C.surf);
+  }
+  const [tx, ty] = at(1), open = 0.5 + 0.5 * g.phase;
+  const w = 4 * scale * open, top = ty - 6 * scale * open;
+  poly(ctx, [[tx - w, ty], [tx - w * 1.2, top], [tx, top - 3 * scale * open], [tx + w * 1.2, top], [tx + w, ty]], col);
+  poly(ctx, [[tx - w * 0.4, ty], [tx, top + 1], [tx + w * 0.4, ty]], C.orange);
+  pixelPlant(ctx, x, by - g.h * scale - 10 * scale, 28 * scale, g.h * scale + 12 * scale);
+}
+// a free-standing flower with a face and a mood; no stem
+function flowerChar(ctx, x, y, t, e, seed, mood, col) {
+  const cy = y + Math.sin(t * 2 + seed) * 3 + e * 2;
+  const bloom = mood === 'wow' ? 1 + 0.5 * e : mood === 'shy' ? 0.7 : 1;
+  for (let i = 0; i < 5; i++) {
+    const a = i / 5 * Math.PI * 2 + Math.sin(t * 2 + i + seed) * 0.08 + (mood === 'sleepy' ? 0.2 : 0);
+    leaf(ctx, x, cy, a, (8 + e * 2) * bloom * (0.8 + 0.3 * rnd(seed + i)), 4 * bloom, col, col);
+  }
+  blobby(ctx, x, cy, 4, 6, C.orange, e, seed);
+  ctx.fillStyle = C.ink;
+  if (mood === 'shy' || mood === 'sleepy') {
+    ctx.fillRect(x - 3, cy - 1, 2, 1); ctx.fillRect(x + 1, cy - 1, 2, 1);
+  } else {
+    ctx.fillRect(x - 3, cy - 2, 1, 2); ctx.fillRect(x + 2, cy - 2, 1, 2);
+  }
+  if (mood === 'wow') { ctx.fillRect(x - 0.5, cy + 2, 2, 2); }
+  else { ctx.fillRect(x - 2, cy + 2, 1, 1); ctx.fillRect(x - 1, cy + 3, 2, 1); ctx.fillRect(x + 1, cy + 2, 1, 1); }
+  pixelPlant(ctx, x, cy - 14, 28, 30);
+}
+// beetle around its centre, facing dir (1 right, -1 left); the legs step with the music
+function beetle(ctx, x, y, t, e, seed, dir, col) {
+  const step = Math.sin(t * 9 + seed) * 1.6;
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 0.8; ctx.beginPath();
+  for (let i = -1; i <= 1; i++) {
+    const lx = x + i * 3.5 * dir, s = i % 2 ? step : -step;
+    ctx.moveTo(lx, y + 2); ctx.lineTo(lx + s, y + 6);
+    ctx.moveTo(lx, y - 2); ctx.lineTo(lx - s * 0.5, y - 5 - (i + 1) * 0.5);
+  }
+  ctx.moveTo(x + 6 * dir, y - 2); ctx.lineTo(x + 9 * dir, y - 6 + Math.sin(t * 6) * 1);
+  ctx.moveTo(x + 6 * dir, y - 2); ctx.lineTo(x + 8 * dir, y - 7 - Math.cos(t * 6) * 1);
+  ctx.stroke(); ctx.lineWidth = 1;
+  blobby(ctx, x, y, 5 * (1 + 0.1 * e), 7, col, e, seed, 1.5, 1);
+  ctx.strokeStyle = C.surf; ctx.beginPath(); ctx.moveTo(x, y - 4); ctx.lineTo(x, y + 4); ctx.stroke();
+  blobby(ctx, x + 6 * dir, y, 2.4, 5, C.ink, 0, seed);
+}
+function fruitAt(ctx, x, y, kind, e, seed, s = 1) {
+  if (kind === 'apple') {
+    blobby(ctx, x, y, 5 * s, 7, C.burnt, e, seed, 1, 1.1);
+    leaf(ctx, x + 1, y - 4 * s, -0.6, 5 * s, 2 * s, C.blue, C.surf);
+  } else if (kind === 'orange') {
+    blobby(ctx, x, y, 5 * s, 9, C.orange, e, seed);
+    ctx.strokeStyle = C.burnt; ctx.lineWidth = 0.6; ctx.beginPath();
+    ctx.moveTo(x - 3 * s, y); ctx.lineTo(x + 3 * s, y); ctx.moveTo(x, y - 3 * s); ctx.lineTo(x, y + 3 * s); ctx.stroke(); ctx.lineWidth = 1;
+  } else if (kind === 'cherry') {
+    blobby(ctx, x - 3 * s, y + 2 * s, 2.6 * s, 5, C.burnt, e, seed);
+    blobby(ctx, x + 3 * s, y + 3 * s, 2.6 * s, 5, C.burnt, e, seed + 1);
+    ctx.strokeStyle = C.ink; ctx.beginPath(); ctx.moveTo(x - 3 * s, y + 2 * s); ctx.quadraticCurveTo(x, y - 6 * s, x + 3 * s, y + 3 * s); ctx.stroke();
+  } else if (kind === 'plum') {
+    blobby(ctx, x, y, 4 * s, 6, C.blue, e, seed, 1, 1.2);
+  }
+}
+// sky: a gradient down to the ground, with rain falling as streaks that slant and pulse with the music
+function sky(ctx, t, e) {
+  const top = '#A9CBEA', low = C.bg, H = 186;
+  for (let y = 0; y < H; y += 2) ctx.fillStyle = lerpHex(low, top, Math.pow(1 - y / H, 1.4)), ctx.fillRect(0, y, 240, 2);
+  const sx = 196, sy = 34, sr = 12 + 2 * e;
+  ctx.fillStyle = C.orange; ctx.beginPath();
+  for (let i = 0; i < 16; i++) {
+    const a = i / 16 * Math.PI * 2 + t * 0.2, r = i % 2 ? sr * 0.7 : sr * 1.25 + 3 * e * Math.sin(t * 8 + i);
+    i ? ctx.lineTo(sx + Math.cos(a) * r, sy + Math.sin(a) * r) : ctx.moveTo(sx + Math.cos(a) * r, sy + Math.sin(a) * r);
+  }
+  ctx.fill();
+  blobby(ctx, sx, sy, sr * 0.6, 7, C.burnt, 0, 4);
+}
+// rain: the music level sets how many drops show (up to 130: 30% more than before), the tempo sets how fast they fall.
+// The base amount is 15% more than the old 20 of 100 drops: 23 of 130.
+function rain(ctx, t, e) {
+  const H = 186, tempo = (+bpmEl.value) / 120;
+  for (let i = 0; i < 130; i++) {
+    if (rnd(i * 17.3) > 23 / 130 + (1 - 23 / 130) * e) continue;
+    const speed = (70 + rnd(i * 3) * 60) * tempo, len = 4 + rnd(i * 7) * 4;
+    const y = ((rnd(i * 5) * H + t * speed) % H), x = rnd(i * 2) * 250 - 5 - y * 0.12;
+    ctx.strokeStyle = rnd(i * 11) > 0.5 ? C.blue : C.pblue;
+    ctx.globalAlpha = 0.45 + 0.55 * e * rnd(i * 13);
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - len * 0.25, y + len); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+}
+// a cartoon cloud: rounded base with round top puffs, no outline. The underside is a flat pastel
+// band (SURF), no dots.
+// a pixel-art cloud: built on the 3 px grid from a base and round puffs, lit off-white on top and
+// shaded in beige underneath. The shade's top edge is ragged (noise), so it never reads as one line.
+function cloud(ctx, x, y, s, e, seed) {
+  const P = 3, w = (40 + rnd(seed) * 30) * s, h = (14 + rnd(seed + 1) * 6) * s, r = h / 2;
+  const nb = 2 + Math.floor(rnd(seed + 2) * 3), bumps = [];
+  for (let j = 0; j < nb; j++) {
+    const f = nb === 1 ? 0 : j / (nb - 1) - 0.5;
+    bumps.push([x + f * w * 0.7 + (rnd(seed + j * 3) - 0.5) * w * 0.08,
+                y - h * 0.2 - (0.5 - Math.abs(f)) * h * 0.6,
+                (h * 0.45 + rnd(seed + j * 5) * h * 0.35) * (1 + 0.03 * e)]);
+  }
+  const inside = (px, py) => {
+    if (px >= x - w / 2 && px <= x + w / 2 && py >= y - r && py <= y + r) return true;
+    return bumps.some(([bx, by, br]) => (px - bx) ** 2 + (py - by) ** 2 <= br * br);
+  };
+  for (let py = Math.floor((y - h * 1.2) / P) * P; py <= y + r; py += P)
+    for (let px = Math.floor((x - w / 2) / P) * P; px <= x + w / 2 + P; px += P) {
+      if (!inside(px + 1, py + 1)) continue;
+      const edge = y + h * 0.05 + (vnoise(px / 9, seed * 0.37) - 0.5) * h * 1.1;
+      ctx.fillStyle = py + 1 > edge ? C.surf : C.bg;
+      ctx.fillRect(px, py, P, P);
+    }
+}
+function clouds(ctx, t, e) {
+  for (let i = 0; i < 4; i++) {
+    const speed = 3 + rnd(i * 3.1) * 7, scale = 0.7 + rnd(i * 9.1) * 0.6;
+    const x = ((t * speed + rnd(i * 7.3) * 320) % 340) - 50, y = 18 + rnd(i * 5.3) * 50;
+    cloud(ctx, x, y, scale, e, i * 31 + 1);
+  }
+}
+function groundY(x, t, e) {
+  return 182 + Math.sin(x * 0.05 + t * 1.2) * 1.5 + e * 5 * Math.sin(x * 0.04 - t * 4);
+}
+// the ground in pixel art: bands of dirt that follow the grass edge, a dithered checker at each
+// band boundary, and a few pixel specks and tufts. Pixels are 3 px, like the reference.
+function ground(ctx, t, e) {
+  const P = 3, BAND = 6;
+  const cols = SHADES;
+  // mottled soil: two octaves of value noise (static, so the clumps stay put) pick a shade per pixel;
+  // deeper soil leans darker; a checker nudges the edges so they break up like pixel art
+  for (let x = 0; x < 240; x += P) {
+    const gy = groundY(x, t, e);
+    for (let y = Math.floor(gy / P) * P; y < 240; y += P) {
+      const d = Math.max(0, y - gy);
+      // softer clumps: less contrast between the tones, so the soil reads matte, not wet
+      const n = 0.5 + 0.55 * (0.8 * vnoise(x / 10, y / 10) + 0.2 * vnoise(x / 5 + 7, y / 5 + 3) - 0.5);
+      const checker = ((x / P + y / P) & 1) ? 0.015 : -0.015;
+      const v = 0.8 * n + 0.2 * Math.min(1, d / 40) + checker;
+      ctx.fillStyle = cols[Math.max(0, Math.min(4, Math.floor(v * 5)))];
+      ctx.fillRect(x, y, P, P);
+    }
+  }
+  // grass tufts: little stepped pixel clumps on the edge
+  // grass layer on top of the soil: a band of blues with a ragged lower edge, a little deeper with the music
+  const grassLight = lerpHex(C.pblue, C.blue, 0.2), grassMid = lerpHex(C.pblue, C.blue, 0.5);
+  // a single pixel row of grass on the soil, broken into patches; only some columns get a second row
+  for (let x = 0; x < 240; x += P) {
+    const gy = Math.floor(groundY(x, t, e) / P) * P, r = vnoise(x / 4, 9);
+    if (r < 0.25) continue;
+    ctx.fillStyle = r < 0.6 ? grassMid : grassLight;
+    ctx.fillRect(x, gy, P, P);
+    if (r > 0.8) { ctx.fillStyle = grassMid; ctx.fillRect(x, gy + P, P, P); }
+  }
+  for (let x = 6; x < 240; x += 18) {
+    const gy = Math.floor(groundY(x, t, e) / P) * P, hgt = Math.round((1 + e * 2 * Math.abs(Math.sin(t * 6 + x * 0.3))));
+    if (rnd(x * 2.3) > 0.5) {
+      // a tuft with a dark beige stem and a blue head, picked at random
+      ctx.fillStyle = C.dirtDk;
+      ctx.fillRect(x + P, gy - P * (hgt + 2), P, P * (hgt + 2));
+      ctx.fillStyle = C.blue;
+      ctx.fillRect(x, gy - P * (hgt + 2), P * 3, P);
+      ctx.fillRect(x + P, gy - P * (hgt + 3), P, P);
+    } else {
+      ctx.fillStyle = C.blue;
+      ctx.fillRect(x, gy - P * hgt, P, P * hgt);
+      ctx.fillRect(x + P, gy - P * (hgt + 1), P, P * (hgt + 1));
+      ctx.fillRect(x + P * 2, gy - P * hgt, P, P * hgt);
+    }
+  }
+}
+// one house, always there, standing on the ground line (the only building in the scene)
+// (scaled up: S = 1.6 times the first size, then 40% more: 2.24)
+// an irregular cottage: a lopsided body with a leaning top, an off-centre roof peak and chimney,
+// uneven windows and an off-centre door. Burnt-brown outlines, moss on the roof's lower edge.
+function house(ctx, t, e) {
+  const x = 196, y = groundY(x, t, e) + 2;
+  const P = pts => pts.map(([px, py]) => [x + px, y + py]);
+  const outline = pts => { ctx.strokeStyle = C.burnt; ctx.lineWidth = 1.2; ctx.beginPath();
+    pts.forEach(([px, py], i) => i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)); ctx.closePath(); ctx.stroke(); ctx.lineWidth = 1; };
+  const moss = lerpHex(C.pblue, C.blue, 0.5), shade = lerpHex(C.surf, C.dirt, 0.3);
+  ctx.fillStyle = C.dirtDk; ctx.globalAlpha = 0.5; ctx.fillRect(x - 22, y, 44, 2); ctx.globalAlpha = 1;
+  // a stone footing with a wobbly top
+  poly(ctx, P([[-23, 0], [-23, -4], [-14, -6], [0, -5], [12, -7], [23, -4], [23, 0]]), SHADES[3]);
+  ctx.fillStyle = SHADES[1]; for (let bx = -18; bx < 22; bx += 7) ctx.fillRect(x + bx, y - 4, 1, 3);
+  // body: a lopsided wall with a leaning top, shaded on the right
+  const body = P([[-21, -4], [-22, -17], [-15, -19], [-9, -18], [-2, -22], [6, -20], [14, -21], [22, -15], [21, -4]]);
+  poly(ctx, body, C.surf);
+  poly(ctx, P([[8, -21], [14, -21], [22, -15], [21, -4], [10, -4]]), shade);
+  outline(body);
+  ctx.strokeStyle = C.burnt; ctx.beginPath();
+  ctx.moveTo(x - 21, y - 11); ctx.lineTo(x + 21, y - 13);
+  ctx.moveTo(x - 4, y - 21); ctx.lineTo(x - 2, y - 4); ctx.stroke();
+  // roof: a steep, asymmetric peak; moss hangs from its lower edge
+  const roof = P([[-25, -16], [-14, -30], [-4, -26], [7, -38], [25, -17]]);
+  poly(ctx, roof, C.burnt);
+  poly(ctx, P([[7, -38], [25, -17], [17, -18], [8, -26]]), lerpHex(C.burnt, C.orange, 0.35));
+  outline(roof);
+  for (let mx = -24; mx <= 24; mx += 4) blobby(ctx, x + mx, y - 16 - (mx % 8 ? 0 : 1), 2.2, 5, moss, e, mx + 40);
+  // chimney, off-centre
+  ctx.fillStyle = C.burnt; ctx.fillRect(x + 9, y - 38, 4, 9); outline(P([[9, -38], [13, -38], [13, -29], [9, -29]]));
+  // windows: a tall one on the left, a small high one on the right
+  const win = (wx, wy, w, h) => {
+    ctx.fillStyle = C.ink; ctx.fillRect(wx - 1, wy - 1, w + 2, h + 2);
+    ctx.fillStyle = C.pblue; ctx.fillRect(wx, wy, w, h);
+    ctx.fillStyle = C.ink; ctx.fillRect(wx + w / 2 - 0.5, wy, 1, h);
+  };
+  win(x - 16, y - 16, 6, 9);
+  win(x + 8, y - 25, 5, 5);
+  ctx.fillStyle = C.burnt; ctx.fillRect(x - 17, y - 7, 8, 2);
+  blobby(ctx, x - 15, y - 8, 1.4, 4, C.orange, e, 2);
+  blobby(ctx, x - 12, y - 8, 1.4, 4, C.blue, e, 4);
+  // an off-centre arched door
+  ctx.fillStyle = C.ink; ctx.fillRect(x + 1, y - 13, 9, 8); ctx.fillRect(x + 2, y - 14, 7, 1);
+  ctx.fillStyle = C.orange; ctx.fillRect(x + 2, y - 12, 7, 7); ctx.fillRect(x + 3, y - 13, 5, 1);
+}
+// a windmill beside the house: stone courses, a window, a balcony, two-tone sails that turn at the tempo,
+// a weather vane that swings, and a hub that glows and grows with the music level
+function windmill(ctx, t, e) {
+  const x = 20, y = groundY(x, t, e) + 2, H = 60, hub = [x, y - H];
+  // tower: tapering, with stone courses across it and a lit side
+  poly(ctx, [[x - 8, y], [x - 5, y - H], [x + 5, y - H], [x + 8, y]], C.surf);
+  ctx.fillStyle = SHADES[2];
+  for (let yy = y - 5; yy > y - H + 2; yy -= 6) ctx.fillRect(x - 8 + (yy % 12 ? 0 : 2), yy, 16 - (yy % 12 ? 0 : 2), 1);
+  ctx.fillStyle = lerpHex(C.surf, C.dirt, 0.35); ctx.fillRect(x + 2, y - H, 6, H);
+  ctx.strokeStyle = C.burnt; ctx.lineWidth = 1.2; ctx.beginPath();
+  ctx.moveTo(x - 8, y); ctx.lineTo(x - 5, y - H); ctx.lineTo(x + 5, y - H); ctx.lineTo(x + 8, y); ctx.stroke(); ctx.lineWidth = 1;
+  // a window, a balcony rail, and a door
+  ctx.fillStyle = C.ink; ctx.fillRect(x - 2, y - 40, 5, 7); ctx.fillStyle = C.pblue; ctx.fillRect(x - 1, y - 39, 3, 5);
+  ctx.fillStyle = C.burnt; ctx.fillRect(x - 9, hub[1] + 5, 18, 2);
+  for (let bx = -8; bx < 9; bx += 3) ctx.fillRect(x + bx, hub[1] + 2, 1, 3);
+  ctx.fillStyle = C.orange; ctx.fillRect(x - 2, y - 9, 4, 9);
+  // cap in two tones of shingle
+  poly(ctx, [[x - 7, hub[1] + 1], [x, hub[1] - 8], [x, hub[1] + 1]], C.burnt);
+  poly(ctx, [[x, hub[1] - 8], [x + 7, hub[1] + 1], [x, hub[1] + 1]], lerpHex(C.burnt, C.orange, 0.4));
+  // weather vane: a tail that swings with the wind
+  const va = Math.sin(t * 0.7) * 0.5;
+  ctx.save(); ctx.translate(x, hub[1] - 8); ctx.rotate(va);
+  poly(ctx, [[-9, -1], [-4, -2], [-4, 1]], C.ink); poly(ctx, [[0, -1], [4, -3], [4, 0]], C.ink);
+  ctx.restore();
+  // sails: a cream sail alternates with a blue one, each with ladder rungs, and the length pulses
+  // big sails: they reach past the left edge of the screen when the windmill is at the side
+  const rot = t * (+bpmEl.value) / 60 * (Math.PI / 4);
+  for (let k = 0; k < 4; k++) {
+    const len = (k % 2 ? 38 : 46) + 3 * e;
+    ctx.save(); ctx.translate(hub[0], hub[1]); ctx.rotate(rot + k * Math.PI / 2);
+    ctx.fillStyle = k % 2 ? C.pblue : C.surf; ctx.fillRect(0, -4, len, 8);
+    ctx.strokeStyle = k % 2 ? C.blue : C.burnt; ctx.lineWidth = 1.2; ctx.strokeRect(0, -4, len, 8);
+    ctx.beginPath(); for (let j = 7; j < len; j += 7) { ctx.moveTo(j, -4); ctx.lineTo(j, 4); } ctx.stroke();
+    ctx.restore();
+  }
+  // hub, glowing orange with the music
+  blobby(ctx, hub[0], hub[1], 4 + 2 * e, 6, lerpHex(C.burnt, C.orange, e), e, 9);
+}
+// blocky pixel art: every 3x3 block of a region takes the colour of its centre pixel
+function pixelate(ctx, x0, y0, w, h, P = 3) {
+  const d = ctx.getImageData(x0, y0, w, h).data;
+  for (let by = 0; by < h; by += P) for (let bx = 0; bx < w; bx += P) {
+    const i = (Math.min(by + 1, h - 1) * w + Math.min(bx + 1, w - 1)) * 4;
+    ctx.fillStyle = `rgb(${d[i]},${d[i + 1]},${d[i + 2]})`;
+    ctx.fillRect(x0 + bx, y0 + by, P, P);
+  }
+}
+// a light pixelation (2 px blocks) of one plant's box, so the plants read as slightly pixel art
+function pixelPlant(ctx, x, top, w, h) {
+  const x0 = Math.max(0, Math.floor(x - w / 2)), y0 = Math.max(0, Math.floor(top));
+  const x1 = Math.min(240, Math.ceil(x + w / 2)), y1 = Math.min(240, Math.ceil(top + h));
+  if (x1 > x0 && y1 > y0) pixelate(ctx, x0, y0, x1 - x0, y1 - y0, 2);
+}
+// a sparse light-blue dot band just above the grass line, so the ground separates from the sky
+function horizon(ctx, t, e) {
+  const B4 = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
+  for (let y = 150; y < 186; y += 3) for (let x = 0; x < 240; x += 3) {
+    const dens = (y - 150) / 36 * (0.5 + 0.3 * e);
+    if (B4[(y / 3) & 3][(x / 3) & 3] / 16 < dens) { ctx.fillStyle = C.pblue; ctx.fillRect(x, y, 2, 2); }
+  }
+}
+function fence(ctx, t, e) {
+  if (t % 50 <= 25) return;
+  ctx.fillStyle = C.burnt;
+  for (let x = 74; x < 126; x += 8) { const y = groundY(x, t, e) + 1; ctx.fillRect(x, y - 7, 2, 7); }
+  for (let x = 74; x < 126; x++) { const y = groundY(x, t, e) + 1; ctx.fillRect(x, y - 5, 1, 1); }
+}
+function acorn(ctx, x, y, col) {
+  poly(ctx, [[x - 3, y - 3], [x + 3, y - 3], [x + 2, y + 1], [x - 2, y + 1]], C.burnt);
+  blobby(ctx, x, y + 3, 4, 6, col, 0, x);
+}
+function chrome(ctx, t, e, label) {
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, 240, 240);
+  sky(ctx, t, e);
+  horizon(ctx, t, e);
+  clouds(ctx, t, e);
+  rain(ctx, t, e);
+  house(ctx, t, e);
+  windmill(ctx, t, e);
+  pixelate(ctx, 0, 78, 72, 114);
+  pixelate(ctx, 165, 135, 60, 60);
+  fence(ctx, t, e);
+  ground(ctx, t, e);
+  for (let i = 0; i < 4; i++) acorn(ctx, 36 + i * 56, 226, i === 0 ? C.orange : SHADES[1]);
+  ctx.fillStyle = C.ink; ctx.font = '9px monospace'; ctx.fillText(label, 6, 20);
+}
+
+// ---------- screens ----------
+function sHome(ctx, t, e) {
+  chrome(ctx, t, e, 'HOME');
+  [[60, C.orange], [120, C.blue], [180, C.burnt]].forEach(([x, col], i) =>
+    tulip(ctx, x, groundY(x, t, e) + 1, t, e, i * 3, 1.1, col));
+  const moods = ['happy', 'wow'];
+  [[92, 128], [148, 150]].forEach(([x, y], i) =>
+    flowerChar(ctx, x, y, t, e, i * 2, moods[i], [C.pblue, C.orange][i]));
+}
+const ECO = [
+  { k:'mushroom', c:C.burnt,  x0:60,  sp:0,    ph:0, hop:0,   still:true },
+  { k:'bird',     c:C.orange, x0:170, sp:0.47, ph:2, hop:1.6, still:false },
+  { k:'frog',     c:C.burnt,  x0:30,  sp:0.23, ph:5, hop:1.3, still:false },
+];
+function hopOf(t, e, k) {
+  const beat = t * (+bpmEl.value) / 60;
+  return Math.pow(Math.abs(Math.sin(beat * Math.PI)), 2) * (1.5 + 7 * e) * k;
+}
+function critter(ctx, k, t, e, c, seed) {
+  if (k === 'mushroom') {
+    poly(ctx, [[-2, -16], [2, -16], [3, 0], [-3, 0]], C.surf);
+    blobby(ctx, 0, -18, 10, 7, c, e, seed, 1.2, 0.8);
+    for (let d = -1; d <= 1; d++) { ctx.fillStyle = C.bg; ctx.fillRect(d * 5 - 1, -21 + Math.abs(d) * 2, 2, 2); }
+  } else if (k === 'bird') {
+    const wing = Math.sin(t * 10) * 7 * (0.4 + e);
+    poly(ctx, [[-8, -9], [-1, -16 - wing], [5, -12], [-4, -7]], C.blue);
+    blobby(ctx, 0, -10, 7, 6, c, e, seed, 1.4, 1);
+    poly(ctx, [[6, -11], [12, -9], [6, -8]], C.burnt);
+    ctx.fillStyle = C.ink; ctx.fillRect(2, -12, 1, 1);
+  } else if (k === 'frog') {
+    poly(ctx, [[-9, -4], [-4, 1], [4, 1], [9, -4], [6, -12], [-6, -12]], c);
+    ctx.fillStyle = C.ink; ctx.fillRect(-4, -14, 1, 1); ctx.fillRect(4, -14, 1, 1);
+    const leg = Math.sin(t * 5 + seed) * 2;
+    poly(ctx, [[-9, -3], [-14, 2 + leg], [-8, 1]], c);
+    poly(ctx, [[9, -3], [14, 2 - leg], [8, 1]], c);
+  }
+}
+// the SELECT knob's visualizer: a clean dark ground, with the phase trace drawn as pixel dots
+// in the garden colours; the head of the trace is orange, the rest pastel blue
+let vizMode = false;
+// the SELECT knob's visualizer: a vectorscope in X-Y mode on a dark crosshair. The left and right channels
+// are plotted against each other, with a trail of the last second that fades with age.
+function sVisual(ctx, t, e) {
+  ctx.fillStyle = C.ink; ctx.fillRect(0, 0, 240, 240);
+  // a vectorscope-style crosshair: diagonal L and R axes with arrowheads, a vertical M axis, and a dashed L+R line
+  ctx.strokeStyle = C.surf; ctx.fillStyle = C.surf; ctx.lineWidth = 0.8; ctx.globalAlpha = 0.45;
+  const arrow = (x, y, a) => { ctx.beginPath(); ctx.moveTo(x, y);
+    ctx.lineTo(x - 5 * Math.cos(a - 0.4), y - 5 * Math.sin(a - 0.4)); ctx.lineTo(x - 5 * Math.cos(a + 0.4), y - 5 * Math.sin(a + 0.4));
+    ctx.closePath(); ctx.fill(); };
+  ctx.beginPath();
+  ctx.moveTo(120, 120); ctx.lineTo(14, 14); ctx.moveTo(120, 120); ctx.lineTo(226, 14);
+  ctx.moveTo(120, 120); ctx.lineTo(14, 226); ctx.moveTo(120, 120); ctx.lineTo(226, 226);
+  ctx.moveTo(120, 8); ctx.lineTo(120, 232);
+  ctx.stroke();
+  arrow(14, 14, Math.PI * 1.25); arrow(226, 14, Math.PI * 1.75); arrow(14, 226, Math.PI * 0.75); arrow(226, 226, Math.PI * 0.25);
+  arrow(120, 8, Math.PI * 1.5); arrow(120, 232, Math.PI * 0.5);
+  ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(8, 120); ctx.lineTo(232, 120); ctx.stroke(); ctx.setLineDash([]);
+  ctx.font = '7px monospace';
+  ctx.fillText('L', 4, 12); ctx.fillText('R', 230, 12); ctx.fillText('M', 124, 14);
+  ctx.fillText('L-R', 4, 117); ctx.fillText('L+R', 222, 117);
+  ctx.globalAlpha = 1;
+  // the X-Y trace: the left channel runs along the L diagonal, the right along the R diagonal.
+  // The trail of the last second is redrawn from the signal each frame, fading with age.
+  const lvl = 0.25 + 0.75 * e, w = 2 * Math.PI * (+bpmEl.value) / 60 / 4, A = 70;
+  const sigL = s => lvl * (0.8 * Math.sin(w * s) + 0.3 * Math.sin(2.3 * w * s + 0.5));
+  const sigR = s => lvl * (0.8 * Math.sin(1.5 * w * s + 1) + 0.3 * Math.sin(3.1 * w * s));
+  const toX = (L, R) => 120 + A * (R - L) / Math.SQRT2, toY = (L, R) => 120 - A * (L + R) / Math.SQRT2;
+  ctx.fillStyle = C.pblue;
+  for (let k = 0; k < 300; k++) {
+    const tau = k * 0.004, L = sigL(t - tau), R = sigR(t - tau);
+    ctx.globalAlpha = Math.pow(1 - k / 300, 1.6) * 0.9;
+    ctx.fillRect(Math.round(toX(L, R)), Math.round(toY(L, R)), 2, 2);
+  }
+  ctx.globalAlpha = 1;
+  const hx = toX(sigL(t), sigR(t)), hy = toY(sigL(t), sigR(t));
+  ctx.fillStyle = C.orange; ctx.fillRect(Math.round(hx) - 2, Math.round(hy) - 2, 4, 4);
+  ctx.fillStyle = C.surf; ctx.font = '8px monospace';
+  ctx.fillText('X-Y · L / R · click = back to ECO', 8, 236);
+}
+function sEco(ctx, t, e) {
+  if (vizMode) return sVisual(ctx, t, e);
+  chrome(ctx, t, e, 'ECO');
+  ECO.forEach((c, i) => {
+    let x = c.x0, dir = 1, hop = 0;
+    if (!c.still) {
+      x = c.x0 + 55 * Math.sin(t * c.sp + c.ph) + 18 * Math.sin(t * c.sp * 2.9 + c.ph * 3);
+      const vx = 55 * c.sp * Math.cos(t * c.sp + c.ph) + 18 * c.sp * 2.9 * Math.cos(t * c.sp * 2.9 + c.ph * 3);
+      dir = vx >= 0 ? 1 : -1;
+      hop = hopOf(t, e, c.hop);
+    }
+    const gy = groundY(x, t, e), pulse = 1 + 0.08 * e;
+    ctx.save(); ctx.translate(x, gy - hop);
+    ctx.scale(dir * pulse, 2 - pulse);
+    critter(ctx, c.k, t + c.ph, e, c.c, i);
+    ctx.restore();
+  });
+  [[30, C.burnt, 0.7, 0], [150, C.blue, 1.1, 2]].forEach(([x0, col, sp, ph]) => {
+    const x = x0 + 60 * Math.sin(t * sp * 0.3 + ph);
+    const dir = Math.cos(t * sp * 0.3 + ph) >= 0 ? 1 : -1;
+    beetle(ctx, x, groundY(x, t, e) - 4 - hopOf(t, e, 0.6), t, e, ph * 2, dir, col);
+  });
+}
+function sEnv(ctx, t, e) {
+  chrome(ctx, t, e, 'ENV');
+  tulip(ctx, 120, 194, t, e, 1, 1.5, C.burnt);
+}
+function sLfo(ctx, t, e) {
+  chrome(ctx, t, e, 'LFO - wind');
+  for (let x = 20; x < 240; x += 40) tulip(ctx, x, groundY(x, t, e) + 1, t, e * 0.5 + 0.5, x, 0.9, [C.burnt, C.blue][(x / 40) % 2 | 0]);
+}
+function sFx(ctx, t, e) {
+  chrome(ctx, t, e, 'FX - stream');
+  for (let r = 0; r < 2; r++) {
+    ctx.strokeStyle = r ? C.blue : C.pblue; ctx.lineWidth = 2; ctx.beginPath();
+    for (let x = 0; x <= 240; x += 4) ctx.lineTo(x, 146 + r * 8 + Math.sin(x * 0.06 - t * (3 + r)) * (2 + 3 * e));
+    ctx.stroke(); ctx.lineWidth = 1;
+  }
+  [[50, 'apple'], [130, 'orange'], [200, 'cherry']].forEach(([x, kind], i) =>
+    fruitAt(ctx, x, 140 - hopOf(t, e, 0.4 + 0.15 * i), kind, e, i * 2, 1.6));
+  for (let k = 0; k < 2; k++) {
+    const s = k ? -1 : 1, th = t * (0.3 + k * 0.2) + k * 2;
+    const x = 120 + s * 80 * Math.sin(th), dir = s * Math.cos(th) >= 0 ? 1 : -1;
+    beetle(ctx, x, groundY(x, t, e) - 4 - hopOf(t, e, 0.6), t, e, k * 7, dir, [C.burnt, C.blue][k]);
+  }
+}
+function sDrum(ctx, t, e) {
+  chrome(ctx, t, e, 'DRUM-X');
+  for (let i = 0; i < 8; i++) {
+    const a = i / 8 * Math.PI * 2 - Math.PI / 2;
+    const hit = Math.pow(Math.max(0, Math.sin(t * Math.PI * (1 + i * 0.1))), 8);
+    const x = 120 + Math.cos(a) * 62, y = 118 + Math.sin(a) * 38 - hit * 6;
+    stemPath(ctx, x, y + 22, x, y + 10, 0, C.ink);
+    blobby(ctx, x, y, 7 + hit * 3, 7, i % 2 ? C.orange : C.burnt, e, i, 1.3, 0.8);
+  }
+}
+function sFm(ctx, t, e) {
+  chrome(ctx, t, e, 'FM6 - fern');
+  const g = growth(t, 2);
+  const top = 196 - (24 + 120 * g.phase);
+  const at = stemPath(ctx, 120, 196, 120, top, Math.sin(t) * 3, C.ink);
+  const n = Math.max(2, Math.floor(g.phase * 6) + 2);
+  for (let k = 1; k <= n; k++) {
+    const [px, py, ang] = at(k / (n + 2)), base = 20 - k * 1.2;
+    const lL = base * (0.6 + 0.5 * rnd(k * 3)), lR = base * (0.6 + 0.5 * rnd(k * 5 + 2));
+    leaf(ctx, px, py, ang - 1.1 + Math.sin(t * 2 + k) * 0.08 * (1 + e), lL, 3.5, C.blue, C.surf);
+    leaf(ctx, px, py, ang + 1.0 - Math.sin(t * 2 + k) * 0.08 * (1 + e), lR, 3.5, C.burnt, C.surf);
+  }
+  tulip(ctx, 120, top, t, e, 5, 0.4, C.orange);
+  pixelPlant(ctx, 120, 50, 64, 150);
+}
+function sSeq(ctx, t, e) {
+  chrome(ctx, t, e, 'SEQ');
+  const playhead = Math.floor(t * (+bpmEl.value) / 60 * 2) % 16;
+  const pattern = [1,0,0,1, 0,1,0,0, 1,0,1,0, 0,0,1,1];
+  for (let s = 0; s < 16; s++) {
+    const col = s % 8, row = Math.floor(s / 8);
+    const x = 18 + col * 27, y = 130 + row * 36, on = !!pattern[s], hot = s === playhead;
+    mound(ctx, x, y + 8, 11, hot ? C.orange : C.dirtLt);
+    if (on) tulip(ctx, x, y + 6, t, hot ? e : e * 0.3, s, hot ? 0.7 : 0.45, hot ? C.blue : C.burnt);
+    else { ctx.fillStyle = C.surf; ctx.fillRect(x - 1, y + 4, 2, 2); }
+  }
+  ctx.fillStyle = C.ink; ctx.font = '8px monospace';
+  ctx.fillText('tulip = on   dot = off   orange = now', 14, 226);
+}
+function sMix(ctx, t, e) {
+  chrome(ctx, t, e, 'MIXER - beds');
+  for (let i = 0; i < 6; i++) {
+    const x = 22 + i * 36, lv = 0.3 + 0.6 * Math.abs(Math.sin(t * 2 + i)) * (0.5 + e);
+    mound(ctx, x, groundY(x, t, e) + 4, 14, i === 2 ? C.orange : C.dirtLt);
+    tulip(ctx, x, groundY(x, t, e) + 2, t, e, i * 2, lv * 0.8, i % 2 ? C.orange : C.burnt);
+  }
+}
+
+const SCREENS = [
+  ['HOME', 'garden, three tulips', sHome],
+  ['ECO', 'standby · click = SELECT knob', sEco],
+  ['ENV', 'a tulip that grows', sEnv],
+  ['LFO', 'wind over the garden', sLfo],
+  ['FX', 'the stream, fruit and beetles', sFx],
+  ['DRUM-X', 'mushroom ring, 8 caps', sDrum],
+  ['FM6 OPERATOR', 'the fern', sFm],
+  ['SEQ', 'the bed: 16 steps', sSeq],
+  ['MIXER', 'six beds', sMix],
+];
+const wrap = document.getElementById('wrap');
+const canvases = SCREENS.map(([name, sub, fn]) => {
+  const cell = document.createElement('div'); cell.className = 'cell';
+  cell.innerHTML = `<div class="lbl">${name} <small>${sub}</small></div>`;
+  const cv = document.createElement('canvas'); cv.width = 240; cv.height = 240;
+  cell.appendChild(cv); wrap.appendChild(cell);
+  if (name === 'ECO') cv.addEventListener('click', () => { vizMode = !vizMode; });
+  return [cv.getContext('2d'), fn];
+});
+let t0 = performance.now(), last = 0;
+function frame(now) {
+  if (now - last >= 1000 / 15) {
+    last = now;
+    const t = (now - t0) / 1000, e = music(t);
+    canvases.forEach(([ctx, fn]) => fn(ctx, t, e));
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body></html>
