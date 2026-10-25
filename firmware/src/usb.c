@@ -103,7 +103,8 @@ _Static_assert(UA_PRIME48 + 2u * UA_REND48 + UA_MAXF < UA_N, "the ring holds the
 _Static_assert(UA_HI + HALF_FRAMES + UA_MAXF < UA_N, "the ring holds the band, a render and a packet");
 #define UA_W 5u                  /* (0.7.1) words a frame in the ring: 1 stereo (L | R << 16), 4 the stems (8 x 16 bit);
                                   * (0.8.0) 5 the stems with the host's audio in (10 x 16 bit: STEMS+IN); (stems-10) 5
-                                  * the stems too (10 x 16 bit: STEMS, tracks 1..8 and the FX return) */
+                                  * the stems too (10 x 16 bit: STEMS, tracks 1..8 and the FX return; STEMS+IN, tracks 1..8
+                                  * and the host's audio) */
 #define UA_NF10 409u             /* (0.8.0) the 10-channel ring: its frames, the 8-channel ring's words / 5 (the pool kept) */
 _Static_assert(UA_HI + UA_PAD_STEMS + HALF_FRAMES + UA_MAXF < UA_NF10 && UA_NF10 * 5u <= UA_N * 4u, "the 10-channel ring");
 static uint32_t ua_ring[UA_N * 4u] __attribute__((section(".pool")));   /* (8 KiB: in the pool, zeroed at boot) */
@@ -349,8 +350,8 @@ static void midi_out_event(uint32_t pkt)            /* from the audio ISR */
 #define FMT_LEN10S 11
 #define D_AC10S(a) D_AC_CH(a, 10, 0x00)
 #define D_AS10S(s) D_AS_FMT(s, D_FMT10S, UAC_MAXP10)
-/* (0.8.0) MENU > USB STEMS+IN: 10 channels (the stems, then the host's audio as the mix took it and as it came), 46
- * frames a packet at most: 920 bytes, within a full-speed isochronous packet's 1023 */
+/* (0.8.0) MENU > USB STEMS+IN: 10 channels (stems-10: tracks 1..8, then the host's audio as the mix took it and as it
+ * came; the FX return is not in it), 46 frames a packet at most: 920 bytes, within a full-speed isochronous packet's 1023 */
 #define D_FMT10 11, 0x24, 2, 1, 10, 2, 16, 1, 0x44, 0xAC, 0x00,
 #define UAC_MAXP10 (46u * 20u)
 #define D_AS10(s) D_AS_FMT(s, D_FMT10, UAC_MAXP10)
@@ -1472,19 +1473,15 @@ static __attribute__((noinline)) void uac_tap8(uint32_t n)
     }
     for (i = 0; i < n; i++) {
         uint32_t *f = &ua_ring[ua_slot(w + i) * UA_FW];
-        if (UAC_STEMS() == 1u) {
-            /* (stems-10) STEMS: tracks 1..8 in words 0..3 (stem_buf[0..7]), the FX return L R in word 4 */
-            for (k = 0; k < 4u; k++)
-                f[k] = (uint32_t)(uint16_t)uac_s16(stem_buf[2u * k][i]) | (uint32_t)(uint16_t)uac_s16(stem_buf[2u * k + 1u][i]) << 16;
+        /* (stems-10) both modes: tracks 1..8 in words 0..3 (stem_buf[0..7], each pair a word). Word 4: STEMS, the FX
+         * return L R; STEMS+IN, the host's audio as the mix took it (stem_buf[NPART]) and as it came (uin_l / uin_r) */
+        for (k = 0; k < 4u; k++)
+            f[k] = (uint32_t)(uint16_t)uac_s16(stem_buf[2u * k][i]) | (uint32_t)(uint16_t)uac_s16(stem_buf[2u * k + 1u][i]) << 16;
+        if (UAC_STEMS() == 1u)
             f[4] = (uint32_t)(uint16_t)uac_s16(stem_fx[0][i]) | (uint32_t)(uint16_t)uac_s16(stem_fx[1][i]) << 16;
-        } else {
-            /* STEMS+IN (0.8.0): tracks 1..6 in words 0..2, the FX return L R in word 3, the host's audio in word 4 */
-            for (k = 0; k < 3u; k++)
-                f[k] = (uint32_t)(uint16_t)uac_s16(stem_buf[2u * k][i]) | (uint32_t)(uint16_t)uac_s16(stem_buf[2u * k + 1u][i]) << 16;
-            f[3] = (uint32_t)(uint16_t)uac_s16(stem_fx[0][i]) | (uint32_t)(uint16_t)uac_s16(stem_fx[1][i]) << 16;
+        else
             f[4] = (uint32_t)(uint16_t)uac_s16(stem_buf[NPART][i]) |
                    (uint32_t)(uint16_t)(uin_on ? (int16_t)((uin_l[i] + uin_r[i]) >> 1) : 0) << 16;
-        }
     }
     RING_PUBLISH();
     ua_w = w + n;

@@ -116,7 +116,7 @@ static const char *const USBLVL_N[6] = {"MASTER", "FIXED", "-6 dB", "-12 dB", "-
  * default, PREF_SERIAL_OFF clear: the descriptors as before); STEREO, audio + MIDI only (class 0: the old OFF); STEMS,
  * audio as 10 channels (tracks 1..8 mono, the FX return L R; stems-10: was 8, tracks 1..6; fx.c, usb.c), no console; (0.7.5) IN+OUT, the stereo
  * audio and the host's audio output too (usb.c usb_duplex: the computer or the phone plays into the last track), no
- * console; (0.8.0) STEMS+IN, the stems with the host's audio output too (10 channels in: the stems, then the host's
+ * console; (0.8.0) STEMS+IN, the stems with the host's audio output too (10 channels in: tracks 1..8, then the host's
  * audio as the last track mixed it and as it came; the phone app records a voice through the FM-1 and moves it by
  * the latency). ui.c usb_out */
 static const char *const USBOUT_N[5] = {"CONSOLE", "STEREO", "STEMS", "IN+OUT", "STEMS+IN"};

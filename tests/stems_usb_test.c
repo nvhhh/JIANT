@@ -86,15 +86,10 @@ static void render_block(void)
             } else {
                 v = (int32_t)((f_render + 4099u * c) & 0x7FFFu);
             }
-            if (t_stems == 1u) {                         /* STEMS: tracks 1..8 (stem_buf[0..7]), the FX return L R */
-                if (c < 8u) stem_buf[c][i] = v;
-                else stem_fx[c - 8u][i] = v;
-            } else {                                     /* STEMS+IN: tracks 1..6, the FX return, the host's two */
-                if (c < 6u) stem_buf[c][i] = v;
-                else if (c < 8u) stem_fx[c - 6u][i] = v;
-                else if (c == 8u) stem_buf[8][i] = v;      /* the host's audio as mixed (NPART) */
-                else uin_l[i] = uin_r[i] = v;
-            }
+            if (c < 8u) stem_buf[c][i] = v;              /* tracks 1..8, both modes */
+            else if (t_stems == 1u) stem_fx[c - 8u][i] = v;   /* STEMS: the FX return L R */
+            else if (c == 8u) stem_buf[NPART][i] = v;    /* STEMS+IN: the host's audio as mixed */
+            else uin_l[i] = uin_r[i] = v;                /* STEMS+IN: as it came */
         }
     uin_on = t_stems == 2u;
     uac_tap8(32);

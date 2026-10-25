@@ -1079,22 +1079,23 @@ static void test_stems_in(void)
     uac.feed = 1; uac.go = 1; uac.fill_min = UA_HI; ua_r = ua_w = 0;
     for (i = 0; i < HALF_FRAMES; i++) {
         uint32_t k;
-        for (k = 0; k < 6u; k++) stem_buf[k][i] = (int32_t)(k + 1u) * 1000 + (int32_t)i;
-        stem_buf[NPART][i] = 7000 + (int32_t)i;      /* the host's audio as the mix took it (NPART: 8 in core.h) */
+        for (k = 0; k < 8u; k++) stem_buf[k][i] = (int32_t)(k + 1u) * 1000 + (int32_t)i;
+        stem_buf[NPART][i] = 9000 + (int32_t)i;      /* the host's audio as the mix took it (NPART: 8 in core.h) */
         stem_fx[0][i] = -7000 - (int32_t)i; stem_fx[1][i] = 8000 + (int32_t)i;
         uin_l[i] = 300 + (int32_t)i; uin_r[i] = 500 + (int32_t)i;
     }
     uin_on = 1;
     uac_tap8(HALF_FRAMES);
     n = uac_packet(pk);
-    check("stems+in: a block as 10 x 16-bit frames of five words: the stems, the host's audio mixed, as it came",
-          n >= 43u && n <= 46u && pk[0] == (1000u | 2000u << 16) && pk[3] == ((uint32_t)(uint16_t)-7000 | 8000u << 16) &&
-          pk[4] == (7000u | 400u << 16) && pk[5] == (1001u | 2001u << 16) && pk[9] == (7001u | 401u << 16));
+    check("stems+in: a block as 10 x 16-bit frames of five words: tracks 1..8, the host's audio mixed, as it came",
+          n >= 43u && n <= 46u && pk[0] == (1000u | 2000u << 16) && pk[1] == (3000u | 4000u << 16) &&
+          pk[2] == (5000u | 6000u << 16) && pk[3] == (7000u | 8000u << 16) && pk[4] == (9000u | 400u << 16) &&
+          pk[5] == (1001u | 2001u << 16) && pk[8] == (7001u | 8001u << 16) && pk[9] == (9001u | 401u << 16));
     uin_on = 0;
     ua_r = ua_w = 0;
     uac_tap8(HALF_FRAMES);
     n = uac_packet(pk);
-    check("stems+in: no host audio this block: its raw channel silent", pk[4] == 7000u && pk[9] == 7001u);
+    check("stems+in: no host audio this block: its raw channel silent", pk[4] == 9000u && pk[9] == 9001u);
     {   /* the 409-frame ring (the 8-channel one's words, five a frame) round many times: every frame once, in order */
         uint32_t b, seq = 0, want = 0, bad = 0, j;
         memset(&uac, 0, sizeof uac);
