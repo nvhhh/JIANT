@@ -192,10 +192,7 @@ static void rp_put(uint32_t f, uint32_t v)
  * the SCOPE card, the chips); 0 OFF (the default: new settings and older ones, which never held it), the creature on the
  * whole panel, centred, the page's and the sound's names in its corners. A byte no engine uses (engine 15) */
 #define ui_scope (favorites.factory[15][19])
-/* MENU > SCREEN 2 > ECO STYLE (menu_items.c MI_ECO; the HOME ECO view): 0 OG, the beings (the default: new settings and older
- * ones, which never held it); 1 GOOBERS, mushroom goobers in a forest, one per track. A byte no engine uses (engine 15, byte
- * 14: 0..3 are the hints, 15 and 16 the CPU TEST); unknown = OG (settings_persist.c) */
-#define ui_eco_style (favorites.factory[15][14])
+/* (GARDEN) MENU > SCREEN 2 > ECO STYLE (OG / GOOBERS) retired: favorites.factory[15][14] kept as saved, not read */
 static void draw_rules(uint32_t y, uint32_t h);       /* (ui_draw.c) */
 
 static uint8_t sync_reload;                  /* engine / preset / project / user preset loaded: editor RELOAD push */

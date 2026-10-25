@@ -158,7 +158,7 @@ static int preferences(void)
         host_wire[n0 - 23] == 0 &&                        /* (no bank since 1.0.3) */
         host_wire[n0 - 22] == 0x53 && host_wire[n0 - 21] == 1 && host_wire[n0 - 20] == 3 &&
         host_wire[n0 - 19] == 0x50 && host_wire[n0 - 18] == 1 && host_wire[n0 - 17] == 3 &&   /* FM6 v2: no bank, preset patches */
-        host_wire[n0 - 16] == 0x4E && host_wire[n0 - 15] == 1 && host_wire[n0 - 14] == 24 &&  /* MENU settings: 24 items (GARDEN: COLOR STYLE SKIN out, MOTION in) (0.6.72: MIDI OUT; 0.8.9 SKIN; 0.9.7 SCOPE; 0.9.12 CPU, CPU CLOCK) */
+        host_wire[n0 - 16] == 0x4E && host_wire[n0 - 15] == 1 && host_wire[n0 - 14] == 23 &&  /* MENU settings: 23 items (GARDEN: COLOR STYLE SKIN ECO STYLE out, MOTION in) (0.6.72: MIDI OUT; 0.8.9 SKIN; 0.9.7 SCOPE; 0.9.12 CPU, CPU CLOCK) */
         host_wire[n0 - 13] == 0x52 && host_wire[n0 - 12] == 1 && host_wire[n0 - 11] == 4 &&   /* RATCH */
         host_wire[n0 - 10] == 0x4C && host_wire[n0 - 9] == 1 && host_wire[n0 - 8] == 1 &&   /* 1.1 parameter locks */
         host_wire[n0 - 7] == 0x56 && host_wire[n0 - 6] == 1 && host_wire[n0 - 5] == 32 &&   /* (0.6.11) FM6 voice bank */
@@ -847,14 +847,13 @@ static int menu_protocol(void)
         bad += check("MENU_DESC: the tab comes after every byte of the 1.0.4 reply (older editors ignore it)", ok);
     }
     ok = 1;
-    for (i = 0; i < 24u; i++) {
+    for (i = 0; i < 23u; i++) {
         menu_desc(i, &it);
         ok &= strcmp(it.name, "CALIBRATION") != 0 && strcmp(it.name, "ABOUT") != 0;   /* (a strcmp difference is not 1) */
-        ok &= strcmp(it.name, "COLOR") != 0 && strcmp(it.name, "STYLE") != 0 && strcmp(it.name, "SKIN") != 0 &&
-              it.id != 0 && it.id != 1 && it.id != 21;  /* (GARDEN: retired, their ids never reused) */
+        ok &= strcmp(it.name, "COLOR") != 0 && strcmp(it.name, "STYLE") != 0 && strcmp(it.name, "SKIN") != 0 && strcmp(it.name, "ECO STYLE") != 0 &&
+              it.id != 0 && it.id != 1 && it.id != 21 && it.id != 25;  /* (GARDEN: retired, their ids never reused) */
         if (i == 18u) ok &= !strcmp(it.name, "MIDI OUT") && it.id == 20;   /* (0.6.72) */
-        if (i == 22u) ok &= !strcmp(it.name, "ECO STYLE") && it.id == 25 && it.max == 1;   /* (0.9.19) */
-        if (i == 23u) ok &= !strcmp(it.name, "MOTION") && it.id == 26 && it.tab == 0;     /* (GARDEN) */
+        if (i == 22u) ok &= !strcmp(it.name, "MOTION") && it.id == 26 && it.tab == 0;     /* (GARDEN; ECO STYLE, id 25, retired) */
     }
     menu_desc(19, &it);                                   /* (0.9.7) SCOPE, a row of DISPLAY: OFF (the default) ON (0.9.18: BUBBLES ORBIT) */
     ok &= !strcmp(it.name, "SCOPE") && it.id == 22 && it.tab == 0 && it.value == 0 && it.max == 3 && !strcmp(it.names[0], "OFF") &&
@@ -865,8 +864,8 @@ static int menu_protocol(void)
     menu_desc(21, &it);
     ok &= !strcmp(it.name, "CPU CLOCK") && it.id == 24 && it.tab == 4 && it.max == 1 && !strcmp(it.names[0], "360 MHZ") &&
           !strcmp(it.names[1], "320 MHZ");
-    n = menu_desc(24, &it);
-    ok &= n == 2u && it.index == 24 && it.id == 127;
+    n = menu_desc(23, &it);
+    ok &= n == 2u && it.index == 23 && it.id == 127;
     n = menu_desc(127, &it);
     bad += check("MENU_DESC: no CALIBRATION / ABOUT; an index past the list answers index, 127 (no item)",
                  ok && n == 2u && it.index == 127 && it.id == 127);
@@ -924,7 +923,7 @@ static int menu_protocol(void)
         ok = menu_set(27, 1) == 1 && host_wire[6] == 27 && ed_rv(host_wire + 7) == 1;   /* (26: MOTION; 27 the next free) */
         ok &= menu_set(126, -3) == 1 && host_wire[6] == 126 && ed_rv(host_wire + 7) == -3;
         ok &= menu_set(127, 0) == 1 && host_wire[6] == 127;
-        ok &= menu_set(0, 2) == 1 && menu_set(1, 1) == 1 && menu_set(21, 0) == 1;   /* (GARDEN: COLOR, STYLE, SKIN retired) */
+        ok &= menu_set(0, 2) == 1 && menu_set(1, 1) == 1 && menu_set(21, 0) == 1 && menu_set(25, 1) == 1;   /* (GARDEN: COLOR, STYLE, SKIN, ECO STYLE retired) */
         ok &= !memcmp(fav0, &favorites, sizeof favorites) && !memcmp(set0, &settings, sizeof settings) &&
               hold0 == settings_hold && leds0 == settings_leds;
         bad += check("MENU_SET: an unknown id (and a retired one) answers rc 1, id and value echoed, nothing changed", ok);

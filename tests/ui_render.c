@@ -2365,22 +2365,6 @@ int main(int argc, char **argv)
     snprintf(path, sizeof path, "%s/report.txt", out);
     rep = fopen(path, "w");
     if (!rep) { fprintf(stderr, "cannot write %s\n", path); return 1; }
-    if (getenv("UI_GOOB_TRACKS")) {   /* (QA) GOOBERS at rest: HOME's ECO as GOOBERS with N awake tracks and ANIM OFF (the
-                                       * firmware's own rest: the walk eases to 0, no hop left), 90 frames settled; PPMs in
-                                       * OUTDIR/ppm as goob_<N>_<PALETTE>_home.ppm, then the run ends */
-        uint32_t f, n = (uint32_t)atoi(getenv("UI_GOOB_TRACKS"));
-        for (p = 0; p < NPALETTES; p++) {
-            setup(S_HOME);
-            ui_eco_style = 1u;
-            ui_prefs |= PREF_ANIM_OFF;
-            trk_live = n;
-            pal(p);
-            for (f = 0; f < 90u; f++) { ui.frame++; draw(S_HOME); }
-            snprintf(path, sizeof path, "goob_%u", n);
-            write_ppm(out, UI_PALETTES[p].name, path);
-        }
-        return 0;
-    }
     {
         char ap[600];
         snprintf(ap, sizeof ap, "%s/align.txt", out);

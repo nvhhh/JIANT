@@ -39,8 +39,6 @@ static int settings_import(persist_t *p, int n)
     if (p->favorites.factory[15][19] > 3u)         /* SCOPE (0.9.7, ui.c ui_scope; 0.9.18: 2 BUBBLES, 3 ORBIT): unknown = OFF (0,
                                                      * older settings too: 0 and 1 keep their meaning) */
         p->favorites.factory[15][19] = 0;
-    if (p->favorites.factory[15][14] > 1u)         /* ECO STYLE (ui.c ui_eco_style): 0 OG, 1 GOOBERS; unknown = OG */
-        p->favorites.factory[15][14] = 0;
     {   /* CLICK, CLICK LEVEL, COUNT-IN (ui.c ui_rec_prefs): two bits each, 3 is no value: the default (0) */
         uint32_t b = p->favorites.factory[15][28], f;
         for (f = 0; f < 3u; f++)

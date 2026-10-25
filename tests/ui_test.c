@@ -2631,7 +2631,7 @@ static int test_menu_tabs(void)
     turn(EN_SELECT, 1); frame();
     ok &= lz_crumb_is("MENU \xB7 SYSTEM") && lz_count_is("10/10");
     menu_close();
-    bad += check("0.9.18 MENU: five tabs (the page's lit), MENU . TAB . page (MENU . page when named as its tab) and n/10; ALGORITHM the tab, KNOB n the value", ok && MI_COUNT == 28u);   /* (COLOR, SKIN, STYLE gone; MOTION added) */
+    bad += check("0.9.18 MENU: five tabs (the page's lit), MENU . TAB . page (MENU . page when named as its tab) and n/10; ALGORITHM the tab, KNOB n the value", ok && MI_COUNT == 27u);   /* (COLOR, SKIN, STYLE, ECO STYLE gone; MOTION added) */
     return bad;
 }
 
@@ -10124,36 +10124,7 @@ static int test_scope(void)
         ok &= ui_scope == 1u;                                     /* (settings_fresh leaves it: a new FM-1's byte is 0, OFF) */
         bad += check("SCOPE saved with the settings and read back; older settings, unknown values: OFF (idempotent)", ok);
     }
-    {   /* (MENU > SCREEN 2 > ECO STYLE, ui.c ui_eco_style, favorites.factory[15][14]): OG by default (new settings and older
-         * ones), GOOBERS as the other value; saved with the settings; unknown values read as OG */
-        persist_t p, q;
-        ui_power_on(); frame();
-        ok = ui_eco_style == 0u && MI_ECO == MI_SCOPE + 1u && str_eq(MI_NAME[MI_ECO], "ECO STYLE") && mi_tab(MI_ECO) == MTAB_SCREEN &&
-             menu_n(MI_ECO) == 2u && str_eq(menu_vname(MI_ECO, 0), "OG") && str_eq(menu_vname(MI_ECO, 1), "GOOBERS") &&
-             menu_get(MI_ECO) == 0u && mi_tab(MI_SCOPE) == MTAB_SCREEN;
-        hold(B_HOME); ui.menu_sel = MI_ECO;
-        turn(EN_K4, 1); ok &= ui_eco_style == 1u && menu_get(MI_ECO) == 1u;
-        turn(EN_K4, 1); ok &= ui_eco_style == 1u;                 /* (stops at the end) */
-        press(B_OCTDN); ok &= ui_eco_style == 0u;
-        turn(EN_K4, 1); press(B_HOME); ok &= !ui.menu && ui_eco_style == 1u;
-        bad += check("ECO STYLE: a row of SCREEN 2 (KNOB 4), OG GOOBERS, OG by default; KNOB 4 / OCT- switch it", ok);
-        ui_eco_style = 1u;
-        settings_export(&p);
-        ok = p.favorites.factory[15][14] == 1u;
-        ui_eco_style = 0u;
-        ok &= settings_import(&p, (int)sizeof p) == 1 && ui_eco_style == 1u;
-        p.favorites.factory[15][14] = 0;
-        ok &= settings_import(&p, (int)sizeof p) == 1 && ui_eco_style == 0u;
-        p.favorites.factory[15][14] = 7;                          /* unknown: OG */
-        ok &= settings_import(&p, (int)sizeof p) == 1 && ui_eco_style == 0u && !p.favorites.factory[15][14];
-        q = p;
-        ok &= settings_import(&q, (int)sizeof q) == 1 && !memcmp(&p, &q, sizeof p);
-        memset(&p.favorites, 0, sizeof p.favorites);             /* older settings: byte 14 is 0 */
-        p.magic = 0x50455233u;
-        ui_eco_style = 1u;
-        ok &= settings_import(&p, (int)(sizeof p - sizeof p.favorites)) == 2 && ui_eco_style == 0u;
-        bad += check("ECO STYLE saved with the settings and read back; older settings and unknown values: OG", ok);
-    }
+    /* (GARDEN) ECO STYLE (OG / GOOBERS) retired with the GOOBERS: its two checks with it */
     for (sk = 0; sk < 1u; sk++)                               /* the EDIT pages of every engine with a creature */
         for (e = 0; e < NENGINES; e++) {
             uint32_t on_tile, on_mid, off_tile, off_mid, gy, chips;

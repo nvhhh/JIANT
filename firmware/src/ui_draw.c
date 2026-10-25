@@ -2273,6 +2273,7 @@ static void ui_draw(void)
         frame_acc += MOTION_Q8[ui_motion & 3u];
         ui.frame += frame_acc >> 8;
         frame_acc &= 255u;
+        gd_tick();                                      /* (GARDEN: the scene's clock, ui_garden.c) */
     }
     if (counting != (uint8_t)seq_counting()) {          /* a count-in began or ended: the page drawn again after it */
         counting = (uint8_t)seq_counting();

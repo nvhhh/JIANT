@@ -251,7 +251,7 @@ static void eco_draw(int32_t x0, int32_t y0, int words)
     (void)bg_energy();                                  /* (the output's level kept as it was read: once a frame) */
     char b[16];
     cv_oy = -y0;
-    for (k = 0; k < 22u; k++) {                         /* the cytoplasm: granules drifting */
+    for (k = 0; k < (hud ? 0u : 22u); k++) {            /* the cytoplasm: granules drifting (GARDEN's HOME: none) */
         uint32_t h = k * 2654435761u;
         int32_t gx = 10 + (int32_t)((h >> 8) % 220u + ui.frame * (1u + (h >> 28)) / 6u) % 220;
         int32_t gy = 6 + (int32_t)(((h >> 16) % (uint32_t)(bot + 6)) + (still ? 0 : (uint32_t)(bg_sin((uint32_t)(ui.frame * 300u + h)) >> 13))) %
@@ -282,10 +282,12 @@ static void eco_draw(int32_t x0, int32_t y0, int words)
     }
     cv_oy = 0;
 }
-int goobers_on(void);                                   /* (ui_goobers.c, included at the end of this file: ECO's GOOBERS look) */
-static void goobers_draw(int32_t x0, int32_t y0, int words);
-static void graph_eco(void) { if (goobers_on()) goobers_draw(0, 0, 1); else eco_draw(0, 0, 1); }
-static void eco_backdrop(int32_t x0, int32_t y0, int words) { if (goobers_on()) goobers_draw(x0, y0, words); else eco_draw(x0, y0, words); }
+static void graph_eco(void) { eco_draw(0, 0, 1); }   /* (GARDEN: the GOOBERS look, ui_goobers.c, retired) */
+static void eco_backdrop(int32_t x0, int32_t y0, int words)   /* (GARDEN: the beings in the garden, gd_scene) */
+{
+    gd_scene(x0, y0);
+    eco_draw(x0, y0, words);
+}
 /* BEING: the track's being large, its HOME knobs as organs at the corners */
 static const int16_t ORG_X[4] = {30, 210, 30, 210}, ORG_Y[4] = {28, 28, 116, 116};
 static void organ(uint32_t k, int32_t cx, int32_t cy)
@@ -379,5 +381,3 @@ static void graph_home_lz(void)
         graph_eco();
 }
 
-/* (GOOBERS, ui_goobers.c) ECO's other look, by ui_eco_style: its drawing, state and note hook; the helpers above it are its */
-#include "ui_goobers.c"

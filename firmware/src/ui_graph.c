@@ -14,6 +14,7 @@
 /* (0.8.9) SKIN HUD's HOME (ui.c hud_home): every strip begins on the beings (ui_lzhome.c eco_backdrop: the strip at screen
  * x, y), its words outlined (gfx.c cv_halo); elsewhere a strip cleared to BG */
 static void eco_backdrop(int32_t x0, int32_t y0, int words);
+#include "ui_garden.c"                               /* (GARDEN, Phase 2) the scene: HOME's backdrop */
 static void lz_begin(uint32_t w, uint32_t h, uint32_t x, uint32_t y)
 {
     cv_begin(w, h, T_BG);
