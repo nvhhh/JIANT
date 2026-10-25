@@ -251,7 +251,7 @@ def build_app():
     # felucca.c goes to LLVM IR without the optimizer, the main-loop functions (UI, stores, editor) are
     # marked minsize (tools/size_fns.py), then the IR is compiled at -Os. FELUCCA_SIZE=0: -Os everywhere
     size = os.environ.get("FELUCCA_SIZE") != "0"
-    hot = size and os.environ.get("FELUCCA_HOTRAM", "0") != "0"   # (0.6.78) core 0's hottest audio code in RAM (HOT_FNS); (stems-10) off by default: docs/STEMS-10-BUILD.md
+    hot = size and os.environ.get("FELUCCA_HOTRAM") != "0"   # (0.6.78) core 0's hottest audio code in RAM (HOT_FNS)
     flags.append(f"-DFELUCCA_HOTRAM={int(hot)}")
     cmain = (("cc", *flags, "-S", "-emit-llvm", "-Xclang", "-disable-llvm-optzns", "-c",
               FW / "src" / "felucca.c", "-o", OUT / "felucca.ll") if size else

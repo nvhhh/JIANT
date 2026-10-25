@@ -2,13 +2,10 @@
 
 The stems-10 branch (eight tracks in the USB stems, 10 channels) did not fit the firmware's
 memory: the image was 720 B over the flash slot and the RAM pool 256 B over. Three changes make
-it build and pass every check in `tools/build.py`.
+it build and pass every check in `tools/build.py`, with `./build.sh` as before.
 
-`./build.sh` builds it: on this branch `FELUCCA_HOTRAM` is off unless set (`FELUCCA_HOTRAM=1` puts the hot
-code back in RAM, and the image no longer fits).
-
-Result: app 577,104 B of the 584,336 B slot (7,232 B free); `.data+.bss` 94,484 B of 98,304 B;
-pool spare 15,616 B (the guard asks for 8,192 B).
+Result: app 584,088 B of the 584,336 B slot (248 B free); `.data+.bss` 94,484 B of 98,304 B;
+pool spare 15,616 B (the guard asks for 8,192 B); RAM code 19,444 B, as tracks-8.
 
 ## 1. USB audio resampler table (`firmware/src/usb.c`)
 
@@ -34,25 +31,27 @@ pool spare 15,616 B (the guard asks for 8,192 B).
 - Regression renders: tracks-8 ran the same change and its 165 golden renders stayed the same.
   The golden set may not include low COMB notes, so this has not been checked for stems-10.
 
-## 3. Core 0's hot audio code runs from flash (`FELUCCA_HOTRAM` off by default, `tools/build.py`)
+## 3. The Goobers drawing built for size (`tools/size_fns.py`)
 
-- Before: the hottest audio functions (the mix and the parts' render) were copied to RAM at boot,
-  and their copy sat in the flash image too. That copy is what put the image 648 B over.
-- Now: they run from the XIP flash through its cache, like the rest of the code. The flash fits
-  with 7,232 B free.
-- `tools/build.py`: the reach check asked for at least one call from RAM code into the image, to
-  prove it could read the disassembly. With `.hot_text` empty there is none, so the check now
-  asks only when `.hot_text` holds code.
-- Risk: this is the change that can cause audible glitches. Code in flash runs slower when the
-  cache misses, and the UI drawing evicts audio code from the cache. If a render takes longer than
-  a half buffer (2.9 ms), that half is late; past about two halves it is lost, and you hear a
-  click. The host tests cannot see this (they have no flash cache). It has to be measured on the
-  FM-1. See "Glitch test".
+- The stems-10 flash growth over tracks-8 is almost all `goobers_draw` (5,526 B), from the
+  Goobers ECO creature mode. Its file, `ui_goobers.c`, was missing from `SIZE_FILES`, so it was
+  built like sound code (`optsize`) instead of like the rest of the UI (`minsize`).
+- Now: `ui_goobers.c` is in `SIZE_FILES`. Saves about 900 B of flash.
+- Sound: none. It is UI drawing in the main loop; no audio code changes.
+- UI: the Goobers screen's drawing may take slightly longer a frame. Not measured.
+
+### Tried and reverted: hot audio code in flash (`FELUCCA_HOTRAM=0`)
+
+An earlier build fitted the flash by running core 0's hot audio code from flash instead of RAM.
+On the FM-1 that made the audio about 60 % worse on late blocks (CPU TEST: ~81 late halves a
+second against ~50 on tracks-8), and the saved project BBBB went from 9 clicks in 45 s on
+tracks-8 to 78. The hot code is back in RAM. `tools/build.py` keeps one fix from that attempt:
+the reach check asks for a call from RAM code only when `.hot_text` holds code.
 
 ## Glitch test
 
 What you need: the FM-1, a USB cable, `pip3 install pyserial`, and this build. For a comparison,
-also the tracks-8 build (its hot code is in RAM).
+also the tracks-8 build.
 
 ### A. Measured load (USB AUDIO: CONSOLE)
 
@@ -78,8 +77,8 @@ Reading it:
   inaudible; `shed` voices can thin a chord.
 - Slowest render near or over 100 % of the 2,902 us budget: no margin left.
 
-Do the same steps on the tracks-8 build. The difference between the two runs is roughly what
-moving the hot code to flash costs.
+Do the same steps on the tracks-8 build to compare. CPU TEST overloads the FM-1 on any build
+(late halves and shed voices on both); clicks are what to look for.
 
 ### B. Listening (USB AUDIO: STEMS)
 
