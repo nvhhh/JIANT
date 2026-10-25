@@ -2435,9 +2435,9 @@ static int test_menu_tabs(void)
               str_eq(menu_short(MI_PANEL), "CALIB") && str_eq(menu_short(MI_CLOCK), "CPU MHZ") &&
               str_eq(menu_short(MI_SERIAL), "USB AUD");
     }
-    bad += check("0.9.18 MENU: every setting on one page (9 pages of up to 4 knobs, no two cards alike), tabs SCREEN AUDIO MIDI USB SYSTEM (3 2 1 1 2 pages)",
+    bad += check("0.9.18 MENU: every setting on one page (10 pages of up to 4 knobs, no two cards alike), tabs SCREEN AUDIO MIDI USB SYSTEM (3 2 1 1 2 pages)",
                  ok && n == MP_COUNT && MTAB_COUNT == 5u && str_eq(MTAB_NAME[0], "SCREEN") && str_eq(MTAB_NAME[MTAB_SYSTEM], "SYSTEM") &&
-                 mtab_pages(MTAB_SCREEN) == 3u && mtab_pages(MTAB_AUDIO) == 2u && mtab_pages(MTAB_MIDI) == 1u &&
+                 mtab_pages(MTAB_SCREEN) == 4u && mtab_pages(MTAB_AUDIO) == 2u && mtab_pages(MTAB_MIDI) == 1u &&
                  mtab_pages(MTAB_USB) == 1u && mtab_pages(MTAB_SYSTEM) == 2u && mi_tab(MI_MIDIOUT) == MTAB_MIDI &&
                  mi_tab(MI_LEARN) == MTAB_MIDI && mi_tab(MI_LCLEAR) == MTAB_MIDI && mi_tab(MI_SERIAL) == MTAB_USB &&
                  mi_tab(MI_USB) == MTAB_USB && mi_tab(MI_CPU) == MTAB_SYSTEM && mi_tab(MI_CLOCK) == MTAB_SYSTEM &&
@@ -2463,22 +2463,23 @@ static int test_menu_tabs(void)
     ok = ui.menu == 1 && ui.menu_sel == MI_LARGE && menu_page() == 0u && menu_tab() == MTAB_SCREEN;
     turn(EN_SELECT, 1); ok &= menu_page() == 1u && ui.menu_sel == MI_SCOPE;   /* (SELECT: a page a detent, its first) */
     turn(EN_SELECT, 1); ok &= menu_page() == 2u && ui.menu_sel == MI_LEDS && menu_tab() == MTAB_SCREEN;
-    turn(EN_SELECT, 1); ok &= menu_page() == 3u && ui.menu_sel == MI_LOWCUT && menu_tab() == MTAB_AUDIO;
-    turn(EN_SELECT, -2); ok &= menu_page() == 1u;
+    turn(EN_SELECT, 1); ok &= menu_page() == 3u && ui.menu_sel == MI_MOTION && menu_tab() == MTAB_SCREEN;
+    turn(EN_SELECT, 1); ok &= menu_page() == 4u && ui.menu_sel == MI_LOWCUT && menu_tab() == MTAB_AUDIO;
+    turn(EN_SELECT, -3); ok &= menu_page() == 1u;
     turn(EN_SELECT, -40); ok &= menu_page() == 0u && ui.menu_sel == MI_LARGE;   /* (no wrap) */
     turn(EN_PRESET, 1); ok &= ui.menu_sel == MI_LARGE;   /* (PRESETS: nothing, rule 3) */
     turn(EN_SELECT, 40); ok &= menu_page() == MP_COUNT - 1u && ui.menu_sel == MI_RESTORE;
     turn(EN_SELECT, -40);
     bad += check("0.9.18 MENU: SELECT walks the pages (SCREEN .. SYSTEM, no wrap), each opened on its first setting; PRESETS does nothing", ok);
-    turn(EN_ALGO, 1); ok = menu_tab() == MTAB_AUDIO && menu_page() == 3u;
-    turn(EN_SELECT, 1); ok &= menu_page() == 4u && ui.menu_sel == MI_CLICK;
+    turn(EN_ALGO, 1); ok = menu_tab() == MTAB_AUDIO && menu_page() == 4u;
+    turn(EN_SELECT, 1); ok &= menu_page() == 5u && ui.menu_sel == MI_CLICK;
     turn(EN_ALGO, 1); ok &= menu_tab() == MTAB_MIDI && ui.menu_sel == MI_MIDIOUT;
-    turn(EN_ALGO, -1); ok &= menu_page() == 3u;        /* (its first page) */
+    turn(EN_ALGO, -1); ok &= menu_page() == 4u;        /* (its first page) */
     turn(EN_ALGO, -1); ok &= menu_page() == 0u;
     turn(EN_ALGO, -1); ok &= menu_page() == 0u && menu_tab() == MTAB_SCREEN;   /* (no wrap) */
     turn(EN_ALGO, 3); ok &= menu_tab() == MTAB_USB && ui.menu_sel == MI_SERIAL;
     turn(EN_ALGO, 1); ok &= menu_tab() == MTAB_SYSTEM && ui.menu_sel == MI_HOLD;
-    turn(EN_ALGO, 1); ok &= menu_page() == 7u;
+    turn(EN_ALGO, 1); ok &= menu_page() == 8u;
     bad += check("0.9.18 MENU: ALGORITHM jumps to the next / previous tab's first page, no wrap", ok && ui.menu == 1);
     ok = 1;                                            /* SYSTEM > CONTROLS: HOLD TIME, KNOB SPEEDUP, FX LATCH, CALIBRATION */
     turn(EN_K2, 1); ok &= !(ui_prefs & PREF_ACCEL_OFF) && ui.menu_sel == MI_ACCEL;
@@ -2610,24 +2611,24 @@ static int test_menu_tabs(void)
     hold(B_HOME);
     frame();
     ok = ui.menu == 1 && lz_on() && lz_fam() == LZ_MENU && lz_tabs() == 5u && lz_tab_lit(0) &&
-         lz_crumb_is("MENU \xB7 SCREEN") && lz_count_is("1/9");
+         lz_crumb_is("MENU \xB7 SCREEN") && lz_count_is("1/10");
     turn(EN_SELECT, 1); frame();
-    ok &= lz_tab_lit(0) && lz_crumb_is("MENU \xB7 SCREEN 2") && lz_count_is("2/9");
+    ok &= lz_tab_lit(0) && lz_crumb_is("MENU \xB7 SCREEN 2") && lz_count_is("2/10");
     turn(EN_SELECT, 1); frame();
-    ok &= lz_tab_lit(0) && lz_crumb_is("MENU \xB7 SCREEN \xB7 LEDS") && lz_count_is("3/9");
+    ok &= lz_tab_lit(0) && lz_crumb_is("MENU \xB7 SCREEN \xB7 LEDS") && lz_count_is("3/10");
     turn(EN_ALGO, 1); frame();
-    ok &= menu_tab() == MTAB_AUDIO && lz_tab_lit(1) && lz_crumb_is("MENU \xB7 AUDIO") && lz_count_is("4/9");
+    ok &= menu_tab() == MTAB_AUDIO && lz_tab_lit(1) && lz_crumb_is("MENU \xB7 AUDIO") && lz_count_is("5/10");
     turn(EN_SELECT, 1); frame();
-    ok &= lz_crumb_is("MENU \xB7 AUDIO \xB7 CLICK") && lz_count_is("5/9");
+    ok &= lz_crumb_is("MENU \xB7 AUDIO \xB7 CLICK") && lz_count_is("6/10");
     turn(EN_ALGO, 3); frame();
-    ok &= lz_tab_lit(4) && lz_crumb_is("MENU \xB7 SYSTEM \xB7 CONTROLS") && lz_count_is("8/9");
+    ok &= lz_tab_lit(4) && lz_crumb_is("MENU \xB7 SYSTEM \xB7 CONTROLS") && lz_count_is("9/10");
     turn(EN_K3, 1); frame();
     ok &= (fx_latch & 1u) != 0u && ui.menu_sel == MI_LATCH;
     turn(EN_K3, -1); frame();
     turn(EN_SELECT, 1); frame();
-    ok &= lz_crumb_is("MENU \xB7 SYSTEM") && lz_count_is("9/9");
+    ok &= lz_crumb_is("MENU \xB7 SYSTEM") && lz_count_is("10/10");
     menu_close();
-    bad += check("0.9.18 MENU: five tabs (the page's lit), MENU . TAB . page (MENU . page when named as its tab) and n/9; ALGORITHM the tab, KNOB n the value", ok && MI_COUNT == 30u);   /* (ECO STYLE: one more row) */
+    bad += check("0.9.18 MENU: five tabs (the page's lit), MENU . TAB . page (MENU . page when named as its tab) and n/10; ALGORITHM the tab, KNOB n the value", ok && MI_COUNT == 30u);   /* (ECO STYLE: one more row) */
     return bad;
 }
 
