@@ -782,7 +782,7 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
             cv_begin(COL_W, (uint32_t)ch, T_BG);
             if (!lz_on())
                 cv_rect(0, 0, COL_W, ch, cb);           /* (0.8.5, the mock-up: a square box) */
-            else if (hot && vc != T_DIM) {              /* (0.8.9) COLORS: a rounded card, the knob turned framed in its colour */
+            else if (!low && hot && vc != T_DIM) {      /* (0.8.9) COLORS: a rounded card, the knob turned framed in its colour (AIR: flat) */
                 uint16_t fc = ux_mix(cb, gk ? gk : T_K(c), 70);
                 cv_rrect(0, 0, COL_W, ch, 5, fc, T_BG);
                 cv_rrect(1, 1, COL_W - 2, ch - 2, 4, cb, fc);
