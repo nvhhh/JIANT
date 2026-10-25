@@ -246,6 +246,19 @@ static void gd_object(int mill, int32_t fx, int32_t fr, int32_t x0b, int32_t nco
     }
 }
 
+/* (Phase 3) a pebble in the canvas being drawn (its own coordinates): x, y, w x h, a little uneven (seed k), filled c */
+static void gd_pebble(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t k, uint16_t c)
+{
+    static const int8_t P[16] = {0, 6, 3, 0, 9, 1, 15, 0, 16, 9, 13, 16, 6, 15, 1, 16};   /* (sixteenths of w, h) */
+    int32_t pt[16], i;
+    for (i = 0; i < 8; i++) {
+        int32_t j = (int32_t)(gd_h((int32_t)k, i) & 3u) - 1;   /* (-1 .. 2 px: no two pebbles alike) */
+        pt[2 * i] = (x * 16 + P[2 * i] * w) + (i & 1 ? j * 8 : 0);
+        pt[2 * i + 1] = (y * 16 + P[2 * i + 1] * h) + (i & 1 ? 0 : j * 8);
+    }
+    gd.x0 = 0; gd.y0 = 0; gd.y1 = (int32_t)cv_h;
+    gd_poly(pt, 8, 1, c);
+}
 /* the soil's cell at x, y (3 px; y from 171): two octaves of noise, low contrast, a checker's nudge (Q8; without the
  * depth's darkening). Static: kept once worked out (.pool, 1.8 KB) */
 #define GD_SOIL_Y 171

@@ -10940,12 +10940,12 @@ static int air_tab_lit(uint32_t l, uint32_t n)
     uint32_t k, th;
     int32_t x, y;
     int ok = 1;
-    for (k = 0; k < n; k++) {
+    for (k = 0; k < n; k++) {                          /* (GARDEN: the lit tab an orange pebble; was its word in THEME) */
         th = 0;
         for (y = LT_Y; y < LT_Y + LB_TAB_H; y++)
             for (x = (int32_t)(k * 240u / n) + 2; x < (int32_t)((k + 1u) * 240u / n) - 2; x++)
-                th += swap16(host_screen[y * 240 + x]) == T_THEME;
-        ok &= (k == l) == (th > 0u);
+                th += swap16(host_screen[y * 240 + x]) == GD_ORANGE;
+        ok &= (k == l) == (th > (240u / n) * 5u);       /* (more than the sun's spikes behind HOME's last tab) */
     }
     return ok;
 }

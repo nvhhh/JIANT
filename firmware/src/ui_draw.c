@@ -926,18 +926,21 @@ static void tabs_paint(uint32_t n, uint32_t lv, const char *const *nm, const cha
         const char *s = nm[l];
         if (tab && tab[l] && text_w(&AF_X, s) > w - 4)
             s = tab[l];
-        if (low) {
+        if (low) {                                      /* (GARDEN) a pebble each, the lit one orange */
+            uint16_t pc = l == lv ? GD_ORANGE : T_SURF;
+            uint8_t h0 = cv_halo;
+            gd_pebble(x + 1, o, w - 2, LB_TAB_H - 1, l, pc);
+            cv_halo = 0;
             GFX_HOOK_ALIGN(x, 0, x + w, 0, AL_H, "group tab word centred on its slot");
-            cv_text_in(x, o + 2 - AF_X_CAP_Y, w, &AF_X, s, l == lv ? T_THEME : hud_cap(T_MID), T_BG);
-            dy = o + 12;
-            if (cv_halo && nd)
-                cv_rect(dx - 1, dy - 1, nd * 4, 3, T_BG);
+            cv_text_in(x, o + 2 - AF_X_CAP_Y, w, &AF_X, s, l == lv ? T_TEXT : T_MID, pc);
+            cv_halo = h0;
+            dy = o + 11;
             for (d = 0; d < (uint32_t)nd; d++) {
                 int32_t px = dx + (int32_t)d * 4;
                 if (l == lv && d == at)
-                    cv_rect(px - 1, dy, 4, 1, T_THEME);
+                    cv_rect(px - 1, dy, 4, 1, T_TEXT);
                 else
-                    cv_rect(px, dy, 2, 1, l == lv ? hud_cap(T_MID) : T_DIM);
+                    cv_rect(px, dy, 2, 1, l == lv ? T_MID : T_DIM);
             }
             continue;
         }
