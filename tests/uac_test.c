@@ -813,9 +813,11 @@ static void test_resampler(void)
         for (i = 0; i < UAC_FIR_L; i++) {
             int64_t t = 0;
             for (k = 0; k < UAC_FIR_N; k++) {
+                /* (RAM holds phases 0..79; phase 159 - p is phase p with its taps backwards, as usb.c reads it) */
+                int32_t v = i < UAC_FIR_L / 2u ? rs_tab[i][k] : rs_tab[UAC_FIR_L - 1u - i][UAC_FIR_N - 1u - k];
                 double want = H[i + RL * (RN - 1u - k)] * (1 << 30);
-                t += rs_tab[i][k];
-                if (fabs(rs_tab[i][k] - want) > 2e-5 * (1 << 30))
+                t += v;
+                if (fabs(v - want) > 2e-5 * (1 << 30))
                     tab_ok = 0;
                 if (i < UAC_FIR_L / 2u)
                     chk += (uint64_t)(i * UAC_FIR_N + k + 1u) * (uint64_t)(int64_t)rs_tab[i][k];

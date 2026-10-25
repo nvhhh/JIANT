@@ -251,7 +251,7 @@ def build_app():
     # felucca.c goes to LLVM IR without the optimizer, the main-loop functions (UI, stores, editor) are
     # marked minsize (tools/size_fns.py), then the IR is compiled at -Os. FELUCCA_SIZE=0: -Os everywhere
     size = os.environ.get("FELUCCA_SIZE") != "0"
-    hot = size and os.environ.get("FELUCCA_HOTRAM") != "0"   # (0.6.78) core 0's hottest audio code in RAM (HOT_FNS)
+    hot = size and os.environ.get("FELUCCA_HOTRAM", "0") != "0"   # (0.6.78) core 0's hottest audio code in RAM (HOT_FNS); (stems-10) off by default: docs/STEMS-10-BUILD.md
     flags.append(f"-DFELUCCA_HOTRAM={int(hot)}")
     cmain = (("cc", *flags, "-S", "-emit-llvm", "-Xclang", "-disable-llvm-optzns", "-c",
               FW / "src" / "felucca.c", "-o", OUT / "felucca.ll") if size else
@@ -371,7 +371,8 @@ def check(img, syms, dis, rt):
     ramcode = sym("_hot_end") - sym("_rt_start")
     notes.append(f"RAM code {ramcode} B of {RAMTEXT_END - sym('_rt_start')}; {len(targets)} calls into the image, the farthest "
                  f"{far[1]} with {reach} B of reach to spare (the image's end: {sym('_rt_start') + 0x400000 - sym('_etext')} B)")
-    if not targets and "call" in dis:
+    # (FELUCCA_HOTRAM=0: .hot_text is empty and the second core's loop calls nothing, so no call is expected)
+    if not targets and "call" in dis and sym("_hot_end") > sym("_hot_start"):
         errors.append("no call from RAM code found in the disassembly: the reach check cannot read it")
     if reach < 12288:                              # (12 KiB to spare beyond the farthest callee)
         errors.append(f"RAM code's farthest call ({far[1]}) has only {reach} B of reach to spare (< 12 KiB): "

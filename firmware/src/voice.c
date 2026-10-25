@@ -46,8 +46,9 @@ static uint32_t lfo_rand(track_t *t)
 
 /* (JIANT 0.5) ANALOG's FILTER TYPE COMB: the part's sum through a feedback comb, tuned to its newest note moved by
  * CUT (+-32 semitones; 64: the note: a resonance at the pitch), RES its feedback (up to ~0.99: long metallic rings);
- * the level kept about the dry's. One line a part (1024 samples: down to ~43 Hz) */
-#define COMB_LEN 1024u
+ * the level kept about the dry's. One line a part (512 samples: down to ~86 Hz; was 1024, ~43 Hz, before stems-10:
+ * the RAM pool needs the 8 KiB back for eight tracks) */
+#define COMB_LEN 512u
 static int16_t comb_buf[NTRK][COMB_LEN] __attribute__((section(".pool")));   /* (0.6: six tracks, in the pool) */
 static uint16_t comb_w[NTRK];
 static int16_t comb_p16[NTRK];
