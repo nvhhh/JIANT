@@ -2401,6 +2401,7 @@ static int test_display_preferences(void)
  * knobs in five tabs (SCREEN AUDIO MIDI USB SYSTEM), a tab's pages in a run; SELECT walks the pages (no wrap), ALGORITHM
  * the tabs' first pages (no wrap), PRESETS nothing, KNOB n the page's setting n, OCT+ / OCT- the setting turned last; an
  * action armed by its knob, OCT+ does it; HOME closes (OCT- not); reopened at the same page */
+static int air_tab_lit(uint32_t l, uint32_t n);  /* (GARDEN: below, with the dialogs' tests) */
 static int lz_tab_lit(uint32_t l);                 /* (0.8.5: below, with the lenses' tests) */
 static int lz_crumb_is(const char *s);
 static uint32_t lz_tabs(void);
@@ -2921,7 +2922,7 @@ static int32_t roll_ink_row(const uint16_t *s, int32_t x0, int32_t x1, int32_t y
     int32_t x, y, n = 0, sum = 0;
     for (y = y0; y < y1; y++)
         for (x = x0; x < x1; x++)
-            if (s[y * 240 + x] != swap16(CARD_BG)) { n++; sum += y * 16; }   /* (0.8.5: a card RAISE) */
+            if (s[y * 240 + x] != swap16(lz_low() ? T_BG : CARD_BG)) { n++; sum += y * 16; }   /* (0.8.5: a card RAISE; AIR: no box, BG) */
     return n ? sum / n : -1;
 }
 static int roll_static_now(void)                  /* the screen is the static render (a forced redraw changes nothing) */
@@ -3133,11 +3134,16 @@ static int test_soak_cards(void)
             for (c = 0; c < 5u && !ui.roll[c].from[0]; c++) {}
             if (c < 5u)
                 continue;
-            memcpy(shot, &host_screen[Y_LABEL * 240], sizeof shot);
-            ui.force = 1;
-            ui_draw();
-            cmp++;
-            stale += memcmp(shot, &host_screen[Y_LABEL * 240], sizeof shot) != 0;
+            {   /* (GARDEN: the cards where the AIR layout draws them; HOME's knob row lies on the moving beings: not compared) */
+                uint32_t cy = card_y(), chh = card_h() < CARD_H ? card_h() : CARD_H, nb = chh * 240u * sizeof shot[0];
+                if (hud_home())
+                    continue;
+                memcpy(shot, &host_screen[cy * 240u], nb);
+                ui.force = 1;
+                ui_draw();
+                cmp++;
+                stale += memcmp(shot, &host_screen[cy * 240u], nb) != 0;
+            }
         }
     }
 #undef SOAK_RND
@@ -6904,7 +6910,7 @@ static int test_save_lens(void)
     go_home(); frame();
     press(B_SAVE); frame();
     ok = save_on() && save_level() == SV_SOUND && cur_page()->graph == GR_USER && ui.act == 4u && lz_on() &&
-         card_y() == LZ_CARD_Y && graph_y() == LZ_GRAPH_Y && foot_y() == LZ_FOOT_Y && lz_tab_lit(0) &&
+         card_y() == LA_CARD_Y && graph_y() == LA_GRAPH_Y && foot_y() == LZ_FOOT_Y && lz_tab_lit(0) &&   /* (AIR) */
          lz_crumb_is("SAVE \xB7 SOUND \xB7 USER") && lz_count_is("1/6");
     bad += check("0.9.2 SAVE from HOME at power-on: SOUND's USER, SAVE armed; the tabs (SOUND lit), the crumb, 1/6", ok);
     bad += check("0.9.2 SAVE: one chain USER PRESETS SECTIONS ARRANGE PROJECTS TOOLS; a SAVE tap the next group, round",
@@ -7022,7 +7028,7 @@ static int test_lente(void)
         go_title("TRACK"); frame();
         page_title(ti);
         ok &= str_eq(ti, "TRACK 1/2");
-        ok &= card_y() == LZ_CARD_Y && graph_y() == LZ_GRAPH_Y && foot_y() == LZ_FOOT_Y && card_h() == LZ_CARD_H;
+        ok &= card_y() == LA_CARD_Y && graph_y() == LA_GRAPH_Y && foot_y() == LZ_FOOT_Y && card_h() == LB_CARD_H;   /* (AIR) */
     }
     bad += check("0.9.2 SEQ: the page's title within its group (\"COMP 2 2/2\"); the tabs on top, the page under them", ok);
     /* the tools layer and the dice on every page */
@@ -9884,21 +9890,15 @@ static int test_large(void)
     frame();
     ok = ui.home && large_kind() == LK_TALL && card_y() == LZ_CARD_Y && card_h() == LG_CARD_H && graph_y() == LZ_LG_Y_GRAPH &&
          strip_kind() == SK_SCOPE;
-    ok &= lg_px(30, LZ_CARD_Y + LZ_CARD_H + 2) == T_SURF && off[(LZ_CARD_Y + LZ_CARD_H + 2) * 240 + 30] == swap16(T_BG);   /* a
-                                                         * card where the gap was */
-    {   /* a gap in the panel: the old panel's row read across it (8 .. 231), at least half of it SURF: HOME's moving
-         * dust (ui_being.c) and the beings sit on that row here and there */
-        uint32_t x, n = 0;
-        for (x = 8; x < 232u; x++)
-            n += off[(LZ_LG_Y_GRAPH - 2) * 240 + x] == swap16(T_SURF);
-        ok &= lg_px(30, LZ_LG_Y_GRAPH - 2) == T_BG && n >= 112u;
-    }
+    ok &= lg_px(30, LZ_CARD_Y + LZ_CARD_H + 2) == T_SURF;      /* a tall card (GARDEN: AIR, the off render, has no panel
+                                                         * to compare with: its checks went with COLORS) */
+    ok &= lg_px(30, LZ_LG_Y_GRAPH - 2) == T_BG;          /* the gap between the cards and the strip */
     ok &= lg_px(30, LZ_LG_Y_GRAPH + 1) == T_SURF;
     for (c = 0; c < 4u; c++)                                      /* each column's K pill, over its knob */
         ok &= lg_px(CARD_X(c) + 8, LZ_CARD_Y + LG_MY + LG_MH / 2) == T_KEY;
-    ok &= !memcmp(off + LZ_FOOT_Y * 240, host_screen + LZ_FOOT_Y * 240, 240u * LZ_FOOT_H * sizeof *off);
+    /* (GARDEN: the footer is no longer compared with the off render: AIR's HOME draws its footer a row higher, hud_home) */
     ok &= swap16(host_screen[(LT_Y + LT_H / 2) * 240 + LT_X(0) + 2]) == T_THEME;   /* (its tabs: ECO lit) */
-    bad += check("#15 LARGE ON: HOME's cards tall under its tabs (a K1..K4 pill over each column), the scope a strip, the footer kept", ok);
+    bad += check("#15 LARGE ON: HOME's cards tall under its tabs (a K1..K4 pill over each column), the scope a strip", ok);
 
     /* the value in L: GLOBAL's BPM 124 stands about twice as tall as in M */
     go_title("GLOBAL"); frame();
@@ -10165,20 +10165,20 @@ static int test_scope(void)
                 continue;
             gy = graph_y();
             ui_scope = 1u; ui.force = 1; frame();
-            on_tile = sc_rows((int32_t)gy + 2, (int32_t)gy + 60, T_RAISE);   /* (COLORS: the SCOPE card) */
+            on_tile = sc_rows((int32_t)gy + 2, (int32_t)gy + 60, T_RAISE);   /* (COLORS: the SCOPE card; AIR draws no tiles, as before GARDEN) */
             chips = sc_rows((int32_t)gy + 63, (int32_t)gy + 115, T_RAISE);   /* (.. the chips) */
             on_mid = sc_count(117, (int32_t)gy + 20, 121, (int32_t)gy + 120, T_SURF, 0);   /* (the gap left of the card: clear) */
             ui_scope = 0u; ui.force = 1; frame();
             off_tile = sc_rows((int32_t)gy + 2, (int32_t)gy + 115, T_RAISE);   /* (no card, no chips) */
             off_mid = sc_count(117, (int32_t)gy + 20, 121, (int32_t)gy + 120, T_SURF, 0);   /* (the creature across the middle) */
-            ok = on_mid == 0u && off_mid > 0u && off_tile == 0u && (on_tile > 40u && chips >= 20u);
+            ok = on_mid == 0u && off_mid > 0u && off_tile == 0u && (lz_low() || (on_tile > 40u && chips >= 20u));
             if (!ok) printf("  %s skin %u: on card %u chips %u mid %u, off card %u mid %u\n", ENGINES[e]->name, sk, on_tile, chips, on_mid,
                             off_tile, off_mid);
             nseen += ok;
             bad += ok ? 0 : 1;
         }
     bad += check("SCOPE: ON the creature left of the SCOPE card and the chips; OFF on the whole panel, no card, no chips (every engine, every skin)",
-                 nseen >= 4u * 7u);
+                 nseen >= 7u);                             /* (GARDEN: one skin, AIR; was 4 x 7) */
     ui_power_on(); frame();
     return bad;
 }
@@ -10298,7 +10298,7 @@ static int head_centres(const char *what, int print)
         if (nhel < HEAD_EL) { hel[nhel][0] = x0; hel[nhel][1] = x1; hel[nhel][2] = top; hel[nhel][3] = bot; nhel++; }
     }
     for (x = 0; x < 240; x++)                          /* the rule */
-        ok &= host_screen[(Y_HEAD + HEAD_RULE_Y) * 240 + x] == swap16(T_LINE);
+        ok &= host_screen[(Y_HEAD + HEAD_RULE_Y) * 240 + x] == swap16(skin_hud() ? T_BG : T_LINE);   /* (AIR: none) */
     return ok;
 }
 /* the elements inside columns a .. b as one span (x0 .. x1): 2 x its centre, 0 none */
@@ -10357,7 +10357,9 @@ static int test_head_centres(void)
                                         s == HS_LAYER_LOCK || s == HS_MSG2;
                 int pr = !st && !p, okp;
                 ui_power_on();
-                 
+                if (hud_home()) {                       /* (AIR's HOME: the beings behind the header; measured off it) */
+                    go_title("EDIT 1"); frame();
+                }
                 settings.palette = p; palette_set(p);
                 head_state(s);
                 memset(host_screen, 0, sizeof host_screen);
@@ -10573,8 +10575,8 @@ static int lz_tab_lit(uint32_t l)
     uint8_t cnt[8];
     uint32_t lv, at, n = tabs_now(nm, tab, cnt, &lv, &at), k;
     int ok = lv == l;
-    if (lz_low())                                   /* (AIR: the lit group is its word in THEME, no raised tab to probe) */
-        return ok;
+    if (lz_low())                                   /* (AIR: the lit group is its word in THEME, no raised tab) */
+        return ok && air_tab_lit(l, n);
     for (k = 0; k < n; k++)
         ok &= swap16(host_screen[(LT_Y + LT_H / 2) * 240 + TAB_X(k, n) + 2]) == (k == l ? T_THEME : T_RAISE);
     return ok;
@@ -10960,13 +10962,25 @@ static int test_lz_layer(void)
 
 /* the dialogs as the mock-up (ui_draw.c draw_confirm, dice_panel, ui_name.c): NOTICE / DICE / NAME tabs, a NOTICE
  * card, DICE's BEFORE / NOW with SELECT still re-rolling, a lens page's toast in its panel, NAME's tabs */
+/* (GARDEN, AIR) the tabs are words in n slots across the screen (ui_draw.c tabs_paint, low): the lit one in THEME,
+ * the others not: THEME ink in tab l's slot only */
+static int air_tab_lit(uint32_t l, uint32_t n)
+{
+    uint32_t k, th;
+    int32_t x, y;
+    int ok = 1;
+    for (k = 0; k < n; k++) {
+        th = 0;
+        for (y = LT_Y; y < LT_Y + LB_TAB_H; y++)
+            for (x = (int32_t)(k * 240u / n) + 2; x < (int32_t)((k + 1u) * 240u / n) - 2; x++)
+                th += swap16(host_screen[y * 240 + x]) == T_THEME;
+        ok &= (k == l) == (th > 0u);
+    }
+    return ok;
+}
 static int dlg_tab_lit(uint32_t l)
 {
-    uint32_t k;
-    int ok = 1;
-    for (k = 0; k < 3u; k++)
-        ok &= swap16(host_screen[(LT_Y + LT_H / 2) * 240 + LT_X(k) + 2]) == (k == l ? T_THEME : T_RAISE);
-    return ok;
+    return air_tab_lit(l, 3u);
 }
 static int test_toasts(void);
 static int test_lz_dialogs(void)
@@ -10976,7 +10990,7 @@ static int test_lz_dialogs(void)
     uint32_t y, x, acc = 0;
     ui_power_on(); go_title("ENV"); frame();
     confirm_open(CF_CLEAR_TRK, 2); ui.force = 1; frame();
-    ok = dlg_tab_lit(0) && swap16(host_screen[67 * 240 + 120]) == T_THEME;   /* (the card's THEME rule) */
+    ok = dlg_tab_lit(0) && swap16(host_screen[66 * 240 + 120]) == T_THEME;   /* (the card's THEME rule: AIR, a line on its top) */
     press(B_OCTDN); frame();
     ok &= !ui.confirm;
     bad += check("0.8.5 dialogs: a question under the NOTICE tab, a card with its THEME rule; OCT- NO", ok);

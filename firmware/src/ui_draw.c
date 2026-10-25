@@ -748,7 +748,7 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
     if (strip && !ui.roll[c].from[0])
         return;
     if (strip) {                                        /* rolling: the value strip only */
-        cv_begin(COL_W, ROLL_H, cb);
+        cv_begin(COL_W, ROLL_H, low ? T_BG : cb);       /* (GARDEN: AIR's cards have no box, as lz_begin draws them) */
         cv_oy = -ry;
         if (lz_on() && !low && hot && vc != T_DIM) {    /* (0.8.9 COLORS: the hot card's frame, its sides) */
             uint16_t fc = ux_mix(cb, gk ? gk : T_K(c), 70);
@@ -782,7 +782,7 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
             cv_begin(COL_W, (uint32_t)ch, T_BG);
             if (!lz_on())
                 cv_rect(0, 0, COL_W, ch, cb);           /* (0.8.5, the mock-up: a square box) */
-            else if (!low && hot && vc != T_DIM) {      /* (0.8.9) COLORS: a rounded card, the knob turned framed in its colour (AIR: flat) */
+            else if (hot && vc != T_DIM) {              /* (0.8.9) COLORS: a rounded card, the knob turned framed in its colour */
                 uint16_t fc = ux_mix(cb, gk ? gk : T_K(c), 70);
                 cv_rrect(0, 0, COL_W, ch, 5, fc, T_BG);
                 cv_rrect(1, 1, COL_W - 2, ch - 2, 4, cb, fc);
