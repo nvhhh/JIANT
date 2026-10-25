@@ -43,7 +43,8 @@ static void fm1_delay_ms(uint32_t ms) { (void)ms; }
 static uint8_t t_stems;
 #define UAC_STEMS() t_stems
 #define UAC_STEMS_SRC 1
-static int32_t stem_buf[7][HALF_FRAMES], stem_fx[2][HALF_FRAMES];   /* ((0.8.0) [6]: STEMS+IN's host audio) */
+#define NPART 8                                       /* (core.h: the tracks) */
+static int32_t stem_buf[NPART + 1][HALF_FRAMES], stem_fx[2][HALF_FRAMES];   /* ([0..7]: the tracks; [NPART]: STEMS+IN's host audio) */
 /* (0.7.5) MENU > USB IN+OUT: fx.c's input block stood in for (usb.c uac_in_fill writes it) */
 static int32_t uin_l[HALF_FRAMES > 64 ? HALF_FRAMES : 64], uin_r[HALF_FRAMES > 64 ? HALF_FRAMES : 64];
 static volatile uint8_t uin_on;
@@ -62,36 +63,38 @@ static int check(const char *what, int ok)
 static uint32_t le16(const uint8_t *p) { return p[0] | (uint32_t)p[1] << 8; }
 
 /* ------------------------------------------------------------------ descriptors --- */
-/* (0.7.1) the stems: the 8-channel configuration (one rate, 736-byte packets: 0.9.8, was 720 while 46-frame packets went out; bcdDevice + 0x40), four words a frame
- * in the ring and the packet, the six parts then the FX return, each 16 bit */
+/* (0.7.1) the stems: the configuration with the stems' audio function (one rate, 920-byte packets of 46 frames, 10
+ * channels: stems-10, was 8 channels and 736 bytes; bcdDevice + 0x48, was + 0x40), five words a frame in the ring and the
+ * packet, the eight tracks mono then the FX return, each 16 bit */
 static void test_stems(void)
 {
     const uint8_t *d; uint16_t l; uint32_t off, it_ok = 0, fmt_ok = 0, ep_ok = 0, i, n, pk[UA_MAXF * UA_W];
     t_stems = 1; usb_stems = 1;                      /* (the firmware sets both: usb_serial_apply) */
     get_desc(0x0200, &d, &l);
-    check("stems: the configuration is the 8-channel one, its length as declared", d == CFG_DESC_PLAIN8 && l == sizeof CFG_DESC_PLAIN8 && le16(d + 2) == l);
+    check("stems: the configuration is the 10-channel one, its length as declared", d == CFG_DESC_PLAIN10S && l == sizeof CFG_DESC_PLAIN10S && le16(d + 2) == l);
     for (off = 0; off + 1u < l; off += d[off]) {
         const uint8_t *p = d + off;
-        if (p[1] == 0x24 && p[2] == 2 && p[0] == 12) it_ok = p[7] == 8 && p[8] == 0 && p[9] == 0;   /* input terminal: 8 ch, no config */
-        if (p[1] == 0x24 && p[2] == 2 && p[0] == 11) fmt_ok = p[4] == 8 && p[5] == 2 && p[6] == 16 && p[7] == 1 && p[8] == 0x44 && p[9] == 0xAC && p[10] == 0;
-        if (p[1] == 5 && p[2] == 0x84) ep_ok = le16(p + 4) == 736 && p[3] == 0x05;
+        if (p[1] == 0x24 && p[2] == 2 && p[0] == 12) it_ok = p[7] == 10 && p[8] == 0 && p[9] == 0;   /* input terminal: 10 ch, no config */
+        if (p[1] == 0x24 && p[2] == 2 && p[0] == 11) fmt_ok = p[4] == 10 && p[5] == 2 && p[6] == 16 && p[7] == 1 && p[8] == 0x44 && p[9] == 0xAC && p[10] == 0;
+        if (p[1] == 5 && p[2] == 0x84) ep_ok = le16(p + 4) == 920 && p[3] == 0x05;
     }
-    check("stems: input terminal 8 channels, type I 8 ch 16 bit 44100 only, EP4 isochronous 736 bytes (46 frames)", it_ok && fmt_ok && ep_ok);
+    check("stems: input terminal 10 channels, type I 10 ch 16 bit 44100 only, EP4 isochronous 920 bytes (46 frames)", it_ok && fmt_ok && ep_ok);
     get_desc(0x0100, &d, &l);
-    check("stems: the device descriptor's bcdDevice + 0x40 (a host never reuses the stereo one's)", d == DEV_DESC_PLAIN8 && l == 18 && d[12] == (BCD_LO(0) + 0x40));
+    check("stems: the device descriptor's bcdDevice + 0x48 (a host never reuses the 8-channel one's, or the stereo one's)",
+          d == DEV_DESC_PLAIN10S && l == 18 && d[12] == (BCD_LO(0) + 0x48));
     memset(&uac, 0, sizeof uac);
     uac.feed = 1; uac.go = 1; uac.fill_min = UA_HI; ua_r = ua_w = 0;
     for (i = 0; i < HALF_FRAMES; i++) {
         uint32_t k;
-        for (k = 0; k < 6u; k++) stem_buf[k][i] = (int32_t)(k + 1u) * 1000 + (int32_t)i;
+        for (k = 0; k < 8u; k++) stem_buf[k][i] = (int32_t)(k + 1u) * 1000 + (int32_t)i;
         stem_fx[0][i] = -7000 - (int32_t)i; stem_fx[1][i] = 8000 + (int32_t)i;
     }
     uac_tap8(HALF_FRAMES);
     n = uac_packet(pk);
-    check("stems: a block tapped as 8 x 16-bit frames of four words, a packet of 43..46 of them",
+    check("stems: a block tapped as 10 x 16-bit frames of five words, a packet of 43..46 of them",
           ua_w == HALF_FRAMES && n >= 43u && n <= 46u && ua_r == n &&
           pk[0] == (1000u | 2000u << 16) && pk[1] == (3000u | 4000u << 16) && pk[2] == (5000u | 6000u << 16) &&
-          pk[3] == ((uint32_t)(uint16_t)-7000 | 8000u << 16) && pk[4] == (1001u | 2001u << 16));
+          pk[3] == (7000u | 8000u << 16) && pk[4] == ((uint32_t)(uint16_t)-7000 | 8000u << 16) && pk[5] == (1001u | 2001u << 16));
     t_stems = 0; usb_stems = 0;
     memset(&uac, 0, sizeof uac);
     ua_r = ua_w = 0;
@@ -1076,7 +1079,8 @@ static void test_stems_in(void)
     uac.feed = 1; uac.go = 1; uac.fill_min = UA_HI; ua_r = ua_w = 0;
     for (i = 0; i < HALF_FRAMES; i++) {
         uint32_t k;
-        for (k = 0; k < 7u; k++) stem_buf[k][i] = (int32_t)(k + 1u) * 1000 + (int32_t)i;
+        for (k = 0; k < 6u; k++) stem_buf[k][i] = (int32_t)(k + 1u) * 1000 + (int32_t)i;
+        stem_buf[NPART][i] = 7000 + (int32_t)i;      /* the host's audio as the mix took it (NPART: 8 in core.h) */
         stem_fx[0][i] = -7000 - (int32_t)i; stem_fx[1][i] = 8000 + (int32_t)i;
         uin_l[i] = 300 + (int32_t)i; uin_r[i] = 500 + (int32_t)i;
     }
@@ -1108,7 +1112,7 @@ static void test_stems_in(void)
     }
     t_stems = 0; usb_stems = 0; usb_duplex = 0;
     get_desc(0x0200, &d, &l);
-    check("stems+in off: the configuration as before", d != CFG_DESC_STIN && d != CFG_DESC_PLAIN8);
+    check("stems+in off: the configuration as before", d != CFG_DESC_STIN && d != CFG_DESC_PLAIN10S);
     memset(&uac, 0, sizeof uac);
     ua_r = ua_w = 0;
 }

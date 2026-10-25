@@ -114,7 +114,7 @@ static const char *const TRKS_N[3] = {"4", "6", "8"};    /* (0.9.19) MENU > TRAC
 static const char *const USBLVL_N[6] = {"MASTER", "FIXED", "-6 dB", "-12 dB", "-18 dB", "-24 dB"};
 /* (0.7.1) MENU > SYSTEM > USB (was USB SERIAL ON / OFF, #67): CONSOLE, the serial console with the stereo audio (the
  * default, PREF_SERIAL_OFF clear: the descriptors as before); STEREO, audio + MIDI only (class 0: the old OFF); STEMS,
- * audio as 8 channels (tracks 1..6 mono, the FX return L R; tracks 7 and 8 are not exported; fx.c, usb.c), no console; (0.7.5) IN+OUT, the stereo
+ * audio as 10 channels (tracks 1..8 mono, the FX return L R; stems-10: was 8, tracks 1..6; fx.c, usb.c), no console; (0.7.5) IN+OUT, the stereo
  * audio and the host's audio output too (usb.c usb_duplex: the computer or the phone plays into the last track), no
  * console; (0.8.0) STEMS+IN, the stems with the host's audio output too (10 channels in: the stems, then the host's
  * audio as the last track mixed it and as it came; the phone app records a voice through the FM-1 and moves it by

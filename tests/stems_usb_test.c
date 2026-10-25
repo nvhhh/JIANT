@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments
  * Copyright (C) 2026 Juan Ignacio Antonucci (Juan Jiant) */
-/* (0.9.8) MENU > USB STEMS / STEMS+IN over minutes: src/usb.c's 8- and 10-channel stream (uac_render_start, uac_tap8,
+/* (0.9.8) MENU > USB STEMS / STEMS+IN over minutes: src/usb.c's 10-channel streams (stems-10: STEMS is 10 too) (uac_render_start, uac_tap8,
  * uac_packet) in the audio ISR's order against a simulated FM-1 and a host that reads it as the JIANT Stems app does
  * (android/stems: usbstream.c's isochronous URBs, each packet's buffer the endpoint's wMaxPacketSize, then
  * StemSplitter's frames), in ns:
@@ -16,7 +16,7 @@
  * Each channel of each frame holds the frame's number (channel c: (f + 4099 c) & 0x7FFF), so the host sees exactly
  * which frame came, in which channel: every frame the FM-1 rendered must reach the app's lanes once, in order, every
  * channel in its own lane (no slip, no repeat, no channel moved), and no packet may be babble. 0.9.7's descriptor
- * (720 bytes for 8 channels, while the stream sends 46-frame packets of 736) is run too, to show what it did: blocks
+ * (720 bytes, while the 10-channel stream sends 46-frame packets of 920) is run too, to show what it did: blocks
  * dropped by the hundred, as in a field take (TOMA_03: T1..T6 and FX broken at ~120 block edges a second, the same
  * instants in every channel). Then starvation (renders of 150..190 % for 50 ms): the underrun repeats are made up
  * with the frame spread over a packet (uac_squeeze), not skipped: every channel continuous (a 441..1323 Hz sine each).
@@ -37,7 +37,7 @@
 #define FELUCCA_UAC 1
 static void fm1_delay_ms(uint32_t ms) { (void)ms; }
 #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-static uint8_t t_stems;                                  /* fx.c's fx_stems: 1 the 8 channels, 2 the 10 */
+static uint8_t t_stems;                                  /* fx.c's fx_stems: 1 STEMS (10 channels: tracks 1..8, FX L R), 2 STEMS+IN (10) */
 #define UAC_STEMS() t_stems
 #define UAC_STEMS_SRC 1
 #ifndef NPART
@@ -67,7 +67,7 @@ static struct {
     uint64_t rendered, sent, pkts, babble, stall_ns, missed, tokens;
     uint64_t got, slips, lost, repeats, moved, partial, jumps, maxjump_x100;
 } R;
-static uint32_t nch;                                     /* channels: 8 or 10 */
+static uint32_t nch;                                     /* channels: 10 (STEMS and STEMS+IN) */
 static uint64_t f_render;                                /* the next frame the render makes */
 static uint32_t pkt[UA_MAXF * UA_W], pkt_n;
 static int queued;
@@ -86,12 +86,17 @@ static void render_block(void)
             } else {
                 v = (int32_t)((f_render + 4099u * c) & 0x7FFFu);
             }
-            if (c < 6u) stem_buf[c][i] = v;
-            else if (c < 8u) stem_fx[c - 6u][i] = v;
-            else if (c == 8u) stem_buf[8][i] = v;          /* STEMS+IN's ninth channel: the host's audio as mixed (NPART) */
-            else uin_l[i] = uin_r[i] = v;
+            if (t_stems == 1u) {                         /* STEMS: tracks 1..8 (stem_buf[0..7]), the FX return L R */
+                if (c < 8u) stem_buf[c][i] = v;
+                else stem_fx[c - 8u][i] = v;
+            } else {                                     /* STEMS+IN: tracks 1..6, the FX return, the host's two */
+                if (c < 6u) stem_buf[c][i] = v;
+                else if (c < 8u) stem_fx[c - 6u][i] = v;
+                else if (c == 8u) stem_buf[8][i] = v;      /* the host's audio as mixed (NPART) */
+                else uin_l[i] = uin_r[i] = v;
+            }
         }
-    uin_on = nch == 10u;
+    uin_on = t_stems == 2u;
     uac_tap8(32);
     R.rendered += 32;
 }
@@ -274,15 +279,15 @@ static uint32_t desc_maxp(void)                         /* EP4 IN's wMaxPacketSi
     return 0;
 }
 
-static void reset(uint32_t ch, double ppm, uint32_t maxp)
+static void reset(uint32_t mode, double ppm, uint32_t maxp)   /* mode 1: STEMS, 2: STEMS+IN (both 10 channels) */
 {
     memset(&uac, 0, sizeof uac);
     memset(&R, 0, sizeof R);
     ua_r = ua_w = 0;
-    nch = ch;
-    t_stems = ch == 10u ? 2u : 1u;
+    nch = 10;
+    t_stems = (uint8_t)mode;
     usb_stems = 1;
-    usb_duplex = ch == 10u;
+    usb_duplex = mode == 2u;
     usb.config = 1;
     uac_rate_set(44100);
     uac_stream(1);
@@ -303,9 +308,9 @@ static void reset(uint32_t ch, double ppm, uint32_t maxp)
 /* the poll's drift against the host's frames: TIMER5 off by -+1667 ppm (PRD 600 against 601) sweeps its phase through
  * the frame every ~0.3 s; none, it can sit in the gap after a packet left the wire (stuck: the worst case at 2 kHz) */
 static const struct { double host, t5; int gap; } CASE[3] = {{-500.0, 1667.0, 0}, {500.0, -1667.0, 0}, {0.0, 0.0, 1}};
-static void reset_case(uint32_t ch, uint32_t k)
+static void reset_case(uint32_t mode, uint32_t k)
 {
-    reset(ch, CASE[k].host, 0);
+    reset(mode, CASE[k].host, 0);
     M.t5_ppm = CASE[k].t5;
     if (CASE[k].gap)                                     /* (a 2 kHz poll just after the token: the next one too early) */
         M.t5_phase = 35000 + ((M.maxp + 9u) * 8.0 * 1.04 / 12e6 * 1e9 - 500000.0) / 2;
@@ -313,7 +318,8 @@ static void reset_case(uint32_t ch, uint32_t k)
 
 int main(void)
 {
-    static const uint32_t CH[2] = {8, 10};
+    static const uint32_t CH[2] = {1, 2};                /* the modes: STEMS, STEMS+IN (both 10 channels) */
+    static const char *const NAME[2] = {"STEMS", "STEMS+IN"};
     char s[240];
     uint32_t k, m;
     printf("-- USB STEMS / STEMS+IN at 44.1 kHz: minutes of the stream into the app's lanes (uac_service at %u Hz)\n",
@@ -323,10 +329,10 @@ int main(void)
     M.p_late = 0.043;
     M.late_max = 1.31;
     for (m = 0; m < 2u; m++) {
-        uint32_t want = (CH[m] == 8u ? 736u : 920u);
+        uint32_t want = 920u;                            /* 46 frames of 10 x 16 bit (was 736 for 8 channels) */
         reset(CH[m], 0, 0);
-        snprintf(s, sizeof s, "%u ch: EP4 IN wMaxPacketSize %u = 46 frames of %u bytes (44.1 kHz's 45 + 1)", CH[m], M.maxp, CH[m] * 2u);
-        check(s, M.maxp == want && M.maxp >= 46u * CH[m] * 2u);
+        snprintf(s, sizeof s, "%s: EP4 IN wMaxPacketSize %u = 46 frames of %u bytes (44.1 kHz's 45 + 1)", NAME[m], M.maxp, 10u * 2u);
+        check(s, M.maxp == want && M.maxp >= 46u * 10u * 2u);
         for (k = 0; k < 3u; k++) {
             double now = 0;
             uint64_t sizes46 = 0;
@@ -336,7 +342,7 @@ int main(void)
             sim(120.0, &now);
             sizes46 = uac.adj_up;
             snprintf(s, sizeof s, "%u ch, host %+.0f ppm, TIMER5 %+.0f ppm%s, 2 min: %llu packets (%llu one frame longer), %llu babble, "
-                     "%llu tokens with none", CH[m], CASE[k].host, CASE[k].t5, CASE[k].gap ? " (in the gap)" : "",
+                     "%llu tokens with none", NAME[m], CASE[k].host, CASE[k].t5, CASE[k].gap ? " (in the gap)" : "",
                      (unsigned long long)R.pkts, (unsigned long long)sizes46, (unsigned long long)R.babble, (unsigned long long)R.missed);
             check(s, R.babble == 0 && R.missed == 0 && sizes46 > 0 && !uac.stalls);
             snprintf(s, sizeof s, "  every frame in the lanes once, in order, each channel its own: %llu frames, %llu slips (%llu lost), "
@@ -354,16 +360,16 @@ int main(void)
             sim(1.0, &now);
             R.missed = 0;
             sim(30.0, &now);
-            snprintf(s, sizeof s, "0.9.9's 2 kHz poll, %u ch, TIMER5 %+.0f ppm%s, 30 s: %.1f %% of the tokens with none, %u overruns: "
-                     "%.1f slips/s, %.2f %% of the frames lost", CH[m], CASE[k].t5, CASE[k].gap ? " (in the gap)" : "",
+            snprintf(s, sizeof s, "0.9.9's 2 kHz poll, %s, TIMER5 %+.0f ppm%s, 30 s: %.1f %% of the tokens with none, %u overruns: "
+                     "%.1f slips/s, %.2f %% of the frames lost", NAME[m], CASE[k].t5, CASE[k].gap ? " (in the gap)" : "",
                      100.0 * R.missed / R.tokens, uac.overruns, R.slips / 30.0, 100.0 * R.lost / (R.lost + R.got));
-            check(s, R.missed > 30u && (CH[m] == 8u || R.slips > 30u));   /* (10 ch: the take's bursts; 0.9.10 above: none) */
+            check(s, R.missed > 30u && R.slips > 30u);   /* (the take's bursts, as the 10-channel stream had them; 0.9.10 above: none) */
         }
-    {   /* what 0.9.7 did: 720 bytes for 8 channels */
+    {   /* what 0.9.7 did: 720 bytes, under the 46-frame packets of the 10-channel stems (was 8 channels) */
         double now = 0;
-        reset(8, 0, 720u);
+        reset(1, 0, 720u);
         sim(30.0, &now);
-        snprintf(s, sizeof s, "0.9.7's 720 bytes (8 ch, 30 s): %.0f babble/s (%.1f %% of the time halted), %u overruns: "
+        snprintf(s, sizeof s, "0.9.7's 720 bytes (10 ch, 30 s): %.0f babble/s (%.1f %% of the time halted), %u overruns: "
                  "%.0f slips/s, %.1f %% of the frames lost",
                  R.babble / 30.0, R.stall_ns / 3e8, uac.overruns, R.slips / 30.0, 100.0 * R.lost / (R.lost + R.got));
         check(s, R.babble > 30u * 10u && R.slips > 30u * 20u);   /* (it shows the field take's damage; 0.9.8 above: none) */
@@ -378,8 +384,8 @@ int main(void)
         sim(6.0, &now);                                  /* (the last burst's repeats made up) */
         /* (a hold has two corners, where it starts and ends; a frame skipped would add two more each, the frame spread
          * over a packet none: the corners are the holds' alone) */
-        snprintf(s, sizeof s, "%u ch, 50 ms starved every 5 s: %u underruns (%u frames repeated, made up %u, owed %u), %llu corners "
-                 "(largest %.2f x the sine's step): the holds' only", CH[m], uac.underruns, uac.repaid + uac.owe, uac.repaid, uac.owe,
+        snprintf(s, sizeof s, "%s, 50 ms starved every 5 s: %u underruns (%u frames repeated, made up %u, owed %u), %llu corners "
+                 "(largest %.2f x the sine's step): the holds' only", NAME[m], uac.underruns, uac.repaid + uac.owe, uac.repaid, uac.owe,
                  (unsigned long long)R.jumps, R.maxjump_x100 / 100.0);
         check(s, uac.underruns > 0 && uac.repaid > 8u && uac.owe == 0 && R.babble == 0 && R.maxjump_x100 < 120u &&
                  R.jumps <= 2u * nch * uac.underruns);
