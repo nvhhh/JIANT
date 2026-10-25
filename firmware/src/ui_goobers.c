@@ -161,7 +161,7 @@ static void gb_goober(int32_t X, int32_t gnd, int32_t hq4, int32_t k, int32_t sq
 {
     int32_t cx = X * 16, gy = gnd * 16 - hq4, sx = 256 + sqa, sy = 256 - sqa;
     int32_t kx = k * sx >> 8, ky = k * sy >> 8, px = 0, py = 0, i;
-    uint16_t ec = still ? (ux.mono || settings.palette == UI_BW_INDEX ? ux_gray(ux_luma(T_DIM) >> 3) : T_DIM) : vk_heat(248);
+    uint16_t ec = still ? (T_DIM) : vk_heat(248);
 #define GB_GX(d) (cx + ((d) * kx >> 8))                  /* (d: Q4 px from the feet, scaled) */
 #define GB_GY(d) (gy + ((d) * ky >> 8))
     /* legs: from the stem's foot to the ground, a stepping one lifted */

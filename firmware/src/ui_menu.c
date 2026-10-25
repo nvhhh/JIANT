@@ -349,11 +349,6 @@ static const char *menu_short(uint32_t row)          /* a card's label: a whole 
 }
 /* the panel's line under a row: what it does, in plain words; a value's own (v) where the values differ in kind */
 static const struct { uint8_t row, v; const char *s; } MI_HELP[] = {
-    {MI_COLOR, 255, "THE SCREEN'S COLOURS"},
-    {MI_SKIN, 0, "VALUES ON TOP, THE PICTURE BELOW"},
-    {MI_SKIN, 1, "CARDS AND A PANEL, AS 0.6"},
-    {MI_SKIN, 2, "PICTURE FULL, VALUES AT THE FOOT"},
-    {MI_STYLE, 255, "FILLED CARDS, OR LINES"},
     {MI_LARGE, 255, "BIG LABELS AND VALUES"},
     {MI_SCOPE, 255, "EDIT PAGES: A SCOPE BY THE BEING"},
     {MI_ECO, 255, "ECO STYLE: OG or GOOBERS"},
@@ -475,7 +470,7 @@ static void draw_menu(void)
             ui.hot_t--;
     }
     sig = ui.menu * 7u + ui.menu_sel * 131u + settings.palette * 1009u + settings.lowcut * 7919u + settings_hold * 3511u +
-          settings_leds * 6151u + ui_prefs * 4099u + ui_style * 257u + ui_skin * 1543u + song.rec * 65537u + song.sel * 13u +
+          settings_leds * 6151u + ui_prefs * 4099u + song.rec * 65537u + song.sel * 13u +
           ui_rec_prefs * 92821u + ui_scr * 131071u + (ui.hot_t ? ui.hot_col + 1u : 0u) * 0x9E3779B1u +
           (ui.menu == 1 && ui.msg_t ? str_hash(0x70A57u, ui.msg) : 0u) + ml_count() * 977u + ml.on * 3u + usb_out * 61u +
           midi_out_mode * 89u + cpu_cfg * 197u + ui_load * 433u + ui_scope * 71u +

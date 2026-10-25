@@ -249,7 +249,7 @@ static uint16_t og_role(uint32_t k)
         return T_THEME;
     if (og_neutral(T_ACCENT))
         return T_MID;
-    if (settings.palette == UI_JIANT_INDEX)
+    if (UI_HEAT_ON)
         return JIANT[k];
     return k == 2u ? ux_mix(T_THEME, T_SURF, 40) : k == 4u ? og_col(OG_MINT) : k == 5u ? og_col(OG_MUSTARD) :
            k == 6u ? ux_mix(T_ACCENT, 0xFE60u, 35) : ux_mix(T_THEME, T_ACCENT, 50);

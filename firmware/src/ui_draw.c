@@ -108,7 +108,7 @@ static void draw_battery(int32_t bx)
                                                          * label 4..10, the gauge 28..29) */
 #define CARD_VY (ROLL_Y - 1)                            /* the value's line (M) */
 #define CARD_XY 4                                       /* (0.8.5) a lens card's label (AF_X): its line, capitals rows 5..11 */
-#define CARD_BG (ux.style || lz_low() ? T_SURF : T_RAISE)   /* (0.8.5, the mock-up) a card: RAISE (LINE: no fill; 0.8.9 BOTTOM,
+#define CARD_BG (UX_STYLE || lz_low() ? T_SURF : T_RAISE)   /* (0.8.5, the mock-up) a card: RAISE (LINE: no fill; 0.8.9 BOTTOM,
                                                          * HUD: none, the knob row on the background) */
 static const uint8_t ROLL_EASE[17] = {0, 45, 84, 118, 147, 172, 193, 210, 223, 234, 242, 247, 251, 253, 254, 255, 255};
 
@@ -453,7 +453,7 @@ static void draw_frame(void)
     for (i = 0; i < 4u; i++)                            /* right of each card */
         lcd_fill((uint32_t)(CARD_X(i) + CARD_W), cy, i < 3u ? (uint32_t)(CARD_X(i + 1u) - CARD_X(i) - CARD_W) :
                  240u - (uint32_t)(CARD_X(i) + CARD_W), ch, T_BG);
-    if (ux.style)                                       /* LINE: the dividers in the gaps */
+    if (UX_STYLE)                                       /* LINE: the dividers in the gaps */
         draw_rules(cy, ch);
 }
 
@@ -570,7 +570,7 @@ static void draw_column_tall(uint32_t c, const char *label, const char *val, con
     }
     if (ratio >= 0) {
         int32_t gw = COL_W - 10, fx = ratio * gw / 1000;
-        cv_rrect(5, LG_GY, gw, 3, 1, ux.style ? T_LINE : T_BG, T_SURF);
+        cv_rrect(5, LG_GY, gw, 3, 1, UX_STYLE ? T_LINE : T_BG, T_SURF);
         cv_rrect(5, LG_GY, fx < 3 ? 3 : fx, 3, 1, hot ? T_ACCENT : vc == T_DIM ? T_DIM : gauge_col(ratio), T_BG);
     }
     cv_blit((uint32_t)CARD_X(c), card_y());
@@ -915,7 +915,7 @@ static void sound_name(const track_t *t, char *b)
 static void tabs_paint(uint32_t n, uint32_t lv, const char *const *nm, const char *const *tab, const uint8_t *cnt, uint32_t at)
 {
     uint32_t l, d;
-    int low = lz_low() || (ux.skin && (dlg_on() || name_on()) && !(ui_prefs & PREF_LARGE)), hud = hud_home();   /* (0.9.0:
+    int low = lz_low() || (UX_SKIN && (dlg_on() || name_on()) && !(ui_prefs & PREF_LARGE)), hud = hud_home();   /* (0.9.0:
                                                          * NAME too, as the dialogs) */
     int32_t y = hud ? H_HEAD : LT_Y, h = hud ? (int32_t)(card_y() < graph_y() ? card_y() : graph_y()) - H_HEAD : low ? LB_TAB_H : LT_H;
     int32_t o = LT_Y - y;                               /* (0.9.7 AIR's HOME: down to its knobs' row) */
@@ -991,7 +991,7 @@ static void draw_tabs(void)
     const char *nm[8], *tab[8];
     uint8_t cnt[8];
     uint32_t lv, at, n = tabs_now(nm, tab, cnt, &lv, &at), k,
-             sig = (lv + 1u) * 2654435761u + at * 40503u + ux.gen * 977u + ux.style * 7u + lz_fam() * 131u + 1u +
+             sig = (lv + 1u) * 2654435761u + at * 40503u + ux.gen * 977u + UX_STYLE * 7u + lz_fam() * 131u + 1u +
                    (uint32_t)hud_home() * 31u + n * 7919u;
     for (k = 0; k < n; k++)
         sig = (sig ^ str_hash(cnt[k], nm[k])) * 16777619u;
@@ -1861,7 +1861,7 @@ static void splash_sig(int32_t px, uint32_t ms)
 {
     int32_t tot = sig_len(), acc = 0, x0 = (240 - SIG_W) / 2 * 16, y0 = 6 * 16, tipx = -1, tipy = 0;
     uint32_t s = 0, e, j, q;
-    int mono = ux.mono || settings.palette == UI_BW_INDEX;
+    int mono = 0;
     cv_begin(240, SIG_H + 12, T_BG);
     if (!mono)
         splash_beings(ms, px >= tot ? 256 : px * 256 / (tot ? tot : 1));
@@ -1993,7 +1993,7 @@ static void draw_countin(void)
         char d[2] = {(char)('4' - j), 0};
         int now = j == e % 4u, gone = j < e % 4u;
         uint16_t fill = now ? T_THEME : T_SURF;
-        if (ux.style && !now) {                       /* LINE: no SURF card, a 1 px rule round it */
+        if (UX_STYLE && !now) {                       /* LINE: no SURF card, a 1 px rule round it */
             cv_rrect(x, 0, 48, CI_H, 8, T_RULE, T_BG);
             cv_rrect(x + 1, 1, 46, CI_H - 2, 7, T_BG, T_RULE);
         } else
@@ -2150,7 +2150,7 @@ static void fill_around(const int16_t (*r)[4], uint32_t n)
         }
     }
 }
-#define DLG_TAB_H (ux.skin && !(ui_prefs & PREF_LARGE) ? LB_TAB_H : LT_H)   /* the dialogs' tabs (tabs_paint) */
+#define DLG_TAB_H (UX_SKIN && !(ui_prefs & PREF_LARGE) ? LB_TAB_H : LT_H)   /* the dialogs' tabs (tabs_paint) */
 static void dlg_tabs(uint32_t lv)
 {
     static const char *const DN[3] = {"NOTICE", "DICE", "NAME"};
@@ -2171,7 +2171,7 @@ static void dlg_crumb(const char *a, const char *b)     /* "SAVE . NOTICE . CONF
 /* (0.8.9) a dialog's card: COLORS rounded, its top THEME; BOTTOM / HUD none (a THEME line over it) */
 static uint16_t dlg_card(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t under)
 {
-    if (ux.skin) {
+    if (UX_SKIN) {
         cv_rect(x, y, w, 1, T_THEME);
         return under;
     }
@@ -2181,8 +2181,8 @@ static uint16_t dlg_card(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t un
 }
 static void dlg_button(int32_t x, int32_t y, int32_t w, const char *k, const char *a, int yes, uint16_t under)
 {
-    uint16_t bg = ux.skin ? under : T_SURF;
-    if (!ux.skin)
+    uint16_t bg = UX_SKIN ? under : T_SURF;
+    if (!UX_SKIN)
         cv_rrect(x, y, w, 34, 4, T_SURF, under);
     cv_text_on(x + 6, y + 5 - AF_X_CAP_Y, &AF_X, k, T_DIM, bg);
     cv_text_on(x + 6, y + 16 - AF_M_CAP_Y, &AF_M, a, yes ? T_ACCENT : T_TEXT, bg);
@@ -2207,10 +2207,10 @@ static void draw_confirm(void)
         uint16_t cb, kb;
         cv_begin(240, 30, T_BG);
         cb = dlg_card(4, 0, 232, 30, T_BG);
-        kb = ux.skin ? cb : T_SURF;
+        kb = UX_SKIN ? cb : T_SURF;
         cv_text_on(10, 7 - AF_S_CAP_Y, &AF_S, a, T_TEXT, cb);
         cv_text_on(10, 20 - AF_X_CAP_Y, &AF_X, b, T_DIM, cb);
-        if (!ux.skin) {
+        if (!UX_SKIN) {
             cv_rrect(148, 4, 40, 23, 3, T_SURF, cb);
             cv_rrect(192, 4, 40, 23, 3, T_SURF, cb);
         }
@@ -2243,23 +2243,6 @@ static void draw_confirm(void)
     dlg_crumb("NOTICE", "CONFIRM");
 }
 
-/* the stored STYLE (ui_style: the menu, a settings import, a restore) and SKIN (0.8.9, ui_skin) into gfx.c's copies: the
- * tokens again, all redrawn */
-static void style_apply(void)
-{
-    if (ui_style > ST_LINE)                             /* 2, the retired PIXEL: LINE; unknown: FLAT */
-        ui_style = ui_style == 2u ? ST_LINE : ST_FLAT;
-    if (ui_skin >= SKIN_N)                              /* (0.8.9) SKIN: unknown, COLORS */
-        ui_skin = SKIN_COLORS;
-    else if (ui_skin == SKIN_BOTTOM_OLD)                /* (0.9.17) BOTTOM, retired: AIR */
-        ui_skin = SKIN_AIR;
-    if (ux.style != ui_style || ux.skin != ui_skin) {
-        ux.style = ui_style;
-        ux.skin = ui_skin;
-        palette_set(settings.palette);
-        ui.force = 1;
-    }
-}
 
 /* (0.8.5) the end of a lens screen drawn outside the page path (GEN): the second message, the timers, the footer and the
  * tabs */
@@ -2285,7 +2268,6 @@ static void ui_draw_page(uint32_t counting);
 static void ui_draw(void)
 {
     static uint8_t counting;
-    style_apply();
     {   /* MENU > MOTION: the frame advances by its share of normal speed (ui.c MOTION_Q8); 100% is one frame a draw */
         static uint16_t frame_acc;
         frame_acc += MOTION_Q8[ui_motion & 3u];

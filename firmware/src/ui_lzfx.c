@@ -319,7 +319,7 @@ static void graph_fx_lz(const track_t *t, const page_t *pg)
             lz_tile(x, y, 76, 68, sel, T_THEME);
             cv_bg = bg;
             GFX_HOOK_ALIGN(0, y + 3, 0, y + 12, AL_V | AL_PASS, "FX module name");
-            cv_text_on(x + 4, y + 3, &AF_X, FX_MOD[m], sel ? T_THEME : ux.skin ? T_MID : T_TEXT, bg);
+            cv_text_on(x + 4, y + 3, &AF_X, FX_MOD[m], sel ? T_THEME : UX_SKIN ? T_MID : T_TEXT, bg);
             if (sel)
                 lz_uline(x + 4, y + 12, &AF_X, FX_MOD[m], T_THEME);
             if (ok)

@@ -193,8 +193,8 @@ static void ui_power_on(void)
     ui.home = 1;
     ui.force = 1;
     panel = PANEL_DEFAULT;
-    settings.palette = UI_GREY_INDEX;
-    palette_set(UI_GREY_INDEX);
+    settings.palette = 0;
+    palette_set(0);
     transport_req = 0;
     panic_req = 0;
     mi_r = mi_w = midi_in_overflow = 0;
@@ -2368,21 +2368,9 @@ static int test_display_preferences(void)
     ui_power_on();
     memcpy(sounds, trk, sizeof sounds);
     hold(B_HOME);
-    ui.menu_sel = MI_COLOR;
+    ui.menu_sel = MI_LARGE;
     ui.force = 1; ui_draw();
     memcpy(before, host_screen, sizeof before);
-    settings.palette = 5; palette_set(5);
-    press(B_OCTUP);
-    bad += check("COLOR OCT+ previews the next palette (PAPER, light) without closing the menu",
-                 settings.palette == 6 && T_BG == UI_PALETTES[6].bg && ux.light && ui.menu == 1 && !song.octave &&
-                 memcmp(before, host_screen, sizeof before) && !memcmp(sounds, trk, sizeof sounds));
-    turn(EN_K1, 1);
-    bad += check("COLOR KNOB 1 steps on to HI-CON, NIGHT (#50: true black), MONO (1.0.2: black and white), JIANT, then wraps to GREY",
-                 settings.palette == 7 && (turn(EN_K1, 1), settings.palette == 8u) && T_BG == 0u &&
-                 str_eq(UI_PALETTES[8].name, "NIGHT") && (turn(EN_K1, 1), settings.palette == UI_BW_INDEX) &&
-                 str_eq(UI_PALETTES[UI_BW_INDEX].name, "MONO") && T_BG == 0u && T_TEXT == 0xFFFFu &&
-                 (turn(EN_K1, 1), settings.palette == UI_JIANT_INDEX) && str_eq(UI_PALETTES[UI_JIANT_INDEX].name, "JIANT") &&
-                 (turn(EN_K1, 1), settings.palette == UI_GREY_INDEX) && str_eq(UI_PALETTES[UI_GREY_INDEX].name, "GREY"));
     settings.lowcut = 2;
     ui.menu_sel = MI_LOWCUT;
     press(B_OCTUP);
@@ -2472,7 +2460,7 @@ static int test_menu_tabs(void)
 
     ui_power_on();
     hold(B_HOME);
-    ok = ui.menu == 1 && ui.menu_sel == MI_COLOR && menu_page() == 0u && menu_tab() == MTAB_SCREEN;
+    ok = ui.menu == 1 && ui.menu_sel == MI_LARGE && menu_page() == 0u && menu_tab() == MTAB_SCREEN;
     turn(EN_SELECT, 1); ok &= menu_page() == 1u && ui.menu_sel == MI_SCOPE;   /* (SELECT: a page a detent, its first) */
     turn(EN_SELECT, 1); ok &= menu_page() == 2u && ui.menu_sel == MI_LEDS && menu_tab() == MTAB_SCREEN;
     turn(EN_SELECT, 1); ok &= menu_page() == 3u && ui.menu_sel == MI_LOWCUT && menu_tab() == MTAB_AUDIO;
@@ -2541,9 +2529,9 @@ static int test_menu_tabs(void)
         want = menu_step(i, -1);                       /* its knob steps as OCT does */
         turn(menu_knob(i), -1); ok &= menu_get(i) == want && ui.menu == 1;
     }
-    ui_prefs = 0; settings_hold = HOLD_DEF; settings_leds = LEDS_DIM; ui_style = ST_FLAT; ml_set(0);
-    settings.lowcut = 0; fx_lowcut = 0; menu_put(MI_COLOR, UI_GREY_INDEX);
-    bad += check("MENU: OCT+ / OCT- step every value row up / down (COLOR wraps, the rest stop), the menu stays", ok);
+    ui_prefs = 0; settings_hold = HOLD_DEF; settings_leds = LEDS_DIM; ml_set(0);
+    settings.lowcut = 0; fx_lowcut = 0;
+    bad += check("MENU: OCT+ / OCT- step every value row up / down (the rest stop), the menu stays", ok);
     {   /* the ON / OFF rows: up (a knob right, OCT+) is ON, the switch's knob to the right, whichever bit it is */
         static const uint8_t SW[] = {MI_LARGE, MI_ANIM, MI_ACCEL, MI_LATCH, MI_BPMLOCK, MI_RESTORE};
         ok = 1;
@@ -2554,9 +2542,6 @@ static int test_menu_tabs(void)
             turn(menu_knob(SW[i]), -1); ok &= str_eq(menu_vname(SW[i], menu_get(SW[i])), "OFF");
             turn(menu_knob(SW[i]), 1); ok &= str_eq(menu_vname(SW[i], menu_get(SW[i])), "ON");
         }
-        ui.menu_sel = MI_STYLE;
-        press(B_OCTUP); ok &= ui_style == ST_LINE;     /* (the others: up the second, LINE) */
-        press(B_OCTDN); ok &= ui_style == ST_FLAT;
         ui_prefs = 0;
         bad += check("MENU: on an ON / OFF row OCT+ / a knob right is ON, OCT- / left OFF (ANIM, RESTORE LAST too)", ok);
     }
@@ -2908,25 +2893,6 @@ static int mono_screens(uint32_t pal, int (*chk)(void), uint32_t *n)
     }
     return ok;
 }
-static int test_mono_screens(void)
-{
-    int bad = 0, ok;
-    uint32_t e, n = 0, nb = 0;
-    ok = mono_screens(UI_GREY_INDEX, screen_gray, &n);
-    bad += check("GREY: every pixel of every page, HOME, menu, ABOUT, dialog and countdown is gray", ok && n > 200u);
-    ok = mono_screens(UI_BW_INDEX, screen_neutral, &nb);
-    bad += check("MONO (black and white): every pixel of every page, HOME, menu, ABOUT, dialog and countdown is neutral",
-                 ok && nb == n);
-    ui_power_on();
-    for (e = 0; e < NPALETTES; e++) {               /* the other palettes are not gray: the check sees colour */
-        ui_power_on(); palette_set(e); ui.force = 1; ui_draw();
-        ok = screen_gray();
-        if (e == UI_GREY_INDEX ? !ok : ok) bad += check("palette colour shows on HOME", 0);
-    }
-    palette_set(UI_GREY_INDEX);
-    return bad;
-}
-
 /* ROLL: the rolling digits of the four cards and the header BPM (ui_draw.c roll_*). The GLOBAL page: BPM (also
  * in the header), SWG, CLK (a name), TUNE (signed). A roll frame differs from the static render only inside the
  * value strip, its last frame is the static render; unchanged digits stay; the direction follows the sign; a
@@ -3115,7 +3081,7 @@ static int test_roll(void)
     ui.force = 1; frame();
     ok &= !ui.roll[ROLL_BPM].from[0];
     bad += check("roll: a page, track, palette or engine change and ui.force snap", ok);
-    palette_set(UI_GREY_INDEX);
+    palette_set(0);
 
     /* MONO: every roll frame is gray */
     ui_power_on(); roll_settle();
@@ -5246,8 +5212,7 @@ static int test_piano_roll(void)
     memset(host_screen, 0, sizeof host_screen); ui.force = 1; ui_draw();
     ok = pr_columns_match(t, &nb);
     bad += check("piano roll: ACID's bars drawn at their notes' rows, ties carried, rests empty", ok && nb >= 10u);
-    bad += check("  the view holds the page's notes (A2..A3 in 21 rows), MONO gray", proll.lo <= 45 && proll.lo + PR_ROWS - 1 >= 57 &&
-                 screen_gray());
+    bad += check("  the view holds the page's notes (A2..A3 in 21 rows)", proll.lo <= 45 && proll.lo + PR_ROWS - 1 >= 57);
     t->p[P_VOICE] = V_POLY;                                           /* chords: up to 4 bars in a column */
     for (i = 0; i < 16u; i += 4u) {
         step_t *s = &t->step[i];
@@ -9905,7 +9870,7 @@ static int test_large(void)
     frame();
     ok = !(ui_prefs & PREF_LARGE) && large_kind() == LK_OFF && card_h() == LZ_CARD_H && graph_y() == LZ_GRAPH_Y;   /* (HOME's
                                                          * lens) */
-    ok &= MI_LARGE == MI_STYLE + 1u && str_eq(MI_NAME[MI_LARGE], "LARGE") && menu_flag(MI_LARGE) &&
+    ok &= str_eq(MI_NAME[MI_LARGE], "LARGE") && menu_flag(MI_LARGE) &&
           str_eq(menu_flag(MI_LARGE)->name[0], "OFF") && str_eq(menu_flag(MI_LARGE)->name[1], "ON");
     ui.force = 1; frame();
     memcpy(off, host_screen, sizeof off);
@@ -12414,7 +12379,6 @@ int main(void)
     bad += test_information();
     bad += test_chain();
     bad += test_product_ux();
-    bad += test_mono_screens();
     bad += test_roll();
     bad += test_soak_cards();
     bad += test_panel();

@@ -109,29 +109,20 @@ static struct {
     uint16_t bg, surf, text, theme, accent;
     uint16_t mid, dim, line, sel, tint, ink, rec, raise, key, lane, grid;
     uint16_t k[4];               /* (0.8.9) KNOB 1..4's colours (tools/gen_ui_palettes.py KNOBS): the skins' cards, as 0.6 */
-    uint8_t light, mono;
-    uint8_t chamfer;             /* (JIANT 0.5) the JIANT palette: corners cut on the diagonal (cv_rrect), not rounded */
-    uint8_t style;               /* MENU > STYLE (ui.c style_apply): ST_FLAT, ST_LINE */
-    uint8_t skin;                /* (0.8.9) MENU > SKIN (ui_draw.c style_apply): SKIN_COLORS, SKIN_HUD, SKIN_AIR */
+    uint8_t light;
     uint32_t gen;                /* bumped by palette_set (the text ramps follow) */
 } ux;
-/* STYLE: FLAT, the filled SURF cards and panels; LINE, no SURF (it is BG) and 1 px T_RULE dividers between the
- * areas instead (ui_draw.c draw_frame). (1.0.2: PIXEL, LINE un-antialiased, retired; a saved PIXEL reads as LINE.)
- * Selections, accents, keys and gauges keep their fills in every style */
-#define ST_FLAT 0u
-#define ST_LINE 1u
-/* (0.8.9) SKIN (the approved mock-up opciones_skin.html): COLORS, the lens's cards and panel in the 0.6 colours; BOTTOM, the
- * knobs a slim row at the foot and the middle free (no panel, no boxes: SURF is BG); HUD, the picture full screen and the
- * words floating over it. (0.9.7) AIR (the default of new settings): HUD's look everywhere, the knobs' row on top, right
- * under the tabs, the middle free for the pictures, the breadcrumb at the foot (stored 3: older settings keep theirs).
- * (0.9.17) BOTTOM retired (its premise, the knobs at the foot, put the SEQ pages' values under their pictures): a stored 1
- * reads as AIR (settings_persist.c, ui_draw.c style_apply); HUD's SEQ pages take AIR's knobs' row on top too (ui.c lz_top) */
+/* (GARDEN) STYLE and SKIN are retired: one look, FLAT cards and the AIR layout (the knobs' row on top, the picture
+ * full screen, words floating over it). The branches that still read these see the constants below */
+#define UX_STYLE 0u                  /* ST_FLAT: the filled SURF cards (was MENU > STYLE, FLAT or LINE) */
+#define UX_SKIN 3u                   /* SKIN_AIR (was MENU > SKIN: AIR, COLORS, HUD) */
+#define UI_HEAT_ON 0                 /* (GARDEN) the JIANT heat look is retired: its branches are off */
+/* the layout numbers of the retired SKIN choice (only AIR is used now: UX_SKIN) */
 #define SKIN_COLORS 0u
-#define SKIN_BOTTOM_OLD 1u           /* (0.9.17: retired, reads as AIR) */
+#define SKIN_BOTTOM_OLD 1u
 #define SKIN_HUD 2u
 #define SKIN_AIR 3u
-#define SKIN_N 4u                    /* the stored values (0..3) */
-static int skin_hud(void) { return ux.skin == SKIN_HUD || ux.skin == SKIN_AIR; }   /* (0.9.7) HUD's look: no rules, words float */
+static int skin_hud(void) { return UX_SKIN == SKIN_HUD || UX_SKIN == SKIN_AIR; }   /* (0.9.7) HUD's look: no rules, words float */
 #define T_K(c) ux.k[(c) & 3u]    /* KNOB c's colour */
 #define T_RULE ux.dim            /* LINE: the dividers (DIM: visible on NIGHT, GREY, MONO and PAPER, quieter than labels) */
 #define T_BG ux.bg               /* background */
@@ -158,10 +149,6 @@ static uint16_t ux_mix(uint16_t a, uint16_t b, int32_t pct)
 {
     static const uint8_t SH[3] = {11, 5, 0}, MK[3] = {31, 63, 31};
     uint32_t out = 0, k;
-    if (ux.mono) {
-        int32_t x = a >> 11, d = ((b >> 11) - x) * pct;
-        return ux_gray((uint32_t)(x + (d + (d >= 0 ? 50 : -50)) / 100));
-    }
     for (k = 0; k < 3u; k++) {
         int32_t x = (a >> SH[k]) & MK[k], d = (((b >> SH[k]) & MK[k]) - x) * pct;
         out |= (uint32_t)(x + (d + (d >= 0 ? 50 : -50)) / 100) << SH[k];
@@ -178,28 +165,21 @@ static void palette_set(uint32_t i)
     const ui_pal_t *p = &UI_PALETTES[i % NPALETTES];
     uint32_t k;
     i %= NPALETTES;
-    ux.mono = i == UI_GREY_INDEX;
-    ux.chamfer = i == UI_JIANT_INDEX;
-    ux.bg = p->bg; ux.surf = ux.style || ux.skin ? p->bg : p->surf; ux.text = p->text; ux.theme = p->theme; ux.accent = p->accent;
+    ux.bg = p->bg; ux.surf = p->surf; ux.text = p->text; ux.theme = p->theme; ux.accent = p->accent;
     ux.mid = ux_mix(p->bg, p->text, UI_MID_PCT);
     ux.dim = ux_mix(p->bg, p->text, UI_DIM_PCT);
     ux.line = ux_mix(p->bg, p->text, UI_LINE_PCT);
     ux.sel = ux_mix(p->bg, p->theme, UI_SEL_PCT);
     ux.tint = ux_mix(p->bg, p->theme, UI_TINT_PCT);
     ux.ink = p->bg;
-    ux.raise = ux_mix(p->surf, p->text, UI_RAISE_OF[i]);
+    ux.raise = ux_mix(p->surf, p->text, UI_RAISE_PCT);
     for (k = 0; k < 4u; k++)
         ux.k[k] = UI_KNOBS[i][k];
     ux.key = ux_mix(p->bg, p->text, UI_KEY_PCT);
     ux.lane = ux_mix(ux.surf, p->theme, 10);
     ux.grid = ux_mix(ux.surf, p->text, 6);
     ux.light = ux_luma(p->bg) > 128u;
-    ux.rec = ux.mono ? p->accent : ux.light ? UI_REC_LIGHT : UI_REC_DARK;
-    if (i == UI_BW_INDEX) {                      /* MONO: black and white, set, not blended (tools/gen_ui_palettes.py) */
-        ux.mid = ux.sel = ux.key = ux.rec = p->text;   /* a selection, a keycap, REC: white, its INK black */
-        ux.dim = ux.line = ux.raise = ux.lane = UI_BW_GREY;   /* the one grey: inactive, tracks, wells */
-        ux.tint = ux.grid = p->bg;
-    }
+    ux.rec = ux.light ? UI_REC_LIGHT : UI_REC_DARK;
     ux.gen++;                                    /* the text ramps change with the coverage curve */
 }
 
@@ -207,7 +187,7 @@ static void palette_set(uint32_t i)
 static uint32_t palette_from_stored(uint32_t v)
 {
     if (v >= UI_PAL_TAG && v - UI_PAL_TAG < NPALETTES) return v - UI_PAL_TAG;
-    return v < 20u ? UI_PALETTE_MIGRATE[v] : UI_GREY_INDEX;
+    return 0;                                    /* GARDEN, the only palette: every older id reads as it (index 0) */
 }
 static uint32_t palette_to_stored(uint32_t i) { return UI_PAL_TAG + i % NPALETTES; }
 static int palette_stored_ok(uint32_t v) { return v < 20u || (v >= UI_PAL_TAG && v - UI_PAL_TAG < NPALETTES); }
@@ -507,7 +487,6 @@ static void cv_rrect(int32_t x, int32_t y, int32_t w, int32_t h, int32_t r, uint
     int32_t i, j;
     GFX_HOOK_CELL(x, y + cv_oy, x + w, y + h + cv_oy);   /* (the lint: what is drawn on it stays inside it) */
     if (r < 0) r = -r;                           /* (-r: rounded in every style: a keycap-like cushion) */
-    else if (ux.style == ST_LINE) r = 0;         /* LINE: square cursors, selections and fills (FLAT: rounded) */
     if (r > w / 2) r = w / 2;
     if (r > h / 2) r = h / 2;
     if (r < 1) {
@@ -592,14 +571,9 @@ static const uint16_t *ramp(uint16_t fg, uint16_t bg)
     for (a = 0; a < 16u; a++) {
         uint32_t out = 0;
         int32_t w = cv[a];
-        if (ux.mono) {
-            int32_t x = bg >> 11;
-            out = ux_gray((uint32_t)(x + ((((fg >> 11) - x) * w + 128) >> 8)));
-        } else {
-            for (k = 0; k < 3u; k++) {
-                int32_t x = (bg >> SH[k]) & MK[k], y = (fg >> SH[k]) & MK[k];
-                out |= (uint32_t)(x + (((y - x) * w + 128) >> 8)) << SH[k];
-            }
+        for (k = 0; k < 3u; k++) {
+            int32_t x = (bg >> SH[k]) & MK[k], y = (fg >> SH[k]) & MK[k];
+            out |= (uint32_t)(x + (((y - x) * w + 128) >> 8)) << SH[k];
         }
         v[a] = swap16(out);
     }

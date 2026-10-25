@@ -126,9 +126,9 @@ static uint16_t vx_col(int32_t h)
     if (h < -1)                                          /* (0.9.6: -2 the theme's: the operator picked, the mock-up's) */
         return T_THEME;
     if (h < 0)                                           /* (a muted sound: dim, as the colony's) */
-        return ux.mono || settings.palette == UI_BW_INDEX ? ux_gray(ux_luma(T_DIM) >> 3) : T_DIM;
+        return T_DIM;
     h = clamp(h, 0, 255);
-    if (!vxs.kc || settings.palette != UI_JIANT_INDEX)
+    if (!vxs.kc || !UI_HEAT_ON)
         return bg_col(h);
     while (k < 6u && h > VK_HP[k + 1u]) k++;
     return ux_mix(VK_HC[k], VK_HC[k + 1u], (h - VK_HP[k]) * 100 / (VK_HP[k + 1u] - VK_HP[k]));
@@ -138,7 +138,7 @@ static uint16_t vk_heat(int32_t h)
 {
     uint32_t k = 0;
     h = clamp(h, 0, 255);
-    if (settings.palette != UI_JIANT_INDEX)
+    if (!UI_HEAT_ON)
         return bg_col(h);
     while (k < 6u && h > VK_HP[k + 1u]) k++;
     return ux_mix(VK_HC[k], VK_HC[k + 1u], (h - VK_HP[k]) * 100 / (VK_HP[k + 1u] - VK_HP[k]));

@@ -187,14 +187,7 @@ static void rp_put(uint32_t f, uint32_t v)
     ui_rec_prefs = (uint8_t)((ui_rec_prefs & ~(3u << (2u * f))) | st << (2u * f));
     rp_apply();
 }
-/* MENU > STYLE (ui_menu.c): ST_FLAT ST_LINE (gfx.c) in another byte no engine uses, saved with the settings;
- * 0 in older ones = FLAT; 2, the retired PIXEL (1.0.1), reads as LINE; anything else unknown as FLAT (settings_persist.c). gfx.c draws from its copy, ux.style
- * (ui_draw.c style_apply) */
-#define ui_style (favorites.factory[15][29])
-/* (0.8.9) MENU > DISPLAY > SKIN (ui_menu.c): SKIN_COLORS SKIN_HUD SKIN_AIR (gfx.c; 0.9.17 BOTTOM's 1 reads as AIR) in a byte no engine uses (engine 15,
- * byte 20), saved with the settings; 0 in older ones = COLORS, unknown = COLORS (settings_persist.c). gfx.c draws from its
- * copy, ux.skin (ui_draw.c style_apply) */
-#define ui_skin (favorites.factory[15][20])
+/* (GARDEN) MENU > STYLE and > SKIN are retired: favorites.factory[15][29] and [15][20] are no longer read or written */
 /* (0.9.7) MENU > DISPLAY > SCOPE (ui_lzedit.c graph_sound_lz): 1 ON, an engine's EDIT pages as before (the creature on the left,
  * the SCOPE card, the chips); 0 OFF (the default: new settings and older ones, which never held it), the creature on the
  * whole panel, centred, the page's and the sound's names in its corners. A byte no engine uses (engine 15) */
@@ -530,7 +523,7 @@ static uint32_t large_kind(void)
 /* the geometry of the page shown: the cards' height, the panel's top and height. (0.8.5) A lens page (lz_on): the
  * mock-up's (LZ_*), under its level tabs; a layer's map over it: the usual layout */
 /* (0.8.9) a lens page in SKIN BOTTOM / HUD's layout (LARGE: COLORS'); HUD's HOME (ECO): the beings full screen */
-static int lz_low(void) { return ux.skin && lz_on() && !(ui_prefs & PREF_LARGE); }
+static int lz_low(void) { return UX_SKIN && lz_on() && !(ui_prefs & PREF_LARGE); }
 /* (0.9.17) .. with the knobs' row on top, under the tabs: AIR; HUD on the SEQ pages (the values over the pattern's pictures,
  * as AIR and COLORS: the owner's "parameters on top") */
 static int lz_top(void);
@@ -699,7 +692,7 @@ static uint32_t lz_fam(void)                            /* which lens */
     return save_on() ? LZ_SAVE : fx_on() ? LZ_FX : LZ_SEQ;
 }
 static int lz_mock_cards(void) { return lz_on() && lz_fam() <= LZ_FX; }
-static int lz_top(void) { return lz_low() && (ux.skin == SKIN_AIR || lz_fam() == LZ_SEQ); }   /* (0.9.17, card_y) */
+static int lz_top(void) { return lz_low() && (UX_SKIN == SKIN_AIR || lz_fam() == LZ_SEQ); }   /* (0.9.17, card_y) */
 /* (MENU > LARGE: their cards as they are; 0.9.0: not under the count-in or UPDATE MODE's countdown, which cover the page:
  * their header on BG, as every other page's) */
 static int hud_home(void)

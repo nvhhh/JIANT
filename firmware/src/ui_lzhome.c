@@ -145,7 +145,7 @@ static void eco_face(int32_t cx, int32_t cy, int32_t r, int32_t k, int32_t e, ui
 {
     int32_t rk = r * k >> 8, s = rk >= 19 * 16 ? 3 : 2, ex = rk * 77 >> 8, d;
     int32_t ey = cy - (rk * 31 >> 8), my, mo;
-    uint16_t ec = (fl & EF_SLEEP) ? (ux.mono || settings.palette == UI_BW_INDEX ? ux_gray(ux_luma(T_DIM) >> 3) : T_DIM) : vk_heat(248);
+    uint16_t ec = (fl & EF_SLEEP) ? (T_DIM) : vk_heat(248);
     if (ex < 40) ex = 40;                               /* (2.5 px apart at least) */
     if (fl & EF_UP)                                     /* (MUTATE: it looks up) */
         ey -= rk * 31 >> 8 > 24 ? rk * 31 >> 8 : 24;
@@ -182,7 +182,7 @@ static void eco_being(uint32_t c, int32_t cx, int32_t cy, int32_t rq)
     uint32_t t = eco.tm[c] + c * 20000u;
     if (eco_off(c)) {
         bfeat_t a = {0, 0, 40, 3, 1, 0, 0, 0};
-        uint16_t dc = ux.mono || settings.palette == UI_BW_INDEX ? ux_gray(ux_luma(T_DIM) >> 3) : T_DIM;
+        uint16_t dc = T_DIM;
         bg_nv_in = 40;
         bg_outline(g, &a, cx, cy, rq, 0, eco.tm[c], dc);
         bg_nv_in = 0;
