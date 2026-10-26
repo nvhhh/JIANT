@@ -1327,7 +1327,7 @@ static void fm4_apply(track_t *t, int16_t *p)
     uint32_t pr = fm4_convert(p, v), tr = trk_index(t), f;
     fm6_set_patch(tr, v);
     f = motion_guard();                               /* the audio ISR sees the old sound or the new one */
-    memcpy(t->p, p, sizeof t->p);
+    memcpy(t->p, p, P_COUNT * sizeof t->p[0]);          /* (the compressor values stay: P_COUNT of them) */
     t->eng_req = ENGI_FM6;
     t->preset = (uint8_t)pr;
     motion_unguard(f);

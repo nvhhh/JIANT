@@ -155,7 +155,7 @@ static void motion_rebase(track_t *t)
 {
     uint32_t k = trk_index(t), f = motion_guard();
     motion_restore(t);
-    memcpy(motion_base[k], t->p, sizeof t->p);
+    memcpy(motion_base[k], t->p, sizeof motion_base[k]);
     motion_base_valid = (uint8_t)((motion_base_valid & ~(1u << k)) | (song.playing ? 1u << k : 0u));
     motion_unguard(f);
 }
@@ -164,7 +164,7 @@ static void motion_begin(void)
     uint32_t k;
     for (k = 0; k < NTRK; k++) {
         motion_restore(&trk[k]);
-        memcpy(motion_base[k], trk[k].p, sizeof trk[k].p);
+        memcpy(motion_base[k], trk[k].p, sizeof motion_base[k]);
     }
     motion_base_valid = (1u << NTRK) - 1u;
 }
@@ -322,7 +322,7 @@ static __attribute__((noinline)) void motion_step(track_t *t, uint32_t step, con
     uint32_t k = trk_index(t), i, w, any = 0;
     if (!((m->on >> k) & 1u)) return;
     if (!((motion_base_valid >> k) & 1u)) {
-        memcpy(motion_base[k], t->p, sizeof t->p);
+        memcpy(motion_base[k], t->p, sizeof motion_base[k]);
         motion_base_valid |= (uint8_t)(1u << k);
     }
     for (w = 0; w < (P_COUNT + 31u) / 32u; w++)

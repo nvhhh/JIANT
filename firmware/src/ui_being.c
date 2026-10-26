@@ -220,18 +220,19 @@ static void graph_colony(const track_t *t, int32_t sel)
     cv_text_r(226, 8, &AF_S, "B", morph >= 64 ? T_THEME : T_DIM, T_SURF);
     for (l = 0; l < 8u; l++) {
         int32_t x = 33 + (int32_t)(l % 4u) * 58, y = 38 + (int32_t)(l / 4u) * 46;
-        int32_t e = K && K[l].x.live ? K[l].x.ea >> 22 : 0, muted = dx_lane_muted(l);
+        int32_t e = K && K[l].x.live ? clamp((K[l].x.ea >> 22) * 2, 0, 256) : 0, muted = dx_lane_muted(l);   /* (x2: a quiet hit still shows) */
         const genome_t *g = &LANE_G[l];
         bfeat_t f = {g->k0, g->ss * 6, 40, g->lob, l == 2u ? 3 : 1, 160, 0, 0};
         if (muted)
             bg_outline(g, &f, x * 16, y * 16, 8 * 16, 1, l * 9000u, ux.mono || settings.palette == UI_BW_INDEX ? ux_gray(ux_luma(T_DIM) >> 3) : T_DIM);
         else if (e) {
-            f.len = g->ss * 6 + e;
-            f.wob = 40 + e * 3 / 4;
-            f.ripple = e / 2;
-            being_lines(g, &f, x * 16, y * 16, (8 + e * 8 / 256) * 16, e, ui.frame * 1500u + l * 9000u);
+            f.len = g->ss * 6 + e * 3 / 2;               /* a hit: its spikes out, its body swells and shivers */
+            f.wob = 40 + e;
+            f.ripple = e * 2 / 3;
+            f.fray = e / 2;
+            being_lines(g, &f, x * 16, y * 16, (8 + e * 10 / 256) * 16, e, ui.frame * 1500u + l * 9000u);
         } else
             bg_outline(g, &f, x * 16, y * 16, 8 * 16, 1, l * 9000u, bg_col(24));
-        cv_text_in(x - 14, y + 14, 28, &AF_S, drum_lane_abbr(t, l), sel == (int32_t)l ? T_THEME : muted ? T_DIM : T_MID, T_SURF);
+        cv_text_in(x - 14, y + 14, 28, &AF_S, drum_lane_abbr(t, l), sel == (int32_t)l || e > 96 ? T_THEME : muted ? T_DIM : T_MID, T_SURF);   /* (lit while it sounds) */
     }
 }
