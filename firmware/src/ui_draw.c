@@ -1877,160 +1877,146 @@ static void draw_columns(void)
 }
 
 
-/* The power-on splash (main.c fm1_main, web/emu felucca_web.c; JIANT 0.5): the maker's signature ("Jiant FM1",
- * tools/gen_signature.py: 24 strokes, 214 points) written in the thermal colours, stroke by stroke as the hand went:
- * the line cold (cyan) where the pen started, hotter along its way (violet, red, orange) to yellow white where it
- * ended, the pen's tip a white point while it writes; under it, small, the version and "by Juan Jiant". Written over
- * SPL_WRITE ms (splash_write, main.c's splash loop; MENU > ANIM OFF: whole at once). Lines only, the canvas
- * redrawn a step (~700 short lines). In the saved palette (settings_init before it) */
-#include "ui_signature.h"
-#define SPL_WRITE 800u                              /* ms: the signature written (was 900; 0.6.51: 600 -> 800) */
-#define SPL_HOLD 900u                               /* .. then shown whole, before the UI (was 1100; 0.6.51: 500 -> 900) */
-#define SPL_SY 40                                   /* the signature's canvas on the screen (240 x SIG_H + 12) */
-#define SPL_TY 186                                  /* the two lines under it */
-static const char *const SPLASH_LINES[] = {FELUCCA_VERSION, "by Juan Jiant"};
-static uint8_t spl_anim;                            /* main.c: 1 = the signature to be written (splash_write) */
-static int32_t sig_seg(uint32_t i)                  /* segment i -> i + 1's length, px (0: a stroke starts at i + 1) */
+/* The power-on splash (main.c fm1_main, web/emu felucca_web.c; GARDEN, the owner's pick "seed to bloom"): in the
+ * garden (ui_garden.c's scene, the sails turning), a seed drops and hops, kicks up the soil and grows into a tulip in
+ * four spurts, each past its height and back with a springy sway, on an uneven stem of pixel blocks; its leaves pop
+ * open as it passes them, its bud swells and bursts open with a bounce. GARDEN's letters grow up out of the ground one
+ * after another, each with a bounce, then "ft. JIANT" comes in under it; the version small on the soil. Over SPL_WRITE
+ * ms (60 steps; MENU > ANIM OFF: the end at once), then held SPL_HOLD (the signature's splash until GARDEN) */
+#define SPL_WRITE 2600u                             /* ms: the bloom (was 800, the signature) */
+#define SPL_HOLD 500u                               /* .. then held, before the UI (was 900) */
+#define SPL_N 60                                    /* its steps */
+static const char *const SPLASH_LINES[] = {"GARDEN", "ft. JIANT", FELUCCA_VERSION};
+static uint8_t spl_anim;                            /* main.c: 1 = the bloom to be played (splash_write) */
+static int32_t spl_rmp(int32_t f, int32_t a, int32_t b) { return f <= a ? 0 : f >= b ? 256 : (f - a) * 256 / (b - a); }
+static int32_t spl_eob(int32_t p, int32_t k)        /* an ease out past the end and back (k: how far, Q8): 0..256 */
 {
-    int32_t dx = SIG_PTS[2u * i + 2u] - SIG_PTS[2u * i], dy = (SIG_PTS[2u * i + 3u] & 127) - (SIG_PTS[2u * i + 1u] & 127);
-    if (SIG_PTS[2u * i + 3u] & 128u)                /* (y's bit 7: a stroke starts) */
-        return 0;
-    dx = dx < 0 ? -dx : dx;
-    dy = dy < 0 ? -dy : dy;
-    return dx > dy ? dx + dy / 2 : dy + dx / 2;
+    int32_t q = p - 256;
+    return 256 + (q * q / 256) * (((k + 256) * q / 256) + k) / 256;
 }
-static int32_t sig_len(void)
+static int32_t spl_spring(int32_t f, int32_t f0, int32_t a)   /* a damped sway after a jolt at f0 (Q4 px) */
 {
-    static int32_t n;
-    uint32_t i;
-    if (!n)
-        for (i = 0; i + 1u < SIG_N; i++)
-            n += sig_seg(i);
-    return n;
+    int32_t d = f - f0;
+    return d < 0 || d > 24 ? 0 : a * (256 - d * 256 / 24) / 256 * gd_s((uint32_t)d * 9000u) / 256;
 }
-/* (0.5.2) the stroke point j of the signature, smoothed (1 4 6 4 1 over its neighbours inside its stroke [s, e],
- * the ends kept), Q4 */
-static void sig_pt(uint32_t j, uint32_t s, uint32_t e, int32_t *x, int32_t *y)
-{
-    static const uint8_t W[5] = {1, 4, 6, 4, 1};
-    int32_t k, sx = 0, sy = 0;
-    if (j == s || j == e) {
-        *x = SIG_PTS[2u * j] * 16;
-        *y = (SIG_PTS[2u * j + 1u] & 127) * 16;
-        return;
-    }
-    for (k = -2; k <= 2; k++) {
-        int32_t i = (int32_t)j + k;
-        uint32_t m = (uint32_t)(i < (int32_t)s ? (int32_t)s : i > (int32_t)e ? (int32_t)e : i);
-        sx += W[k + 2] * SIG_PTS[2u * m];
-        sy += W[k + 2] * (SIG_PTS[2u * m + 1u] & 127);
-    }
-    *x = sx;                                            /* (/16 x 16: Q4) */
-    *y = sy;
+static void spl_txt(int32_t x, int32_t y, const aafont_t *af, const char *t, uint16_t fg, int32_t y0)
+{                                                   /* a text, in the strips it reaches only (drawn once) */
+    if (y < y0 + (int32_t)cv_h && y + af->h > y0)
+        cv_text_flags(x, y, af, t, fg, GD_SURF, 0);
 }
-/* (0.5.2) the splash's creatures: three beings swimming in from outside, round the signature, warmer as it is
- * written (w 0..256), pulsing once it is; granules of cytoplasm drifting. Nothing kept: all from ms */
-static void splash_beings(uint32_t ms, int32_t w)
+/* the strip of rows y0 .. y0 + cv_h - 1 at step f (0 .. SPL_N) */
+static void splash_strip(int32_t f, int32_t y0)
 {
-    static const uint8_t SP[3] = {0, 1, 7};
-    uint32_t k, in = ms < 500u ? ms * 256u / 500u : 256u;
-    int32_t pulse = ms > SPL_WRITE ? bg_sin((ms - SPL_WRITE) * 200u) >> 8 : 0;   /* (+-128 once written) */
-    for (k = 0; k < 18u; k++) {                         /* the cytoplasm */
-        uint32_t h = k * 2654435761u;
-        int32_t gx = (int32_t)(((h >> 8) % 240u + ms * (1u + (h >> 29)) / 40u) % 240u);
-        int32_t gy = 4 + (int32_t)(((h >> 16) % 112u) + (uint32_t)(bg_sin(ms * 90u + h) >> 13) + 8u) % 116;
-        cv_rect(gx, gy, 1 + (int32_t)(h >> 31), 1 + (int32_t)(h >> 31), ux_mix(T_BG, T_THEME, 18 + (int32_t)(h >> 29) * 4));
-    }
-    for (k = 0; k < 3u; k++) {
-        const genome_t *g = &GENOME[SP[k]];
-        uint32_t a = ms * (44u + k * 9u) + k * 21845u;  /* (round the signature, each its own speed) */
-        int32_t far = 256 + (int32_t)(256u - in) * 3 / 2;   /* (from outside the screen, in the first 0.5 s) */
-        int32_t cx = 120 * 16 + ((((108 * 16) * bg_sin(a + 0x4000u)) >> 15) * far >> 8);   /* (round the edges) */
-        int32_t cy = 62 * 16 + ((((54 * 16) * bg_sin(a)) >> 15) * far >> 8) + (bg_sin(ms * 260u + k * 9000u) >> 11);
-        int32_t r = (6 + (int32_t)k) * 16, en = w * 60 / 256 + (pulse > 0 ? pulse / 2 : 0);   /* (small, cool: behind) */
-        bfeat_t f = {g->k0 + g->kk / 2, 110 + pulse / 3, 90, g->lob, 1 + (int32_t)(k & 1u), 90, 0, 40};
-        r = r * (256 + (bg_sin(ms * 180u + k * 15000u) >> 10) + en / 3) / 256;   /* (it breathes, it swells) */
-        being_lines(g, &f, cx, cy, r, en, ms * 220u + k * 20000u);
-    }
-}
-/* the signature up to px of its length (>= sig_len(): whole) at ms after the start: beings behind it; each stroke a
- * smooth curve (Catmull-Rom through its smoothed points, 4 steps a span), the pen round, thin at a stroke's ends and
- * full in its middle; the pen's tip a glowing nucleus (0.5.2: it was straight segments of a 2 px pen) */
-static void splash_sig(int32_t px, uint32_t ms)
-{
-    int32_t tot = sig_len(), acc = 0, x0 = (240 - SIG_W) / 2 * 16, y0 = 6 * 16, tipx = -1, tipy = 0;
-    uint32_t s = 0, e, j, q;
-    int mono = 0;
-    cv_begin(240, SIG_H + 12, T_BG);
-    if (!mono)
-        splash_beings(ms, px >= tot ? 256 : px * 256 / (tot ? tot : 1));
-    while (s < SIG_N && acc < px) {
-        for (e = s + 1u; e < SIG_N && !(SIG_PTS[2u * e + 1u] & 128u); e++) {}
-        e--;                                            /* the stroke: points s .. e */
-        for (j = s; j < e && acc < px; j++) {
-            int32_t L = sig_seg(j), p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y, lx, ly;
-            sig_pt(j > s ? j - 1u : j, s, e, &p0x, &p0y);
-            sig_pt(j, s, e, &p1x, &p1y);
-            sig_pt(j + 1u, s, e, &p2x, &p2y);
-            sig_pt(j + 2u <= e ? j + 2u : e, s, e, &p3x, &p3y);
-            lx = p1x;
-            ly = p1y;
-            for (q = 1; q <= 4u; q++) {                  /* Catmull-Rom, t = q / 4 (Q8) */
-                int32_t t = (int32_t)q * 64, t2 = t * t >> 8, t3 = t2 * t >> 8, part = acc + L * (int32_t)q / 4;
-                int32_t cxp = (2 * p1x * 256 + (p2x - p0x) * t + (2 * p0x - 5 * p1x + 4 * p2x - p3x) * t2 +
-                               (3 * p1x - p0x - 3 * p2x + p3x) * t3) >> 9;
-                int32_t cyp = (2 * p1y * 256 + (p2y - p0y) * t + (2 * p0y - 5 * p1y + 4 * p2y - p3y) * t2 +
-                               (3 * p1y - p0y - 3 * p2y + p3y) * t3) >> 9;
-                int32_t u = (int32_t)(j - s) * 256 / (int32_t)(e - s ? e - s : 1u) + (int32_t)q * 64 / (int32_t)(e - s ? e - s : 1u);
-                int32_t wd = 6 + (bg_sin((uint32_t)u * 128u) * 13 >> 15);   /* (half width, Q4: thin ends, full middle) */
-                int32_t dx = cxp - lx, dy = cyp - ly, dl = (dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy);
-                uint16_t c = mono ? T_TEXT : heat_col(24 + (part < px ? part : px) * 220 / (tot ? tot : 1));
-                if (part > px)                          /* (the pen is here) */
-                    q = 4u;
-                if (dl) {
-                    int32_t nx = -dy * wd / dl, ny = dx * wd / dl;
-                    og_line(x0 + lx, y0 + ly, x0 + cxp, y0 + cyp, c);
-                    if (wd > 3) {
-                        og_line(x0 + lx + nx, y0 + ly + ny, x0 + cxp + nx, y0 + cyp + ny, c);
-                        og_line(x0 + lx - nx, y0 + ly - ny, x0 + cxp - nx, y0 + cyp - ny, c);
-                    }
-                }
-                lx = cxp;
-                ly = cyp;
-            }
-            acc += L;
-            if (acc > px) {
-                tipx = x0 + lx;
-                tipy = y0 + ly;
+    static const uint8_t SP[4][3] = {{14, 21, 90}, {23, 29, 170}, {31, 36, 240}, {40, 44, 255}};   /* the spurts: from, to, height */
+    int32_t X = 74, gy, H = 46, h = 6, i, lean = 0, bend = 0, px = X, v;
+    char c[2] = {0, 0};
+    gd.t = (uint32_t)f * 68u;                           /* (the scene's clock: the sails turning slowly, no music) */
+    gd.b = 0;
+    gd.e = 0;
+    gd_gp = 128;
+    gd_mill = gd.t;
+    gd_scene(0, y0);
+    gy = gd_gy(X) / 16 + 1;
+    cv_oy = -y0;
+    if (f < 13) {                                       /* the seed falling, then a hop on landing */
+        int32_t sy = f < 10 ? 20 + (gy - 22) * f * f / 100 : gy - 2 - (f == 11 ? 5 : f == 12 ? 2 : 0);
+        gd_blob(X * 16, sy * 16, 44, 6, GD_BURNT, 2, 256, 300);
+    } else {
+        if (f < 18)                                     /* the soil kicked up */
+            for (i = 0; i < 6; i++)
+                cv_rect(X + (i & 1 ? 1 : -1) * (3 + i) * (f - 12) / 2, gy - (f - 13) * (2 + i % 3) + (f - 13) * (f - 13) / 2,
+                        2, 2, GD_C[GC_DIRTDK]);
+        for (i = 0; i < 4; i++) {
+            int32_t p = spl_rmp(f, SP[i][0], SP[i][1]), prev = i ? SP[i - 1][2] : 20;
+            if (p > 0)
+                h = H * (prev + (SP[i][2] - prev) * spl_eob(p, 400) / 256) / 256;
+            lean += spl_spring(f, SP[i][1], 56 - i * 8);
+        }
+        for (v = 0; v < h; v += 3) {                    /* the stem: 3 px blocks, each a little off, thicker at the foot */
+            uint32_t r = gd_h(v * 7 + 3, 41);
+            int32_t jx = (r >> 14 & 3u) == 0u ? -1 : (r >> 14 & 3u) == 3u ? 1 : 0, w = v < h / 4 ? 5 : (r & 1u) ? 4 : 3;
+            bend = (v * v / (h + 1)) * lean / 16 / (h + 1) + gd_s((uint32_t)v * 1900u + 9000u) * 2 / 256;
+            px = X + bend + jx;
+            cv_rect(px - w / 2, gy - v - 3, w, 3, GD_INK);
+            if ((r >> 9 & 7u) == 0u && v > 6 && v < h - 6)   /* (a node now and then) */
+                cv_rect(px - w / 2 - 1, gy - v - 1, w + 2, 1, GD_INK);
+        }
+        for (i = 0; i < 3; i++) {                       /* the leaves, popping open as the stem passes them */
+            int32_t lv = H * (22 + i * 20) / 100, p = spl_rmp(f, 16 + i * 8, 22 + i * 8);
+            if (h < lv || !p)
+                continue;
+            bend = (lv * lv / (h + 1)) * lean / 16 / (h + 1);
+            gd_leaf((X + bend) * 16, (gy - lv) * 16, i & 1 ? 49152u + 7000u : 49152u - 10000u,
+                    (12 + (i == 1 ? 5 : 0)) * 16 * spl_eob(p, 600) / 256, 6 * 16 * p / 256, i & 1 ? GD_BURNT : GD_BLUE);
+        }
+        {                                               /* the head: a bud swelling, then the cup bursting open */
+            int32_t bx = px * 16, by = (gy - h - 2) * 16, bud = spl_rmp(f, 18, 36), op = spl_rmp(f, 38, 46), w, top, pt[10];
+            if (!op) {
+                int32_t r = 32 + 64 * bud / 256 + (f > 30 ? 6 * gd_s((uint32_t)f * 14000u) / 256 : 0);
+                gd_blob(bx, by - r / 2, r, 7, GD_BLUE, 5, 230, 300);
+            } else {
+                op = spl_eob(op, 900);
+                w = 4 * 560 * (128 + op / 2) / 256 / 16;
+                top = by - 6 * 560 * (128 + op / 2) / 256 / 16;
+                pt[0] = bx - w; pt[1] = by;
+                pt[2] = bx - w * (5 + op / 128) / 5; pt[3] = top;
+                pt[4] = bx; pt[5] = top - w * 3 / 4 * op / 256;
+                pt[6] = bx + w * (5 + op / 128) / 5; pt[7] = top;
+                pt[8] = bx + w; pt[9] = by;
+                gd_poly(pt, 5, 2, GD_ORANGE);
+                pt[0] = bx - w * 2 / 5; pt[2] = bx; pt[3] = top + 16; pt[4] = bx + w * 2 / 5; pt[5] = by;
+                gd_poly(pt, 3, 2, GD_BURNT);
             }
         }
-        s = e + 1u;
     }
-    if (tipx >= 0 && !mono) {                           /* the pen's tip: a nucleus, glowing */
-        bg_ring(tipx, tipy, 48, heat_col(200));
-        bg_ring(tipx, tipy, 24, heat_col(250));
-    } else if (tipx >= 0) {
-        cv_rrect(tipx / 16 - 2, tipy / 16 - 2, 5, 5, 2, T_TEXT, T_BG);
+    if (f >= 43) {                                      /* GARDEN whole (its letters all up) */
+        spl_txt(120 - text_w(&AF_L, SPLASH_LINES[0]) / 2, 74, &AF_L, SPLASH_LINES[0], GD_INK, y0);
+    } else {                                            /* .. its letters growing up out of the ground, each with a bounce */
+        int32_t x = 120 - text_w(&AF_L, SPLASH_LINES[0]) / 2;
+        int16_t c1 = cv_cy1;
+        cv_cy1 = (int16_t)clamp(gy - 22 - y0, 0, (int32_t)cv_h);  /* (under the ground: hidden) */
+        for (i = 0; i < 6; i++) {
+            int32_t r = spl_rmp(f, 28 + i * 3, 36 + i * 3);
+            c[0] = SPLASH_LINES[0][i];
+            if (r > 0)
+                spl_txt(x, 74 + 90 - 90 * spl_eob(r, 500) / 256, &AF_L, c, GD_INK, y0);
+            x += text_w(&AF_L, c);
+        }
+        cv_cy1 = c1;
     }
-    cv_blit(0, SPL_SY);
+    if (f >= 46)                                        /* ft. JIANT, coming in */
+        spl_txt(120 - text_w(&AF_M, SPLASH_LINES[1]) / 2, 104, &AF_M, SPLASH_LINES[1],
+                ux_mix(gd_sky(110), GD_BURNT, spl_rmp(f, 46, 53) * 100 / 256), y0);
+    if (f >= SPL_N)                                     /* the version, small on the soil */
+        if (220 < y0 + (int32_t)cv_h && 220 + AF_S.h > y0)
+            cv_text_flags(120 - text_w(&AF_S, SPLASH_LINES[2]) / 2, 220, &AF_S, SPLASH_LINES[2], GD_SURF, GD_C[GC_S2], 0);
+    cv_oy = 0;
+}
+static void splash_at(int32_t f)
+{
+    int32_t y0;
+    static const uint8_t ROWS[3] = {100, 120, 20};      /* (GARDEN's line, ft. JIANT's, the version's: each in one strip) */
+    uint32_t k;
+    for (y0 = 0, k = 0; k < 3u; y0 += ROWS[k++]) {
+        cv_begin(240, ROWS[k], T_BG);
+        splash_strip(f, y0);
+        cv_blit(0, (uint32_t)y0);
+    }
 }
 static void draw_splash(void)
 {
-    uint32_t k;
-    lcd_fill(0, 0, 240, 240, T_BG);
-    cv_begin(240, 36, T_BG);
-    for (k = 0; k < 2u; k++)
-        cv_text_in(0, (int32_t)k * 16, 240, &AF_S, SPLASH_LINES[k], k ? T_DIM : T_MID, T_BG);
-    cv_blit(0, SPL_TY);
-    splash_sig(spl_anim && !(ui_prefs & PREF_ANIM_OFF) ? 0 : 0x7FFFFFFF, SPL_WRITE);
+    splash_at(spl_anim && !(ui_prefs & PREF_ANIM_OFF) ? 0 : SPL_N);
     lcd_sync();
 }
-/* main.c's splash loop: the signature as written ms after the start */
+/* main.c's splash loop: the bloom as it is ms after the start */
 static void splash_write(uint32_t ms)
 {
-    if (!spl_anim || (ui_prefs & PREF_ANIM_OFF))
+    static int32_t last = -1;
+    int32_t f = ms >= SPL_WRITE ? SPL_N : (int32_t)(ms * SPL_N / SPL_WRITE);
+    if (!spl_anim || (ui_prefs & PREF_ANIM_OFF) || f == last)   /* (a step drawn once) */
         return;
-    splash_sig(ms >= SPL_WRITE ? 0x7FFFFFFF : (int32_t)((int64_t)sig_len() * ms / SPL_WRITE), ms);
+    last = f;
+    splash_at(f);
     lcd_sync();
 }
 

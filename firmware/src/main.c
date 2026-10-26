@@ -240,7 +240,7 @@ static void fm1_main(void)
     prefs_update();                                     /* (JIANT 0.6.44) FX LATCH ON by default, once */
     usb_serial_apply();                                 /* (#67: the saved USB SERIAL before usb_start) */
     lcd_init();
-    spl_anim = 1;                                       /* (JIANT 0.5) the signature written: splash_write */
+    spl_anim = 1;                                       /* the bloom played: splash_write */
     draw_splash();                                      /* ui_draw.c (1.1.5) */
     if (felucca_dbg.magic != DBG_MAGIC) {
         memset(&felucca_dbg, 0, sizeof felucca_dbg);
@@ -292,12 +292,12 @@ static void fm1_main(void)
 #endif
     autosave_boot(boot_clean);                /* (1.2) the last session's music, under the splash */
     session_dice(fm1_ticks() ^ (uint32_t)fm1_adc_read(FM1_ADC_BATT) << 16);   /* (JIANT 0.4) this session's macros */
-    {                                         /* the splash, its signature written (JIANT 0.5: was 400 ms); the pot
-                                               * followed (MIDI IN plays under it). (0.5.2) On the clock: drawing the
-                                               * beings does not make it longer */
+    {                                         /* the splash, the garden's bloom (GARDEN; was the signature); the pot
+                                               * followed (MIDI IN plays under it). On the clock: drawing the scene
+                                               * does not make it longer */
         uint32_t t0 = fm1_ms, n;
-        for (n = 0; n < 600u && (ms = fm1_ms - t0) < SPL_WRITE + SPL_HOLD; n++) {   /* (600: a stalled clock still
-                                                                                   * ends it, in ~2.4 s) */
+        for (n = 0; n < 1000u && (ms = fm1_ms - t0) < SPL_WRITE + SPL_HOLD; n++) {   /* (1000: a stalled clock still
+                                                                                    * ends it, in ~4 s) */
             splash_write(ms);
             fm1_delay_ms(4);
             master_poll();

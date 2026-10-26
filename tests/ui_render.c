@@ -1914,19 +1914,21 @@ static void draw(int s)
     }
     if (s == S_SPLASH) {                          /* the power-on splash (main.c, before the UI): its lines, the version
                                                    * shown FELUCCA_VERSION (run_tests.sh: src/felucca.c's) */
-        static const char WANT[] = FELUCCA_VERSION "|by Juan Jiant";   /* (JIANT 0.5: under the signature) */
+        static const char WANT[] = "GARDEN|ft. JIANT|" FELUCCA_VERSION;   /* (GARDEN: the bloom's title, the version) */
         splash_seen[0] = 0;
         in_splash = 1;
         draw_splash();
         in_splash = 0;
-        {   /* the signature written whole (spl_anim 0): its ink in its band (y 40 .. 164), the rest of the band BG */
-            uint16_t bg = host_screen[0];
+        {   /* the bloom at its end (spl_anim 0): GARDEN's ink, dark on the light sky, in its band (y 74 .. 100;
+                 * its letters ~450 px) */
             uint32_t x, y, ink = 0;
-            for (y = 40; y < 164u; y++)
-                for (x = 0; x < 240u; x++)
-                    ink += host_screen[y * 240u + x] != bg;
-            if (ink < 600u) {
-                if (rep) fprintf(rep, "FIND %-26s the splash's signature has %u pixels of ink (< 600)\n", cur_name, ink);
+            for (y = 74; y < 100u; y++)
+                for (x = 60; x < 180u; x++) {
+                    uint32_t c = host_screen[y * 240u + x], v = (c >> 8 | c << 8) & 0xFFFFu;   /* (byte-swapped, gfx.c) */
+                    ink += (v >> 11) * 8u + (v >> 5 & 63u) * 4u + (v & 31u) * 8u < 3u * 128u;
+                }
+            if (ink < 300u) {
+                if (rep) fprintf(rep, "FIND %-26s the splash's GARDEN has %u pixels of ink (< 300)\n", cur_name, ink);
                 nfind++;
             }
         }
