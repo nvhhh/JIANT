@@ -35,7 +35,10 @@ static void shrub_note_on(track_t *t, voice_t *v)
  * [x*x, x] so it stays in 0..65535 and is monotonic in x (w <= 127). */
 static inline uint32_t shrub_warp(uint32_t x, uint32_t w)
 {
-    uint32_t sq = (x * x) >> 16;
+    uint32_t sq;
+    if (!w)
+        return x;
+    sq = (x * x) >> 16;
     return x - (((x - sq) * w) >> 7);
 }
 
@@ -44,7 +47,10 @@ static inline int32_t shrub_read(const int16_t *a, const int16_t *b, uint32_t x,
 {
     uint32_t i = x >> 8, f = x & 255u, j = (i + 1u) & 255u;
     int32_t s0 = a[i] + ((((int32_t)a[j] - a[i]) * (int32_t)f) >> 8);
-    int32_t s1 = b[i] + ((((int32_t)b[j] - b[i]) * (int32_t)f) >> 8);
+    int32_t s1;
+    if (!fw)                                     /* on a whole frame: frame b is not read */
+        return s0;
+    s1 = b[i] + ((((int32_t)b[j] - b[i]) * (int32_t)f) >> 8);
     return s0 + (((s1 - s0) * (int32_t)fw) >> 8);
 }
 
@@ -110,7 +116,7 @@ static __attribute__((noinline)) void shrub_render(track_t *t, voice_t *v, int32
         int32_t o, sb, s, y;
         o = (shrub_read(ta, tb, shrub_warp(ph0 >> 16, warp), fw)
              + shrub_read(ta, tb, shrub_warp(ph1 >> 16, warp), fw)) >> 1;
-        sb = osc_sine(ph2);
+        sb = msub ? osc_sine(ph2) : 0;               /* SUB 0: no sine (ph2 still runs, so SUB can come in later) */
         ph0 += inc1;
         ph1 += inc2;
         ph2 += inc3;
