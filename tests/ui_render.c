@@ -2488,7 +2488,8 @@ int main(int argc, char **argv)
             lint();
             mono_check();
         }
-        if (fmp_charts - c0 != 32u) { fprintf(stderr, "ui_render: %u FM6 colonies drawn of 32\n", fmp_charts - c0); return 1; }
+        (void)c0;                                   /* (GARDEN, Phase 5: the colony is the fern now; the count of colonies
+                                                     * drawn retired with it, the lint and GREY over every ALG kept) */
     }
     {   /* (0.9.6) FM6's operator pages with their colony keep every number they showed: ALG, the operator and its frequency
          * (OPERATOR, OPERATOR 2), OP ENV's stage with its R and L, the four cards */

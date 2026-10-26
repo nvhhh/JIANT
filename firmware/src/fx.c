@@ -2430,11 +2430,14 @@ static __attribute__((noinline)) void mix_silent(int32_t *out, uint32_t n, uint3
 {
     uint32_t k;
     for (k = 0; k < NPART; k++) {
+        mp_seen[k] = 0;
+        if (k >= trk_live)                              /* (asleep, TRACKS 4 / 6: mix_part runs nothing of it either; with
+                                                         * eight parts T7 and T8 sleep at TRACKS 6) */
+            continue;
         track_lfo_tick(&trk[k]);                        /* (the LFOs turn on: their pages, the next note's phase; */
         drift_clk[k] += ENGINES[trk[k].engine] != &ENG_DRUM && trk[k].p[P_DRIFT] < 127;   /* DRIFT's clock as well) */
         if (ENGINES[trk[k].engine]->block)
             ENGINES[trk[k].engine]->block(&trk[k]);
-        mp_seen[k] = 0;
     }
     slicer_bus(sl_l, sl_r, n);                          /* (its clock; off: nothing else) */
     mc_mask_last = 0;

@@ -483,10 +483,12 @@ static uint32_t rr_cov(int32_t r, int32_t i, int32_t j)
 }
 /* a filled rectangle with rounded corners (r <= 8), the corners anti-aliased against `under` (what lies
  * behind it): the flat look's cards, panels, rows, bars and buttons */
+static uint8_t cv_nocell;                               /* (GARDEN) a shape's parts, not cells of their own (gd_pod, gd_ring) */
 static void cv_rrect(int32_t x, int32_t y, int32_t w, int32_t h, int32_t r, uint16_t c, uint16_t under)
 {
     int32_t i, j;
-    GFX_HOOK_CELL(x, y + cv_oy, x + w, y + h + cv_oy);   /* (the lint: what is drawn on it stays inside it) */
+    if (!cv_nocell)
+        GFX_HOOK_CELL(x, y + cv_oy, x + w, y + h + cv_oy);   /* (the lint: what is drawn on it stays inside it) */
     if (r < 0) r = -r;                           /* (-r: rounded in every style: a keycap-like cushion) */
     if (r > w / 2) r = w / 2;
     if (r > h / 2) r = h / 2;

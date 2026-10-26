@@ -380,12 +380,40 @@ static void vx_fern(const track_t *t, uint32_t sel)
     }
     cr_blob(1920, 1008, 96, 6, GD_ORANGE, 5, 256, 300);
 }
+static uint32_t fm6_alg_of(const track_t *t);
+static void fop_freq(const uint8_t *op, char *s);
+static const uint8_t *fop_bytes(uint32_t tr);
+/* OPERATOR / OPERATOR 2: the fern, the operator picked orange; "ALG 05" over it on the left (" PAT": the pattern's), its
+ * frequency on the right ("OP3 x1.50"), as the colony's pages had them */
 static void vx_fm6_page(const track_t *t, uint32_t sel, int op2)
 {
+    uint32_t alg = fm6_alg_of(t), hot = ui.hot_t ? (uint32_t)cur_page()->id[ui.hot_col & 3u] : 0u;
+    char b[16] = {'A', 'L', 'G', ' ', (char)('0' + (alg + 1u) / 10u), (char)('0' + (alg + 1u) % 10u), 0};
+    char fq[16] = {'O', 'P', (char)('1' + sel), ' ', 0};
     (void)op2;
     vx_fern(t, sel);
+    if (!t->p[P_E0])
+        str_cpy(b + 6, " PAT", 5);
+    cv_text(10, 4, &AF_S, b, hot == P_E0 || hot == P_E7 ? T_ACCENT : T_MID);
+    fop_freq(fm6_patch[(t - trk) % NTRK] + (5u - sel) * FP_OP, fq + 4);
+    cv_text_r(228, 4, &AF_S, fq, T_TEXT, T_BG);
 }
-static void vx_fm6env(const track_t *t) { vx_fern(t, fop_op % 6u); }
+/* OP ENV: the fern, the operator orange; "OP3" top left, the stage KNOB 3 / 4 edit with its R and L right */
+static void vx_fm6env(const track_t *t)
+{
+    static const char *const STG[4] = {"ATK", "DEC", "SUS", "REL"};
+    const uint8_t *op = fop_bytes((uint32_t)(t - trk));
+    uint32_t sg = fop_stg & 3u;
+    char b[24] = {'O', 'P', (char)('1' + fop_op % 6u), 0};
+    vx_fern(t, fop_op % 6u);
+    cv_text(10, 4, &AF_S, b, T_MID);
+    str_cpy(b, STG[sg], sizeof b);
+    str_cpy(b + str_len(b), "  R ", 5);
+    fmt_int(b + str_len(b), op[FP_R1 + sg]);
+    str_cpy(b + str_len(b), "  L ", 5);
+    fmt_int(b + str_len(b), op[FP_L1 + sg]);
+    cv_text_r(228, 4, &AF_S, b, T_TEXT, T_BG);
+}
 /* (0.9.12's MOTION jellyfish, retired with Phase 5: the MSEQ bars alone) */
 static int vx_mseq(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t h)
 {

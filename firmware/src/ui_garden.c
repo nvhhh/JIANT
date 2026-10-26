@@ -278,16 +278,20 @@ static void gd_pebble(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t k, ui
 static uint16_t gd_pod(int32_t x, int32_t h, int hot)
 {
     uint16_t pc = hot ? GD_ORANGE : 0xDE14u;            /* (dirt-lt: the soil's lightest, matte) */
+    GFX_HOOK_CELL(x, cv_oy, x + CARD_W, h + cv_oy);     /* (the lint: the acorn whole is the card's cell, cap and body) */
+    cv_nocell = 1;
     cv_rrect(x + 3, 5, CARD_W - 6, h - 5, 12, GD_BURNT, 0xC50Fu);
     cv_rrect(x + 4, 6, CARD_W - 8, h - 7, 11, pc, GD_BURNT);
     cv_rrect(x, 0, CARD_W, 11, 5, GD_BURNT, 0xC50Fu);   /* (rows 0..10: the value's strip, from row 11, the body's) */
     cv_rect(x + 3, 9, CARD_W - 6, 2, GD_BURNT);         /* (the cap's lip: square under, round over) */
+    cv_nocell = 0;
     return pc;
 }
 /* a panel's burnt edge (1 px, its corners round, r 7) on the canvas's BG: the ring only, not the whole card again */
 static void gd_ring(int32_t x, int32_t y, int32_t w, int32_t h)
 {
     uint32_t i;
+    cv_nocell = 1;                                      /* (its corners: an edge, not cells for the lint) */
     for (i = 0; i < 4u; i++) {
         int32_t cx = i & 1u ? x + w - 14 : x, cy = i & 2u ? y + h - 14 : y;
         cv_rrect(cx, cy, 14, 14, 7, GD_BURNT, GD_PBLUE);
@@ -295,6 +299,7 @@ static void gd_ring(int32_t x, int32_t y, int32_t w, int32_t h)
         cv_rect(i & 1u ? cx : cx + 7, cy, 7, 14, T_BG);   /* (the circle's halves inside the card: its corner's quarter left) */
         cv_rect(cx, i & 2u ? cy : cy + 7, 14, 7, T_BG);
     }
+    cv_nocell = 0;
     cv_rect(x + 7, y, w - 14, 1, GD_BURNT);
     cv_rect(x + 7, y + h - 1, w - 14, 1, GD_BURNT);
     cv_rect(x, y + 7, 1, h - 14, GD_BURNT);
