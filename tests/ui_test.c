@@ -11016,6 +11016,26 @@ static int test_lz_dialogs(void)
     bad += check("0.8.5 dialogs: EDIT + SELECT opens DICE (its tab), SELECT re-rolls inside it, OCT+ keeps", ok);
     (void)x; (void)y; (void)acc;
     bad += test_toasts();                               /* (0.9.5: the toast a pill over the live page; was boxed alone in it) */
+    {   /* (GARDEN, Phase 4) the page scenes (ENV LFO FX PATTERN): their plants move; a frame drawn by its rows (gd_page's
+         * band) is the frame drawn whole */
+        static const char *const SC[4] = {"ENV", "LFO", "FX", "PATTERN"};
+        static uint16_t a[240 * 240];
+        uint32_t i, k;
+        ok = 1;
+        for (i = 0; i < 4u; i++) {
+            ui_power_on(); song.playing = 1;
+            go_title(SC[i]); ui.force = 1; frames(40);
+            ok &= gd_page() == i + 1u;
+            memcpy(a, host_screen, sizeof a);
+            for (k = 0; k < 12u; k++) { fm1_ms += 66; frame(); }   /* (0.8 s at the scenes' 15 frames a second) */
+            ok &= i == 3u || memcmp(a, host_screen, sizeof a) != 0;   /* (PATTERN: its bed moves with the playhead only) */
+            memcpy(a, host_screen, sizeof a);
+            ui.force = 1; ui_draw();
+            ok &= memcmp(a, host_screen, sizeof a) == 0;
+            song.playing = 0;
+        }
+        bad += check("GARDEN: ENV, LFO, FX and PATTERN draw their scenes (ENV LFO FX moving); a frame by its rows is the frame whole", ok);
+    }
     ui_power_on();
     return bad;
 }
@@ -11042,7 +11062,7 @@ static int test_toasts(void)
             for (lg = 0; lg < 2u; lg++) {
                 ui_power_on();  settings.palette = PAL[pi]; palette_set(PAL[pi]);
                 if (lg) ui_prefs |= PREF_LARGE; else ui_prefs &= ~PREF_LARGE;
-                go_title("ENV"); ui.force = 1; frames(1600);
+                go_title("FILTER"); ui.force = 1; frames(1600);   /* (GARDEN: ENV's tulip grows and sways now: a still page) */
                 memcpy(toast_snap, host_screen, sizeof toast_snap);
                 ui_message("SAVED A LONG MESSAGE"); frame();
                 toast_box(ui.msg, b);
@@ -11078,7 +11098,7 @@ static int test_toasts(void)
     for (ok = 1, sk = 0; sk < 1u; sk++) {           /* NOTICE: the page round its box, its tabs, its breadcrumb */
         static const int16_t R[3][4] = {{0, LT_Y, 240, 0}, {14, 66, 212, 140}, {0, LZ_FOOT_Y, 240, LZ_FOOT_H}};
         ui_power_on();  settings.palette = 0; palette_set(0);
-        go_title("ENV"); ui.force = 1; frames(800);
+        go_title("FILTER"); ui.force = 1; frames(800);   /* (GARDEN: ENV's tulip moves: a still page) */
         memcpy(toast_snap, host_screen, sizeof toast_snap);
         confirm_open(CF_CLEAR_TRK, 2); ui.force = 1; frames(160);
         for (n = out = 0, y = H_HEAD; y < 240u; y++)

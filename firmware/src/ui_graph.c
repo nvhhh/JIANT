@@ -1143,6 +1143,8 @@ static uint32_t graph_signature(void)
         return h ^ gen_draw_sig() ^ (strip_kind() == SK_SCOPE ? ui.frame / 2u * 2654435761u : 0u);
     if (ui.home)
         return h ^ (ui.frame / 2u) ^ (home_level() * 7u + home_set()) * 104729u;   /* the beings: every other frame */
+    if (gd_page() && !(ui_prefs & PREF_ANIM_OFF))    /* (GARDEN, Phase 4) a page's plants: 15 a second */
+        h ^= (fm1_ms / 66u) * 2654435761u;
     h ^= (uint32_t)pg->graph * 131u + TSEL->eng_req + song.sel * 7777u + ui.page * 1291u;
     if (strip_kind() == SK_TITLE)                    /* MENU > LARGE: the page's title (its engine, its number) */
         return h ^ 0x5A17u;
@@ -1918,6 +1920,21 @@ static void draw_graph(void)
         cv_halo = 1;                                 /* (0.9.0) its words outlined too (M3) */
         eco_backdrop(0, (int32_t)graph_y(), 1);
         lz_blit(0, graph_y());
+        return;
+    }
+    if (gd_page()) {                                 /* (GARDEN, Phase 4) the page's scene in the panel's place: whole when
+                                                      * the page comes, then only the rows its plants reach */
+        static uint8_t drawn;
+        uint32_t sc = gd_page(), b0 = ui.force || drawn != sc || toast_on() ? 0u : GS_TOP[sc] - graph_y();
+        drawn = (uint8_t)sc;
+        cv_begin(240, graph_h() - b0, T_BG);
+        gd_scene(0, (int32_t)(graph_y() + b0));
+        cv_oy = -(int32_t)(graph_y() + b0);
+        gd_plants(sc);
+        cv_oy = 0;
+        if (toast_on())
+            toast_pill();
+        cv_blit(0, graph_y() + b0);
         return;
     }
     if (gd_back()) {                                 /* (GARDEN) the garden round it, the panel a BG card, its edge burnt */

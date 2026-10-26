@@ -32,13 +32,21 @@ static struct {
 } gd;
 
 static uint8_t gd_plain;                               /* (host tests: a strip on BG, to measure its words) */
-static int32_t gd_edged;                               /* (gd_edges: the panel's edges kept for that strip) */
+static int32_t gd_edged;
+static struct { uint32_t t, b; int32_t e; } gd_pl;      /* (Phase 4) the plants' clock: their time (1/1024 s), beats (Q16), the level */                               /* (gd_edges: the panel's edges kept for that strip) */
 static int32_t bg_energy(void);                        /* (ui_being.c: the output's level, 0..256, slewed) */
 /* the motion clock: once a draw (ui_draw.c ui_draw) */
 static void gd_tick(void)
 {
     uint32_t dt = fm1_ms - gd.ms, d;
     gd.ms = fm1_ms;
+    if (!(ui_prefs & PREF_ANIM_OFF) && dt <= 250u) {   /* (Phase 4) the plants' clock: always, at MOTION's rate */
+        if (dt)
+            gd_pl.e = bg_energy();
+        d = dt * 1024u * (51u + 461u * (uint32_t)gd_pl.e / 256u) / 1000u * MOTION_Q8[ui_motion & 3u] >> 8;
+        gd_pl.t += d;
+        gd_pl.b += d * (uint32_t)song.g[G_BPM] * 16u / 15u;
+    }
     if (!hud_home())                                    /* (Phase 3) still behind the other pages: their strips agree */
         return;
     gd_edged = 0;
@@ -316,6 +324,148 @@ static void gd_edges(int32_t gy, int32_t gh, int paste)
                 gd_edge[n] = cv_px[k];
     }
     gd_edged = paste ? gd_edged : gy * 256 + gh;
+}
+/* ---- (Phase 4) the page scenes: plants on the garden in the panel's place (mockups/pages.html), drawn 2 px blocky.
+ * ENV a tulip growing through the envelope; LFO a row of tulips the LFO sways; FX the stream, its fruit hopping on the
+ * beat, its flow the sends; SEQ > PATTERN the bed: a mound a step, a tulip on a note, a seed on a rest, the playhead's
+ * mound orange. The sky stays still behind them (the strips round it agree); the plants run on their own clock */
+enum { GS_NONE, GS_ENV, GS_LFO, GS_FX, GS_SEQ };
+static const uint8_t GS_TOP[5] = {0, 84, 110, 104, 84};   /* the rows the plants can reach: redrawn each frame */
+static uint32_t gd_page(void)
+{
+    const page_t *pg = cur_page();
+    if (!gd_back() || ui.layer || ui.menu || large_kind() != LK_OFF || ui.home)
+        return GS_NONE;
+    return pg->graph == GR_ADSR && pg->id[0] == P_ATK ? GS_ENV : pg->graph == GR_LFO ? GS_LFO : pg->graph == GR_FX ? GS_FX :
+           pg->graph == GR_STEPS ? GS_SEQ : GS_NONE;
+}
+/* a leaf at x, y (Q4), pointing at a (65536 a turn), L long and W wide (px, Q4 / 16) */
+static void gd_leaf(int32_t x, int32_t y, uint32_t a, int32_t L, int32_t W, uint16_t c)
+{
+    static const int8_t LF[12] = {0, 0, 5, -16, 12, -14, 16, 0, 12, 14, 5, 16};   /* (sixteenths of L, W) */
+    int32_t pt[12], i, cs = gd_s(a + 16384u), sn = gd_s(a);
+    if (L < 32)
+        return;
+    for (i = 0; i < 6; i++) {
+        int32_t u = LF[2 * i] * L / 16, v = LF[2 * i + 1] * W / 16;
+        pt[2 * i] = x + (u * cs - v * sn) / 256;
+        pt[2 * i + 1] = y + (u * sn + v * cs) / 256;
+    }
+    gd_poly(pt, 6, 2, c);
+}
+/* a wobbly round thing at x, y (px), r (Q4), n points, stretched sx, sy (Q8) */
+static void gd_blob(int32_t x, int32_t y, int32_t r, uint32_t n, uint16_t c, uint32_t sd, int32_t sx, int32_t sy)
+{
+    int32_t pt[20], i;
+    for (i = 0; i < (int32_t)n; i++) {
+        uint32_t a = (uint32_t)i * 65536u / n;
+        int32_t k = 256 + (36 * gd_s(a * 3u + sd * 4096u) >> 8);
+        pt[2 * i] = x * 16 + (r * k >> 8) * sx / 256 * gd_s(a + 16384u) / 256;
+        pt[2 * i + 1] = y * 16 + (r * k >> 8) * sy / 256 * gd_s(a) / 256;
+    }
+    gd_poly(pt, n, 2, c);
+}
+/* a tulip from its foot x, by (px): stem h px, its tip bent sw (Q4), nl leaves (each side its own length, by seed sd),
+ * the cup open 0..256, all at scale sc (Q8) */
+static void gd_tulip(int32_t x, int32_t by, int32_t h, int32_t sw, int32_t nl, int32_t open, uint32_t sd, int32_t sc, uint16_t col)
+{
+    int32_t X0 = x * 16, Y0 = by * 16, CX = X0 + sw, CY = Y0 - h * 8, X1 = X0 + sw * 3 / 10, Y1 = Y0 - h * 16, s, X, Y, i, w, top;
+    int32_t pt[10];
+    for (s = 0; s <= 256; s += 384 / (h + 2) + 1) {    /* the stem: a quadratic curve, 2 px */
+        int32_t u = 256 - s;
+        X = (u * u * X0 + 2 * u * s * CX + s * s * X1) >> 16;
+        Y = (u * u * Y0 + 2 * u * s * CY + s * s * Y1) >> 16;
+        cv_rect((X >> 4) - gd.x0, Y >> 4, 2, 2, GD_INK);
+    }
+    for (i = 0; i < nl; i++) {                          /* the leaves, up the stem, blue left and burnt right */
+        int32_t u, sv = 77 + i * 56, lL = (5 + (int32_t)(gd_h(sd * 5u + (uint32_t)i * 3u, 1) >> 13)) * sc / 16,
+                lR = (5 + (int32_t)(gd_h(sd * 7u + (uint32_t)i * 5u, 2) >> 13)) * sc / 16;
+        uint32_t wv = (uint32_t)(sw * 40);
+        u = 256 - sv;
+        X = (u * u * X0 + 2 * u * sv * CX + sv * sv * X1) >> 16;
+        Y = (u * u * Y0 + 2 * u * sv * CY + sv * sv * Y1) >> 16;
+        gd_leaf(X, Y, 49152u - 9387u - wv, lL, 4 * sc / 16, GD_BLUE);
+        gd_leaf(X, Y, 49152u + 6258u - wv, lR, 4 * sc / 16, GD_BURNT);
+    }
+    w = 4 * sc * (128 + open / 2) / 256 / 16;           /* the cup (px x 16) */
+    top = Y1 - 6 * sc * (128 + open / 2) / 256 / 16;
+    pt[0] = X1 - w; pt[1] = Y1;
+    pt[2] = X1 - w * 6 / 5; pt[3] = top;
+    pt[4] = X1; pt[5] = top - w * 3 / 4;
+    pt[6] = X1 + w * 6 / 5; pt[7] = top;
+    pt[8] = X1 + w; pt[9] = Y1;
+    gd_poly(pt, 5, 2, col);
+    pt[0] = X1 - w * 2 / 5; pt[2] = X1; pt[3] = top + 16; pt[4] = X1 + w * 2 / 5; pt[5] = Y1;
+    gd_poly(pt, 3, 2, GD_ORANGE);
+}
+/* a scalloped dirt mound: a bed with a bumpy top, no box (px) */
+static void gd_mound(int32_t x, int32_t y, int32_t w, uint16_t c)
+{
+    int32_t pt[30], i, h = w * 141;                     /* (Q8: 0.55 w) */
+    for (i = 0; i <= 12; i++) {
+        uint32_t a = 32768u - (uint32_t)i * 32768u / 12u;
+        pt[2 * i] = x * 16 + w * gd_s(a + 16384u) / 16;
+        pt[2 * i + 1] = y * 16 - (h * gd_s(a) >> 12) * (256 + (36 * gd_s((uint32_t)i * 23986u) >> 8)) / 256;
+    }
+    pt[26] = x * 16 + w * 16; pt[27] = y * 16;
+    pt[28] = x * 16 - w * 16; pt[29] = y * 16;
+    gd_poly(pt, 15, 2, c);
+}
+static int32_t gd_hop(uint32_t k)                       /* a hop on the beat, k Q8: |sin(beat pi)|^2 (1.5 + 7 e) k (px) */
+{
+    int32_t s = gd_s(gd_pl.b >> 1);
+    return s * s / 256 * (384 + 7 * gd_pl.e) / 256 * (int32_t)k / 65536;
+}
+static void gd_plants(uint32_t sc)
+{
+    const track_t *t = TSEL;
+    int32_t i, e = gd_pl.e;
+    if (sc == GS_ENV) {                                 /* the tulip the envelope grows: rising on the attack, its leaves
+                                                         * on the decay, held on the sustain, drooping on the release */
+        int32_t lvl = -1, st = 0, h;
+        for (i = 0; i < NVOICE; i++)
+            if (t->v[i].stage && (int32_t)(((int64_t)t->v[i].env * 1000) >> 24) > lvl)
+                lvl = (int32_t)(((int64_t)t->v[i].env * 1000) >> 24), st = t->v[i].stage;
+        if (lvl < 0)                                    /* (resting: a sprout as high as the sustain) */
+            lvl = 150 + t->p[P_SUS] * 250 / 127, st = 0;
+        h = (16 + lvl * 40 / 1000) * 3 / 2;
+        gd_tulip(120, gd_gy(120) / 16 + 1, h, (gd_s(gd_pl.t * 20u) * (16 + e / 8)) >> 8, st == 1 ? 1 : st == 2 ? 3 : 4,
+                 lvl * 256 / 1000, 1, st >= 4 ? 300 : 384, GD_BURNT);
+    } else if (sc == GS_LFO) {                          /* the wind: the LFO's value bends every tulip */
+        int32_t w = t->lfo_val * 160 >> 15;
+        for (i = 0; i < 6; i++) {
+            int32_t x = 20 + i * 40;
+            uint32_t ph = (gd_pl.b / 16u + (uint32_t)i * 8978u) & 65535u;   /* (16 beats a life, each its own start) */
+            gd_tulip(x, gd_gy(x) / 16 + 1, 16 + (int32_t)(ph * 40u >> 16), w + (gd_s(gd_pl.t * 20u + (uint32_t)i * 9000u) * 8 >> 8),
+                     1 + (int32_t)(ph >> 14), (int32_t)(ph >> 8), (uint32_t)x, 230, i & 1 ? GD_BLUE : GD_BURNT);
+        }
+    } else if (sc == GS_FX) {                           /* the stream: its ripples run with the sends and the level */
+        int32_t amp = 16 + (t->p[P_DIST] + t->p[P_CHOR] + t->p[P_DLY] + t->p[P_REV]) / 8 + e / 5, r, x;
+        for (r = 0; r < 2; r++)
+            for (x = 0; x < 240; x += 2)
+                cv_rect(x - gd.x0, 146 + r * 8 + (gd_s((uint32_t)x * 626u - gd_pl.t * (uint32_t)(30 + 10 * r)) * amp >> 12), 2, 2,
+                        r ? GD_BLUE : GD_PBLUE);
+        gd_blob(50, 140 - gd_hop(102), 128, 7, GD_BURNT, 1, 256, 282);   /* the apple, */
+        gd_leaf(52 * 16, (133 - gd_hop(102)) * 16, 49152u - 6000u, 128, 48, GD_BLUE);
+        gd_blob(130, 140 - gd_hop(141), 128, 9, GD_ORANGE, 3, 256, 256);  /* the orange, */
+        gd_blob(195, 143 - gd_hop(179), 67, 5, GD_BURNT, 5, 256, 256);   /* the cherries */
+        gd_blob(205, 145 - gd_hop(179), 67, 5, GD_BURNT, 6, 256, 256);
+    } else if (sc == GS_SEQ) {                          /* the bed: the bank shown, 2 rows of 8 */
+        uint32_t ph = song.playing ? seq_src(t, t->seq_idx) : 0xFFFFu;
+        for (i = 0; i < 16; i++) {
+            uint32_t si = ui.bank * 16u + (uint32_t)i;
+            int32_t x = 18 + (i & 7) * 29, y = 136 + (i >> 3) * 36, hot = si == ph;
+            const step_t *st = &seq_steps(t)[si];
+            if (si >= (uint32_t)t->p[P_SLEN])
+                continue;
+            gd_mound(x, y + 8, 11, hot ? GD_ORANGE : 0xDE14u);
+            if (step_on(st))
+                gd_tulip(x, y + 6, hot ? 22 : 14, (gd_s(gd_pl.t * 20u + (uint32_t)i * 5000u) * 6) >> 8, 1, hot ? 256 : 96, (uint32_t)i,
+                         hot ? 180 : 120, hot ? GD_BLUE : GD_BURNT);
+            else
+                cv_rect(x - 1 - gd.x0, y + 4, 2, 2, GD_SURF);
+        }
+    }
 }
 /* the soil's cell at x, y (3 px; y from 171): two octaves of noise, low contrast, a checker's nudge (Q8; without the
  * depth's darkening). Static: kept once worked out (.pool, 1.8 KB) */
