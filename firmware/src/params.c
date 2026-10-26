@@ -44,6 +44,7 @@ static const char *const N_PFXRES[] = {"1/8", "1/16", "1/32"};     /* (0.6.99) F
 /* seq.c kb_map; 1 = SNAP (stored projects: the former ON); 3 = SEQ: SNAP, and the sequencer's notes snap too as
  * they play (seq.c seq_step; the steps keep what was written). Append-only: older projects hold 0..2 */
 static const char *const N_QUANT[] = {"OFF", "SNAP", "WHITE", "SEQ"};
+static const char *const N_DYN[] = {"OFF", "DBX", "LA-2A", "FAIR"};   /* (JIANT) fx.c DYN_M, 0 OFF */
 static const char *const N_DTYPE[] = {"SOFT", "HARD", "FOLD", "CRUSH", "RECT", "AMP"};   /* (JIANT) fx.c DT_*; 0.7.8 AMP */
 static const char *const N_FTYPE[] = {"LP", "HP", "BP", "COMB"};   /* (JIANT 0.5) P_FTYPE: eng_analog.c FT_* */
 static const char *const N_VOICE[] = {"POLY", "MONO", "LEG", "UNI"};   /* V_POLY .. V_UNISON */
@@ -73,12 +74,13 @@ static const char *const N_MDST[] = {"OFF", "PITCH", "CUT", "SHP", "AMP", "PAN",
                                                          * globals (DELAY TIME FDBK TONE MIX, REVERB SIZE DAMP, CHORUS RATE
                                                          * DEPTH): mod.c macro_master, fx.c GFX() */
 static const char *const N_ENGNAME[] = {"ANALOG", FELUCCA_FM4 ? "DIGITAL" : "-", "PHASE", "LOFI", "-", "VOICE", "-", "WHEEL", "-", "-",
-                                             "DRUM", "NOISE", "FM6", "-", "ANIMAL"};   /* (JIANT: SAMPLE 4, GRAIN 8, SLICE 13 retired; 0.8.3 ANIMAL) */
+                                             "DRUM", "NOISE", "FM6", "-", "ANIMAL", "SHRUB"};   /* (JIANT: SAMPLE 4, GRAIN 8, SLICE 13 retired; 0.8.3 ANIMAL;
+                                                         * 0.9.10 SHRUB: the editor's engine list reaches it) */
 
 #define PD(l, f, mn, mx, df) {l, f, mn, mx, df, 0, 0}
 #define PE(l, n, df) {l, F_ENUM, 0, (int16_t)(sizeof(n) / sizeof(n[0]) - 1), df, n, 0}
 
-static const param_desc_t TP[P_COUNT] = {
+static const param_desc_t TP[P_NALL] = {
     [P_LEVEL] = PD("LEVEL", F_DB, 0, 127, 104),
     [P_ATK] = PD("ATK", F_TIME, 0, 127, 10),
     [P_DEC] = PD("DEC", F_TIME, 0, 127, 70),
@@ -152,6 +154,9 @@ static const param_desc_t TP[P_COUNT] = {
 #undef LANE
     [P_DTYPE] = PE("TYPE", N_DTYPE, 0),         /* (JIANT) DIST: SOFT (as before) HARD FOLD CRUSH RECT AMP */
     [P_DTONE] = PD("TONE", F_BIPCT, -64, 63, 0),   /* .. its tone: darker / brighter */
+    [P_CTYPE] = PE("COMP", N_DYN, 0),          /* (JIANT) OFF, DBX 160, LA-2A, FAIR 670 (fx.c DYN_M) */
+    [P_CTHR] = PD("THRESH", F_PCT, 0, 127, 127),
+    [P_CRAT] = PD("RATIO", F_PCT, 0, 127, 64),
     [P_MSLEN] = PD("LEN", F_STEPS, 1, 16, 16),  /* (JIANT) the modulation sequence (mod.c MS_STEP) */
     [P_MSDIV] = PE("DIV", N_DIV, 2),
     [P_MSSLW] = PD("SLEW", F_PCT, 0, 127, 0),

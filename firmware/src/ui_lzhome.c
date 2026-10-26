@@ -145,7 +145,7 @@ static void eco_face(int32_t cx, int32_t cy, int32_t r, int32_t k, int32_t e, ui
 {
     int32_t rk = r * k >> 8, s = rk >= 19 * 16 ? 3 : 2, ex = rk * 77 >> 8, d;
     int32_t ey = cy - (rk * 31 >> 8), my, mo;
-    uint16_t ec = (fl & EF_SLEEP) ? (ux.mono || settings.palette == UI_BW_INDEX ? ux_gray(ux_luma(T_DIM) >> 3) : T_DIM) : vk_heat(248);
+    uint16_t ec = (fl & EF_SLEEP) ? (T_DIM) : vk_heat(248);
     if (ex < 40) ex = 40;                               /* (2.5 px apart at least) */
     if (fl & EF_UP)                                     /* (MUTATE: it looks up) */
         ey -= rk * 31 >> 8 > 24 ? rk * 31 >> 8 : 24;
@@ -182,7 +182,7 @@ static void eco_being(uint32_t c, int32_t cx, int32_t cy, int32_t rq)
     uint32_t t = eco.tm[c] + c * 20000u;
     if (eco_off(c)) {
         bfeat_t a = {0, 0, 40, 3, 1, 0, 0, 0};
-        uint16_t dc = ux.mono || settings.palette == UI_BW_INDEX ? ux_gray(ux_luma(T_DIM) >> 3) : T_DIM;
+        uint16_t dc = T_DIM;
         bg_nv_in = 40;
         bg_outline(g, &a, cx, cy, rq, 0, eco.tm[c], dc);
         bg_nv_in = 0;
@@ -238,6 +238,147 @@ static uint32_t routes_count(void)                      /* the MOD slots whose S
         }
     return n;
 }
+/* (GARDEN, Phase 6) ECO's standby (INSTRUCTIONS §6.1): a mushroom (still, its cap swelling with the level), a bird and a
+ * frog wandering the ground (two sines each: they turn back, and face the way they go), two beetles crawling; all but
+ * the mushroom hop on the beat. On the plants' clock (gd_pl: MOTION x the music), drawn into each strip by gd_poly */
+static int32_t eco_wx(uint32_t i, uint32_t t)          /* walker i's x at time t (Q4 px) */
+{
+    static const int16_t C[4] = {150, 104, 34, 186}, A[4] = {44, 40, 12, 16}, B[4] = {16, 22, 6, 8};
+    static const uint8_t F1[4] = {9, 7, 3, 4}, F2[4] = {23, 17, 7, 9};
+    return C[i] * 16 + (A[i] * 16 * gd_s(t * F1[i] / 4u) >> 8) + (B[i] * 16 * gd_s(t * F2[i] / 4u + i * 9000u) >> 8);
+}
+static void eco_tri(int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint16_t c)
+{
+    int32_t pt[6] = {x0, y0, x1, y1, x2, y2};
+    gd_poly(pt, 3, 1, c);
+}
+static void eco_dot(int32_t x, int32_t y, int32_t s, uint16_t c) { cv_rect((x >> 4) - gd.x0, y >> 4, s, s, c); }
+static void eco_garden(void)
+{
+    int32_t e = gd_pl.e, k = 256 + e * 3 / 8, i;
+    uint32_t t = gd_pl.t;
+    static uint8_t at;                                  /* (the owner: the track's tulip, a new one each hit) */
+    static uint16_t hm;
+    {
+        uint32_t s = song.sel % trk_live, n = trk_live < 3u ? trk_live : 3u;
+        if (trk[s].peak && meter_px(trk[s].peak) > ts.meter[s] + 2 && (uint16_t)((uint16_t)fm1_ms - hm) > 120u && n > 1u) {
+            at = (uint8_t)((at + 1u + (gd_h((int32_t)fm1_ms, 29) >> 15 & 1u) % (n - 1u)) % n);   /* (another of the three, at random) */
+            hm = (uint16_t)fm1_ms;
+        }
+        if (at >= n)
+            at = 0;
+    }
+    for (i = 0; i < 3 && i < (int32_t)trk_live; i++) {   /* (the mockup's HOME) a tulip for the track and the next two:
+                                                         * as tall as its LEVEL, its cup open with its meter, a leaf
+                                                         * more each 4 beats of its 16; the track's own tulip moves */
+        uint32_t n = trk_live < 3u ? trk_live : 3u, c = (song.sel + ((uint32_t)i + n - at) % n) % trk_live,
+                 ph = (gd_pl.b / 16u + (uint32_t)i * 21845u) & 65535u;
+        int32_t x = 52 + i * 68, m = trk[c].p[P_MUTE] ? 0 : meter_px(trk[c].peak);
+        trk[c].peak = 0;
+        if (m < ts.meter[c] - 1)
+            m = ts.meter[c] - 1;                        /* (falling as the MIXER's) */
+        ts.meter[c] = (uint8_t)(m < 0 ? 0 : m);
+        m = ts.meter[c];
+        gd_tulip(x, gd_gy(x) / 16 + 1, 18 + (int32_t)trk_level(c) * 26 / 127 + m * 12 / (TS_MH - 2),
+                 (gd_s(t * 20u + (uint32_t)i * 9000u) * (8 + m / 2)) >> 8, 1 + (int32_t)(ph >> 14), 64 + m * 192 / (TS_MH - 2),
+                 c, 280, trk[c].p[P_MUTE] ? GD_MID : c == song.sel % trk_live ? GD_ORANGE : (c + trk_live - song.sel % trk_live) % trk_live == 1u ? GD_BLUE : GD_BURNT);
+    }
+    {                                                   /* the mushroom: a pale stem, a burnt cap with spots */
+        int32_t x = 72 * 16, y = gd_gy(72), r = 160 * k / 256, q[8] = {x - 40, y, x - 32, y - 160, x + 32, y - 160, x + 40, y};
+        gd_poly(q, 4, 2, GD_SURF);
+        gd_blob(x, y - 176, r, 9, GD_BURNT, 3, 256, 150);
+        eco_dot(x - r / 2, y - 192, 2, GD_SURF);
+        eco_dot(x + r / 3, y - 208, 2, GD_SURF);
+        eco_dot(x + r * 2 / 3, y - 184, 2, GD_SURF);
+    }
+    for (i = 0; i < 4; i++) {
+        int32_t x = eco_wx((uint32_t)i, t), d = eco_wx((uint32_t)i, t + 256u) >= x ? 1 : -1, y, s = k;
+        y = gd_gy(x >> 4) - gd_hop(i == 1 ? 384u : i == 0 ? 256u : 128u) * 16;
+        if (i == 0) {                                   /* the bird: a round body, its head, beak, wing and tail */
+            gd_leaf(x - d * 80, y - 112, d > 0 ? 34000u : 64000u, 112 * s / 256, 48, GD_BURNT);
+            gd_blob(x, y - 96, 96 * s / 256, 9, GD_ORANGE, 5, 300, 240);
+            gd_blob(x + d * 96, y - 176, 64 * s / 256, 7, GD_ORANGE, 6, 256, 256);
+            eco_tri(x + d * 144, y - 192, x + d * 208, y - 172, x + d * 144, y - 156, GD_INK);
+            eco_dot(x + d * 104, y - 192, 2, GD_INK);
+            gd_leaf(x - d * 16, y - 96, d > 0 ? 62000u : 36000u, 96 * s / 256, 40, GD_BLUE);
+            eco_dot(x - 32, y - 32, 1, GD_INK);
+            cv_rect(((x - 32) >> 4) - gd.x0, (y - 32) >> 4, 1, 2, GD_INK);
+            cv_rect(((x + 32) >> 4) - gd.x0, (y - 32) >> 4, 1, 2, GD_INK);
+        } else if (i == 1) {                            /* the frog: a squat body, two eyes on top, a wide mouth */
+            gd_blob(x, y - 80, 112 * s / 256, 9, GD_BLUE, 7, 300, 200);
+            gd_blob(x - 64, y - 160, 40, 6, GD_BLUE, 8, 256, 256);
+            gd_blob(x + 64, y - 160, 40, 6, GD_BLUE, 9, 256, 256);
+            eco_dot(x - 64 + d * 8, y - 168, 2, GD_INK);
+            eco_dot(x + 64 + d * 8, y - 168, 2, GD_INK);
+            cv_rect(((x + d * 16 - 48) >> 4) - gd.x0, (y - 96) >> 4, 6, 1, GD_INK);
+            gd_leaf(x - d * 96, y - 16, d > 0 ? 40000u : 58000u, 80, 32, GD_BLUE);
+        } else {                                        /* a beetle: a shell, its head, legs stepping */
+            int32_t st = (int32_t)(t / 128u + (uint32_t)i) & 1, j;
+            for (j = -1; j <= 1; j++) {
+                cv_rect(((x + j * 40) >> 4) - gd.x0, (y - 24) >> 4, 1, 2 + (st ^ (j & 1)), GD_INK);
+            }
+            gd_blob(x, y - 64, 72 * s / 256, 8, GD_BURNT, (uint32_t)i + 11u, 300, 220);
+            gd_blob(x + d * 72, y - 56, 32, 6, GD_INK, (uint32_t)i + 13u, 256, 256);
+            cv_rect((x >> 4) - gd.x0, (y - 112) >> 4, 1, 4, GD_INK);
+        }
+    }
+}
+/* (GARDEN, Phase 6) ECO's X-Y view (INSTRUCTIONS §7.2; SELECT left on ECO, SELECT back): the whole screen dark, a
+ * vectorscope's crosshair (the L and R diagonals, the M axis, the L-R / L+R line dashed), the last 512 sample pairs
+ * (audio.c scope_buf, scope_r) as dots fading from old to new, the newest an orange head. L along the top-left
+ * diagonal, R the top-right: x = 120 + A (R - L) / sqrt 2, y = 120 - A (L + R) / sqrt 2 */
+static int eco_xy_on(void) { return ui.xy && ui.home && !gen_on() && home_level() == 0u && !home_set() && !ui.menu; }
+static void xy_arrow(int32_t x, int32_t y, int32_t dx, int32_t dy, uint16_t c)   /* a head at x, y pointing dx, dy */
+{
+    cv_line(x, y, x - dx * 4 + dy * 3, y - dy * 4 - dx * 3, c);
+    cv_line(x, y, x - dx * 4 - dy * 3, y - dy * 4 + dx * 3, c);
+}
+static void draw_xy(void)
+{
+    static uint32_t xy_ms;
+    uint32_t pass, k, w = scope_w;
+    int32_t sk = scope_k();
+    uint16_t bg = T_TEXT, ax = ux_mix(T_TEXT, T_SURF, 45);
+    if (!ui.force && fm1_ms - xy_ms < 66u)              /* (15 a second) */
+        return;
+    xy_ms = fm1_ms;
+    ui.force = 0;
+    for (pass = 0; pass < 2u; pass++) {
+        int32_t y0 = (int32_t)pass * 120, x;
+        cv_begin(240, 120, bg);
+        cv_oy = -y0;
+        cv_line(8, 8, 232, 232, ax);                    /* the crosshair: L, R, M, L-R / L+R */
+        cv_line(232, 8, 8, 232, ax);
+        cv_rect(120, 6, 1, 228, ax);
+        for (x = 6; x < 234; x += 6)
+            cv_rect(x, 120, 3, 1, ax);
+        xy_arrow(8, 8, -1, -1, ax);
+        xy_arrow(232, 8, 1, -1, ax);
+        xy_arrow(8, 232, -1, 1, ax);
+        xy_arrow(232, 232, 1, 1, ax);
+        xy_arrow(120, 6, 0, -1, ax);
+        xy_arrow(120, 233, 0, 1, ax);
+        cv_text(18, 4, &AF_X, "L", ax);
+        cv_text_r(222, 4, &AF_X, "R", ax, bg);
+        cv_text(124, 4, &AF_X, "M", ax);
+        cv_text(4, 108, &AF_X, "L-R", ax);
+        cv_text_r(236, 108, &AF_X, "L+R", ax, bg);
+        cv_text(22, 226, &AF_X, "X-Y \xB7 L / R", ax);
+        for (k = 0; k < SCOPE_N; k++) {                 /* the trace, oldest first */
+            uint32_t i = (w + k) & (SCOPE_N - 1u);
+            int32_t L = scope_s(scope_buf[i], sk), R = scope_s(scope_r[i], sk), px, py, s = k + 1u == SCOPE_N ? 4 : 2;
+            px = 120 + ((R - L) * 170 >> 14);           /* (twice the first gain: quiet music filled too little) */
+            py = 120 - ((L + R) * 170 >> 14);
+            px = clamp(px, 2, 236);
+            py = clamp(py, 2, 236);
+            if (py + s <= y0 || py >= y0 + 120)
+                continue;
+            cv_rect(px - s / 2, py - s / 2, s, s, s == 4 ? GD_ORANGE : ux_mix(bg, GD_PBLUE, 15 + (int32_t)k * 85 / (int32_t)SCOPE_N));
+        }
+        cv_oy = 0;
+        cv_blit(0, (uint32_t)y0);
+    }
+}
 /* ECO: 0.8.4's HOME (graph_ecosys) in the lens's panel: the cytoplasm's granules drifting, the six beings swimming free
  * over the whole panel (0.9.7: variant A, eco_being), each with its number under it (the selected one larger, its number in
  * the theme's colour; a mutation landed, white). (0.8.9) Drawn into the canvas as the water's x0, y0 .. (eco_draw); SKIN HUD's HOME: the
@@ -251,28 +392,9 @@ static void eco_draw(int32_t x0, int32_t y0, int words)
     (void)bg_energy();                                  /* (the output's level kept as it was read: once a frame) */
     char b[16];
     cv_oy = -y0;
-    for (k = 0; k < 22u; k++) {                         /* the cytoplasm: granules drifting */
-        uint32_t h = k * 2654435761u;
-        int32_t gx = 10 + (int32_t)((h >> 8) % 220u + ui.frame * (1u + (h >> 28)) / 6u) % 220;
-        int32_t gy = 6 + (int32_t)(((h >> 16) % (uint32_t)(bot + 6)) + (still ? 0 : (uint32_t)(bg_sin((uint32_t)(ui.frame * 300u + h)) >> 13))) %
-                         (uint32_t)(bot + 6);
-        cv_rect(gx - x0, gy, 1 + (int32_t)(h >> 31), 1 + (int32_t)(h >> 31), ux_mix(T_SURF, T_THEME, 22 + (int32_t)(h >> 29) * 4));
-    }
-    for (c = 0; c < ECO_N; c++) {
-        bx[c] = eco.sx[c] >> 4;
-        by[c] = eco.sy[c] >> 4;
-    }
-    for (c = 0; c < ECO_N; c++) {
-        int32_t rad = eco.r[c] >> 4, px = eco.sx[c] >> 8, py = eco.sy[c] >> 8, ny, reach = (rad >> 4) * 3 + 8;
-        char num[2] = {(char)('1' + c), 0};
-        if (py + reach < y0 || py - reach > y0 + (int32_t)cv_h || px + reach < x0 || px - reach > x0 + (int32_t)cv_w)
-            continue;                                   /* (off the strip) */
-        eco_being(c, bx[c] - x0 * 16, by[c], eco.r[c]);
-        ny = clamp(py + rad / 2 + 4, 4, bot);
-        if (words && (!hud || (ny >= (int32_t)graph_y() + (home_set() ? 12 : 2) && ny + 14 <= (int32_t)(graph_y() + graph_h()))))
-            cv_text_in(px - 30 - x0, ny, 60, &AF_S, num, mut_flash[c] ? vk_heat(255) : c == song.sel ? T_THEME : eco_off(c) ? T_DIM :
-                       hud ? T_TEXT : T_MID, T_SURF);   /* (0.9.0 HUD: TEXT, over the beings; 0.9.7: a mutation, white) */
-    }
+    (void)k; (void)c; (void)bx; (void)by; (void)bot; (void)still;
+    eco_garden();                                       /* (GARDEN, Phase 6: the standby's creatures; the beings, their
+                                                         * numbers and the cytoplasm retired) */
     if (words && home_set()) {                          /* MACROS: the routes, LATCH */
         int32_t y = hud ? (int32_t)graph_y() + 3 : 2;
         fmt_int(b, (int32_t)routes_count());
@@ -282,31 +404,42 @@ static void eco_draw(int32_t x0, int32_t y0, int words)
     }
     cv_oy = 0;
 }
-int goobers_on(void);                                   /* (ui_goobers.c, included at the end of this file: ECO's GOOBERS look) */
-static void goobers_draw(int32_t x0, int32_t y0, int words);
-static void graph_eco(void) { if (goobers_on()) goobers_draw(0, 0, 1); else eco_draw(0, 0, 1); }
-static void eco_backdrop(int32_t x0, int32_t y0, int words) { if (goobers_on()) goobers_draw(x0, y0, words); else eco_draw(x0, y0, words); }
+static void graph_eco(void) { eco_draw(0, 0, 1); }   /* (GARDEN: the GOOBERS look, ui_goobers.c, retired) */
+static void eco_backdrop(int32_t x0, int32_t y0, int words)   /* (GARDEN: the beings in the garden, gd_scene) */
+{
+    gd_scene(x0, y0);
+    eco_draw(x0, y0, words);
+}
 /* BEING: the track's being large, its HOME knobs as organs at the corners */
-static const int16_t ORG_X[4] = {30, 210, 30, 210}, ORG_Y[4] = {28, 28, 116, 116};
+/* (GARDEN, Phase 6: the mockup's BEING, INSTRUCTIONS §7.1) each HOME knob a pod at a corner: "K1 PITCH" over it, a wobbly
+ * body (K1 K3 orange, K2 K4 blue), a blue gauge and the value under it, a dotted vein to the creature */
+static const int16_t ORG_X[4] = {34, 206, 34, 206}, ORG_Y[4] = {28, 28, 90, 90};
+/* a pod at corner k: its name over it, the body (hot: larger), the gauge f (0..1000), v under it; the vein to cx, cy */
+static void org_pod(uint32_t k, int32_t cx, int32_t cy, const char *nm, int32_t f, const char *v, int hot, uint16_t vc)
+{
+    int32_t gx = ORG_X[k], gy = ORG_Y[k], i, n;
+    n = (cx - gx < 0 ? gx - cx : cx - gx) / 5;
+    for (i = 3; i < n; i++)                             /* the vein: a dot every 5 px, from the pod most of the way in */
+        cv_rect(gx + (cx - gx) * i / (n + 4), gy + (cy - gy) * i / (n + 4), 1, 1, hot ? T_ACCENT : T_MID);
+    gd_blob(gx * 16, gy * 16, 160 + (hot ? 24 : 0), 7, (k & 1u) ? GD_BLUE : GD_ORANGE, k + 3u, 256, 240);
+    cv_rect(gx - 11, gy + 13, 22, 3, T_LINE);           /* the gauge */
+    cv_rect(gx - 11, gy + 13, (22 * f + 500) / 1000, 3, GD_BLUE);
+    GFX_HOOK_ALIGN(gx - 34, 0, gx + 34, 0, AL_H, "BEING organ value centred");
+    cv_text_in(gx - 34, gy + 19, 68, &AF_X, v, vc, T_BG);
+    GFX_HOOK_ALIGN(gx - 34, 0, gx + 34, 0, AL_H, "BEING organ name centred");
+    cv_text_in(gx - 34, gy - 24, 68, &AF_X, nm, hot ? T_ACCENT : T_TEXT, T_BG);
+}
 static void organ(uint32_t k, int32_t cx, int32_t cy)
 {
     int16_t *vp;
     const param_desc_t *d = home_param(k, &vp);
-    char v[12];
+    char v[12], nm[16] = {'K', (char)('1' + k), ' ', 0};
     const char *u;
-    int32_t gx = ORG_X[k], gy = ORG_Y[k], hot = ui.hot_t && ui.hot_col == k;
-    uint16_t c = hot ? T_ACCENT : T_THEME;
-    og_quad_a(gx * 16, gy * 16, (gx + cx) * 8, gy * 16, (cx + (gx - cx) * 35 / 100) * 16, (cy + (gy - cy) * 35 / 100) * 16,
-              ux_mix(T_SURF, c, 45), 12u, 256);
-    og_node(gx * 16, gy * 16, 17, T_RAISE);
-    lz_arc(gx, gy, 14, 3, clamp(RATIO(d, enum_rank(d, *vp)), 0, 1000), T_LINE, c);
     param_format(d, *vp, v, &u);
-    if (u && u[0] && str_len(v) + str_len(u) <= 5u)     /* ("901Hz": its unit when it fits the organ) */
+    if (u && u[0] && str_len(v) + str_len(u) <= 5u)     /* ("901Hz": its unit when it fits) */
         str_cpy(v + str_len(v), u, sizeof v - str_len(v));
-    GFX_HOOK_ALIGN(gx - 17, gy - 4, gx + 17, gy + 4, AL_HV, "BEING organ value centred");
-    cv_clip_text(gx - HALF_UP(text_w(&AF_X, v) < 30 ? text_w(&AF_X, v) : 30), gy - 4 - AF_X_CAP_Y + 1, &AF_X, v, T_TEXT, T_RAISE, 30);
-    GFX_HOOK_ALIGN(gx - 30, 0, gx + 30, 0, AL_H, "BEING organ name centred");
-    cv_text_in(gx - 30, gy - 28, 60, &AF_X, d->label, hot ? T_ACCENT : T_MID, T_SURF);
+    str_cpy(nm + 3, d->label, sizeof nm - 3);
+    org_pod(k, cx, cy, nm, clamp(RATIO(d, enum_rank(d, *vp)), 0, 1000), v, ui.hot_t && ui.hot_col == k, T_TEXT);
 }
 static void graph_home_being(void)
 {
@@ -315,47 +448,39 @@ static void graph_home_being(void)
     (void)eco_step();
     (void)bg_energy();
     char b[16];
-    if (home_set()) {                                   /* ROUTES: the being small, the macros and their routes */
-        uint32_t m, i, j, row = 0;
-        int32_t ry[12];
-        cx = 128;
-        cy = 66;
-        bx = cx * 16;
-        by = cy * 16;
-        eco_being(c, bx, by, (13 * 16) * (256 + eco.en[c] * 5 / 4 + (bg_sin(eco.tm[c] / 3u) >> 11)) / 256);
+    gd.x0 = 0;                                          /* (the pods' bodies: gd_poly in the panel's own rows) */
+    gd.y0 = 0;
+    gd.y1 = (int32_t)cv_h;
+    cv_halo = 1;                                        /* (their words outlined over the garden) */
+    if (home_set()) {                                   /* (GARDEN) ROUTES: as BEING, the macros M1..M4 the pods, each
+                                                         * its value on the gauge and its first route under it ("T2 CUT+62",
+                                                         * "+2" more), the vein lit while it is turned */
+        uint32_t m, i, j;
         for (m = 0; m < 4u; m++) {
-            int32_t y = 16 + (int32_t)m * 34, n = 0;
-            char mn[3] = {'M', (char)('1' + m), 0};
-            uint16_t col = ui.hot_t && ui.hot_col == m ? T_ACCENT : T_THEME;
+            char mn[12] = {'M', (char)('1' + m), 0}, e[24] = "NO ROUTE";
+            uint32_t n = 0;
             for (i = 0; i < NTRK; i++)
-                for (j = 0; j < 4u && row < 12u; j++) {
+                for (j = 0; j < 4u; j++) {
                     const int16_t *p = &trk[i].p[P_M1SRC + 3u * j];
-                    char e[20] = {'T', (char)('1' + i), ' ', 0};
-                    int32_t ty;
-                    if (p[0] != (int16_t)(MS_M1 + m) || !p[1] || !p[2] || n >= 3)
+                    if (p[0] != (int16_t)(MS_M1 + m) || !p[1] || !p[2])
                         continue;
-                    ty = 6 + (int32_t)row * 11;
-                    ry[row++] = ty;
-                    n++;
-                    str_cpy(e + 3, mod_dst_name(&trk[i], p[1]), sizeof e - 3);
-                    str_cpy(e + str_len(e), p[2] > 0 ? "+" : "", sizeof e - str_len(e));
-                    fmt_int(e + str_len(e), p[2] * 100 / 64);
-                    og_quad_a(34 * 16, y * 16, 120 * 16, y * 16, 168 * 16, (ty + 4) * 16, heat_col(70 + macro_v[m] * 150 / 127),
-                              14u, 200);
-                    cv_clip_text(171, ty, &AF_X, e, T_MID, T_SURF, 66);
+                    if (!n++) {
+                        e[0] = 'T'; e[1] = (char)('1' + i); e[2] = ' ';
+                        str_cpy(e + 3, mod_dst_name(&trk[i], p[1]), 9);
+                        str_cpy(e + str_len(e), p[2] > 0 ? "+" : "", sizeof e - str_len(e));
+                        fmt_int(e + str_len(e), p[2] * 100 / 64);
+                    }
                 }
-            og_node(22 * 16, y * 16, 12, T_RAISE);
-            lz_arc(22, y, 10, 2, macro_v[m] * 1000 / 127, T_LINE, col);
-            GFX_HOOK_ALIGN(12, y - 5, 32, y + 5, AL_HV, "ROUTES macro name in its knob");
-            cv_text_in(12, y - 4, 20, &AF_X, mn, T_TEXT, T_RAISE);
-            if (!n)
-                cv_text(40, y - 4 - AF_X_CAP_Y + 1, &AF_X, "NO ROUTE", T_DIM);
+            if (n > 1u) {                               /* (the others counted after the name) */
+                str_cpy(mn + 2, " +", 3);
+                fmt_int(mn + 4, (int32_t)n - 1);
+            }
+            org_pod(m, cx, cy, mn, macro_v[m] * 1000 / 127, e, ui.hot_t && ui.hot_col == m, n ? T_TEXT : T_DIM);
         }
-        (void)ry;
-        return;
+    } else {
+        for (k = 0; k < 4u; k++)
+            organ(k, cx, cy);
     }
-    for (k = 0; k < 4u; k++)
-        organ(k, cx, cy);
     {   /* the being: graph_being's size, its HOME knobs, the track's own level */
         const genome_t *g = eco_genome(c);
         bfeat_t f;
@@ -369,7 +494,8 @@ static void graph_home_being(void)
     }
     sound_name(&trk[c], b);
     GFX_HOOK_ALIGN(60, 0, 180, 0, AL_H, "BEING sound name centred");
-    cv_text_in(60, 129, 120, &AF_X, b[0] ? b : trk_engp(&trk[c])->name, T_MID, T_SURF);
+    cv_text_in(60, 129, 120, &AF_X, b[0] ? b : trk_engp(&trk[c])->name, T_TEXT, T_SURF);
+    cv_halo = 0;
 }
 static void graph_home_lz(void)
 {
@@ -379,5 +505,3 @@ static void graph_home_lz(void)
         graph_eco();
 }
 
-/* (GOOBERS, ui_goobers.c) ECO's other look, by ui_eco_style: its drawing, state and note hook; the helpers above it are its */
-#include "ui_goobers.c"

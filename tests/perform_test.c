@@ -371,7 +371,9 @@ static int test_keys(void)
         }
         fm1_in.buttons = 0;
         bad += check("the keys without an effect (G5, the black keys past the mutes): silent, nothing held",
-                     ok && (uint32_t)__builtin_popcount(assigned) == PF_N);   /* (15 white F3 .. F5, 4 black) */
+                     ok && (uint32_t)__builtin_popcount(assigned) == PF_N - (NTRK > 6u ? NTRK - 6u : 0u));   /* (15 white F3 .. F5,
+                                                     * 10 black: six mutes, FREEZE, SHUFFLE and the sweeps; stems-10's
+                                                     * T7 and T8 have mutes in the layer but no key left for them) */
         pfx_tgt = 0;                                /* (A#4 stepped it) */
         kb_mask = perf_mask = 0;
     }

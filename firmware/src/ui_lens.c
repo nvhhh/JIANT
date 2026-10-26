@@ -203,6 +203,7 @@ static void nav_go(uint32_t sec, uint32_t e, int outside)
         return;
     e = k;
     nav_mem_put(key, e);
+    ui.xy = 0;
     if (sec == SEC_HOME) {
         if (e >= 4u) {                                  /* GEN: the generator's screen, HOME's last group */
             if (!gen_on()) {
@@ -266,6 +267,16 @@ static void nav_select(int32_t s)
     if (at < 0) {                                       /* (the entry left is not here: the nearest that is) */
         for (i = 0; i < n && v[i] < e; i++) {}
         at = (int32_t)i - (s > 0 ? 1 : 0);
+    }
+    if (ui.xy) {                                        /* (GARDEN, Phase 6) the X-Y view: SELECT either way back to ECO */
+        ui.xy = 0;
+        ui.force = 1;
+        return;
+    }
+    if (sec == SEC_HOME && ui.home && !gen_on() && e == 0u && s < 0) {   /* .. ECO, SELECT left: the X-Y view */
+        ui.xy = 1;
+        ui.force = 1;
+        return;
     }
     to = clamp(at + s, 0, (int32_t)n - 1);
     if (n && (to != at || v[to] != e))

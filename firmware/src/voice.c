@@ -46,17 +46,26 @@ static uint32_t lfo_rand(track_t *t)
 
 /* (JIANT 0.5) ANALOG's FILTER TYPE COMB: the part's sum through a feedback comb, tuned to its newest note moved by
  * CUT (+-32 semitones; 64: the note: a resonance at the pitch), RES its feedback (up to ~0.99: long metallic rings);
- * the level kept about the dry's. One line a part (512 samples: down to ~86 Hz; was 1024, ~43 Hz, before stems-10:
- * the RAM pool needs the 8 KiB back for eight tracks) */
-#define COMB_LEN 512u
-static int16_t comb_buf[NTRK][COMB_LEN] __attribute__((section(".pool")));   /* (0.6: six tracks, in the pool) */
+ * the level kept about the dry's. (GARDEN, the owner: full quality again, no more RAM) a line of 1024 samples (down to
+ * ~43 Hz) for each pair of parts (T1 T2, T3 T4 ..): a part has all of it while the other is not on COMB, half (512,
+ * ~86 Hz: stems-10's, the RAM pool's 8 KiB kept for eight tracks) while both are. A change of share costs that part's
+ * line one block (a tick at most, only then) */
+#define COMB_LEN 512u                                    /* (the half) */
+static int16_t comb_buf[NTRK / 2u][2u * COMB_LEN] __attribute__((section(".pool")));
 static uint16_t comb_w[NTRK];
 static int16_t comb_p16[NTRK];
+static uint8_t comb_all[NTRK];                           /* the part had the whole line the last block */
+static uint8_t tf_cmb[NTRK];                             /* (0.6.81) the COMB ran the last block (its line live) */
 static __attribute__((noinline)) void track_comb(track_t *t, int32_t *out, uint32_t n, int32_t cut, int32_t res)
 {
-    uint32_t ti = (uint32_t)(t - trk) % NTRK, i, per, age = 0, w = comb_w[ti];
+    uint32_t ti = (uint32_t)(t - trk) % NTRK, i, per, age = 0, w = comb_w[ti], all = !tf_cmb[ti ^ 1u],
+             len = all ? 2u * COMB_LEN : COMB_LEN;
     int32_t p16 = comb_p16[ti], fb = 16000 + res * 130, g = 32768 - fb;
-    int16_t *b = comb_buf[ti];
+    int16_t *b = comb_buf[ti >> 1] + (all ? 0u : (ti & 1u) * COMB_LEN);
+    if (all != comb_all[ti]) {                           /* (the share changed: the line taken afresh) */
+        memset(b, 0, len * sizeof *b);
+        comb_all[ti] = (uint8_t)all;
+    }
     for (i = 0; i < NVOICE; i++)                        /* the newest note sounding */
         if (t->v[i].active && t->v[i].age >= age) {
             age = t->v[i].age;
@@ -65,12 +74,12 @@ static __attribute__((noinline)) void track_comb(track_t *t, int32_t *out, uint3
     comb_p16[ti] = (int16_t)p16;
     p16 = clamp(p16 + (cut - 64) * 8, 0, 2047);
     per = 0xFFFFFFFFu / ((pitch_inc((uint32_t)p16) >> 8) | 1u);   /* the period, Q8 */
-    per = per < (2u << 8) ? 2u << 8 : per > ((COMB_LEN - 2u) << 8) ? (COMB_LEN - 2u) << 8 : per;
+    per = per < (2u << 8) ? 2u << 8 : per > ((len - 2u) << 8) ? (len - 2u) << 8 : per;
     for (i = 0; i < n; i++) {
         uint32_t d = per >> 8;
-        int32_t a = b[(w - d) & (COMB_LEN - 1u)], c = b[(w - d - 1u) & (COMB_LEN - 1u)];
+        int32_t a = b[(w - d) & (len - 1u)], c = b[(w - d - 1u) & (len - 1u)];
         int32_t x = (a + (((c - a) * (int32_t)(per & 255u)) >> 8)) << 1, y = out[i] + mulq15(x, fb);
-        b[w & (COMB_LEN - 1u)] = (int16_t)clamp(y >> 1, -32768, 32767);
+        b[w & (len - 1u)] = (int16_t)clamp(y >> 1, -32768, 32767);
         w++;
         y = clamp(y, -262000, 262000);                  /* (0.6.81: y * g overflowed with a loud part, ~96000 in: the
                                                          * sign flipped, a full-scale crackle; a quarter first) */
@@ -119,7 +128,6 @@ static __attribute__((noinline)) void tf_sides(uint32_t ti, const tsvf_t *c, int
 }
 static uint8_t tf_on[NTRK], tf_ft[NTRK];        /* the SVF in the chain the last block; the TYPE playing (0.6.71: a
                                                  * byte a track, not a bit: two cores write two tracks at once) */
-static uint8_t tf_cmb[NTRK];                    /* (0.6.81) the COMB ran the last block (its line live) */
 static uint8_t tf_xb[NTRK], tf_fo[NTRK];        /* (0.6.81) a TYPE's crossfade: its blocks left, the TYPE from (TF_DRY:
                                                  * no filter) */
 #define TF_XB 8u                                /* (~5 ms: one block's fade between two filters was a tick) */
@@ -136,7 +144,7 @@ static __attribute__((noinline)) void tf_run(track_t *t, int32_t *out, uint32_t 
     tsvf_t c;
     if (ft == FT_COMB) {
         if (!tf_cmb[ti])                                /* (0.6.81) in: its line cleared (the last time's, stale) */
-            memset(comb_buf[ti], 0, sizeof comb_buf[ti]);
+            comb_all[ti] = 2u;                          /* (track_comb: any share is new) */
         track_comb(t, out, n, ccut, cres);
         tf_cmb[ti] = 1;
         return;

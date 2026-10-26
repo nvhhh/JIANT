@@ -36,18 +36,9 @@ static int settings_import(persist_t *p, int n)
     }
     if (old1 || old2) p->bold = 0;
     if (!current) memset(&p->favorites, 0, sizeof p->favorites);
-    if (p->favorites.factory[15][20] > 3u)         /* SKIN (JIANT 0.8.9, ui.c ui_skin; 0.9.7: 3 AIR): unknown = COLORS (0, older
-                                                     * settings too: they keep the skin they had) */
-        p->favorites.factory[15][20] = 0;
-    else if (p->favorites.factory[15][20] == 1u)   /* (0.9.17) BOTTOM, retired: AIR (its word tabs, the knobs' row on top) */
-        p->favorites.factory[15][20] = 3u;
     if (p->favorites.factory[15][19] > 3u)         /* SCOPE (0.9.7, ui.c ui_scope; 0.9.18: 2 BUBBLES, 3 ORBIT): unknown = OFF (0,
                                                      * older settings too: 0 and 1 keep their meaning) */
         p->favorites.factory[15][19] = 0;
-    if (p->favorites.factory[15][14] > 1u)         /* ECO STYLE (ui.c ui_eco_style): 0 OG, 1 GOOBERS; unknown = OG */
-        p->favorites.factory[15][14] = 0;
-    if (p->favorites.factory[15][29] > 1u)        /* STYLE (ui.c ui_style): 2, the retired PIXEL = LINE; unknown = FLAT */
-        p->favorites.factory[15][29] = p->favorites.factory[15][29] == 2u ? 1u : 0u;
     {   /* CLICK, CLICK LEVEL, COUNT-IN (ui.c ui_rec_prefs): two bits each, 3 is no value: the default (0) */
         uint32_t b = p->favorites.factory[15][28], f;
         for (f = 0; f < 3u; f++)
@@ -112,8 +103,8 @@ static void settings_jiant_once(persist_t *p)
     if (p->favorites.factory[15][23] == JIANT_PAL_SEEN)
         return;
     p->favorites.factory[15][23] = JIANT_PAL_SEEN;
-    p->palette = palette_to_stored(UI_JIANT_INDEX);
-    settings.palette = UI_JIANT_INDEX;
+    p->palette = palette_to_stored(0u);
+    settings.palette = 0u;
 #ifdef FELUCCA_FAVORITES
     favorites.factory[15][23] = JIANT_PAL_SEEN;
 #endif
@@ -124,7 +115,6 @@ static void settings_jiant_once(persist_t *p)
 static void settings_fresh(void)
 {
 #ifdef FELUCCA_FAVORITES
-    favorites.factory[15][20] = SKIN_AIR;
 #endif
 }
 

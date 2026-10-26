@@ -38,7 +38,7 @@ static void gen_reset(void)
     ui_power_on();
     ui_rec_prefs |= PREF_SIX >> 8; rp_apply();          /* TRACKS 6 */
     cpt_res = gt_cpt; cpt_cores = gt_cpt ? 2u : 0u;
-    settings.palette = UI_JIANT_INDEX; palette_set(UI_JIANT_INDEX);
+    settings.palette = 0u; palette_set(0u);   /* (GARDEN, the one palette) */
 }
 static void gen_with(uint32_t genre, uint32_t seed, uint32_t energy, uint32_t form)
 {

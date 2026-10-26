@@ -139,7 +139,7 @@ static void dm_reset(void)
 {
     ui_power_on();
     ui_rec_prefs |= PREF_SIX >> 8; rp_apply();
-    settings.palette = UI_JIANT_INDEX; palette_set(UI_JIANT_INDEX);
+    settings.palette = 0u; palette_set(0u);   /* (GARDEN, the one palette) */
     memset(dm_nh, 0, sizeof dm_nh);
 }
 static void dm_wait(void) { uint32_t d = 600000u + dm_rnd() % 2400000u; host_ticks += d * 2u; fm1_ms += d / 1000u; }

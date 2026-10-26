@@ -12,9 +12,7 @@
  *   NOIS RAND BRTH CRSH   the outline frays
  *   WAVE       the body's lobes
  *   (else)     KNOB 1 more spikes, 2 longer, 3 lobes wobbling, 4 more nuclei
- * DRUM-X (graph_colony): the kit as a colony, a small being per sound, each swelling and warming as it hits (its
- * voice's level now), its body by the sound (the kick round, the snare spiky, the hats a fringe ..), a muted one a
- * dim outline. */
+ * (DRUM-X's colony retired with GARDEN: its pages draw the kit's pieces, ui_engvis.c vx_kit_page.) */
 typedef struct {
     uint8_t k0, kk;                                     /* spikes: k0 + KNOB 1 x kk */
     uint8_t ss;                                         /* their length at KNOB 2 full (16 = the radius x 1.6) */
@@ -46,27 +44,37 @@ typedef struct {
 static uint16_t bg_col(int32_t v)
 {
     uint16_t c = heat_col(v);
-    return settings.palette == UI_GREY_INDEX || settings.palette == UI_BW_INDEX ? ux_gray(ux_luma(c) >> 3) : c;
+    return c;
 }
 static int32_t bg_sin(uint32_t ang) { return sine_i(ang << 16); }   /* Q15 */
+/* (GARDEN, the owner: at MASTER 9 o'clock the scope barely moved) the scope's samples carry the MASTER knob; this
+ * gain (Q8) takes it out again, so the pictures follow the music, not the volume (MASTER at 1/32 and under: x 32) */
+static int32_t scope_k(void)
+{
+    int32_t m = (int32_t)song.master_q12;
+    return MASTER_FULL * 256 / (m < MASTER_FULL / 32 ? MASTER_FULL / 32 : m);
+}
+static int32_t scope_s(int32_t v, int32_t k) { return clamp(v * k >> 8, -32767, 32767); }
 /* the output's level now, 0..256, slewed (fast up, slow down) */
 static int32_t bg_energy(void)
 {
     static int32_t e;
     static uint32_t fr = 0xFFFFFFFFu;
     uint32_t w = scope_w, i;
-    int32_t pk = 0, v;
+    int32_t pk = 0, v, k = scope_k();
     if (fr == ui.frame)                                 /* (once a frame: a redraw in the same frame draws the same) */
         return e;
     fr = ui.frame;
     for (i = 1; i <= 256u; i += 2u) {
-        v = scope_buf[(w - i) & (SCOPE_N - 1u)];
+        v = scope_s(scope_buf[(w - i) & (SCOPE_N - 1u)], k);
         if (v < 0) v = -v;
         if (v > pk) pk = v;
     }
-    v = pk * 256 / 12000;
+    v = pk * 256 / 6000;                                /* (GARDEN: twice the gain, the owner on the device: quiet
+                                                         * music barely moved it) */
     if (v > 256) v = 256;
-    e += v > e ? (v - e) * 3 / 4 : (v - e) / 6;
+    e += v > e ? (v - e) * 3 / 4 : -((e - v + 5) / 6);   /* (falling: rounded up, so it reaches 0: it stuck at 1..5 in
+                                                         * silence, and the FX pictures moved on as if it sounded) */
     return e;
 }
 #define BG_N 96                                         /* vertices of an outline */
@@ -198,40 +206,3 @@ static void graph_being_at(const track_t *t, int32_t cx, int32_t cy, int32_t r)
 
 /* (JIANT 0.5) HOME, the system as an ecosystem: ui_lzhome.c (graph_eco, eco_step) */
 
-/* DRUM-X: the colony. Two rows of four, the sound's name under each */
-static const genome_t LANE_G[8] = {
-    {3, 0, 2, 2, 16, 0, 2},                             /* BD: round, heavy */
-    {12, 0, 14, 3, 16, 0, 6},                           /* SD: spiky */
-    {5, 0, 8, 5, 18, 2, 3},                             /* CP: a cluster */
-    {22, 0, 6, 4, 16, 0, 10},                           /* CH: a short fringe */
-    {18, 0, 12, 4, 16, 1, 8},                           /* OH: a longer fringe */
-    {4, 0, 4, 3, 17, 0, 2},                             /* TM: round, wobbly */
-    {4, 0, 9, 4, 16, 0, 1},                             /* RS: blunt, square */
-    {5, 0, 16, 5, 16, 0, 5},                            /* CB: a star */
-};
-static void graph_colony(const track_t *t, int32_t sel)
-{
-    const drum_lane_t *K = drum_kit_of(t);
-    int32_t morph = clamp(t->p[P_E0] + dx_mot_v, 0, 127), mx = 30 + morph * 180 / 127;   /* (0.5.1: X-MOD live) */
-    uint32_t l;
-    cv_rect(30, 12, 180, 1, T_LINE);                     /* MORPH: A .. B */
-    cv_rect(30, 11, mx - 30, 3, heat_col(morph * 2));
-    cv_text(12, 8, &AF_S, "A", morph < 64 ? T_THEME : T_DIM);
-    cv_text_r(226, 8, &AF_S, "B", morph >= 64 ? T_THEME : T_DIM, T_SURF);
-    for (l = 0; l < 8u; l++) {
-        int32_t x = 33 + (int32_t)(l % 4u) * 58, y = 38 + (int32_t)(l / 4u) * 46;
-        int32_t e = K && K[l].x.live ? K[l].x.ea >> 22 : 0, muted = dx_lane_muted(l);
-        const genome_t *g = &LANE_G[l];
-        bfeat_t f = {g->k0, g->ss * 6, 40, g->lob, l == 2u ? 3 : 1, 160, 0, 0};
-        if (muted)
-            bg_outline(g, &f, x * 16, y * 16, 8 * 16, 1, l * 9000u, ux.mono || settings.palette == UI_BW_INDEX ? ux_gray(ux_luma(T_DIM) >> 3) : T_DIM);
-        else if (e) {
-            f.len = g->ss * 6 + e;
-            f.wob = 40 + e * 3 / 4;
-            f.ripple = e / 2;
-            being_lines(g, &f, x * 16, y * 16, (8 + e * 8 / 256) * 16, e, ui.frame * 1500u + l * 9000u);
-        } else
-            bg_outline(g, &f, x * 16, y * 16, 8 * 16, 1, l * 9000u, bg_col(24));
-        cv_text_in(x - 14, y + 14, 28, &AF_S, drum_lane_abbr(t, l), sel == (int32_t)l ? T_THEME : muted ? T_DIM : T_MID, T_SURF);
-    }
-}

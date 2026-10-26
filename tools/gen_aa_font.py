@@ -47,7 +47,7 @@ PHASES, PHASES_L = 2, 2                # horizontal phases per glyph (aa_raster.
                                        # place, a gap within 1/2 px (text_spacing_test.py, as L since 0.5)
 # faces stored Huffman-coded (--huff): M and L. S, the most drawn and the least compressible (-15 %), stays
 # 2 px per byte, so the labels draw at full speed
-HUFF = [("M", "L")]
+HUFF = [("M", "L", "V")]
 # L draws only "JIANT" (ABOUT), the UPDATE MODE countdown digit, the calibration's control names (panel.c
 # B_NAME / E_NAME) and MENU > LARGE's card values and page titles (ui_draw.c draw_column_tall, ui_graph.c
 # graph_title: # . / J W too; a value with another character is set in M): a sparse face of those glyphs, the
@@ -72,7 +72,9 @@ def preset(name):
         # them: Inter Tight SemiBold
         return [("S", str(f / "ChakraPetch-Medium.ttf"), 12, (32, 126), EXTRAS, -0.055, PHASES),
                 ("M", str(f / "InterTight[wght].ttf") + "@600", 15, (32, 126), EXTRAS, 0.0, PHASES),
-                ("L", str(f / "Michroma-Regular.ttf"), 18, (32, 32), [ord(c) for c in L_CHARS[1:]], 0.0, PHASES_L)]
+                ("L", str(f / "Michroma-Regular.ttf"), 18, (32, 32), [ord(c) for c in L_CHARS[1:]], 0.0, PHASES_L),
+                # (GARDEN, the owner on the device) the pods' values 15 % smaller than M: Inter Tight SemiBold at 13 px
+                ("V", str(f / "InterTight[wght].ttf") + "@600", 13, (32, 126), EXTRAS, 0.0, PHASES)]
     if name == "inter-tight":
         v = str(FONTS.parent / "assets" / "fonts" / "InterTight[wght].ttf")   # SIL OFL 1.1, Google Fonts
         return [("S", v + "@400", 12, (32, 126), EXTRAS, 0.0, PHASES),
