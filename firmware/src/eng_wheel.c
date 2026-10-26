@@ -263,14 +263,14 @@ static void wheel_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const
         if (g0 == g1) {
             for (i = 0; i < n; i++) {
                 ph += inc;
-                acc[i] += (sine_pt(ph >> 22) * g1) >> 15;
+                acc[i] += (SINE[ph >> 22] * g1) >> 15;
             }
         } else {                                        /* gain ramp over the block (CTL = 32) */
             int32_t gq = g0 << 5, dg = g1 - g0;
             for (i = 0; i < n; i++) {
                 ph += inc;
                 gq += dg;
-                acc[i] += (sine_pt(ph >> 22) * (gq >> 5)) >> 15;
+                acc[i] += (SINE[ph >> 22] * (gq >> 5)) >> 15;
             }
         }
         V->ph[k] = ph;

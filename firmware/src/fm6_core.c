@@ -66,12 +66,11 @@ static inline int32_t fm6_freq(int32_t x)
         return 0;
     return (int32_t)(q >> (21 - (i > 21 ? 21 : i)));
 }
-/* sine of a Q24 phase (one cycle = 2^24), Q15, linear between sine_pt's 1024 points (its 1025th = the 1st) */
+/* sine of a Q24 phase (one cycle = 2^24), Q15, linear between SINE's 1024 points (its 1025th = the 1st) */
 static inline int32_t fm6_sin(int32_t ph)
 {
-    const uint32_t idx = ((uint32_t)ph >> 14) & 1023u;
-    const int32_t a = sine_pt(idx), b = sine_pt(idx + 1u);
-    return a + (((b - a) * (int32_t)(ph & 0x3FFF)) >> 14);
+    const int16_t *s = &SINE[((uint32_t)ph >> 14) & 1023u];
+    return s[0] + (((s[1] - s[0]) * (int32_t)(ph & 0x3FFF)) >> 14);
 }
 
 /* ------------------------------------------------------------ envelope --- */

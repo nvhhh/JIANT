@@ -17,7 +17,7 @@ static inline int32_t clamp(int32_t v, int32_t lo, int32_t hi) { return v < lo ?
 static inline int32_t sine_i(uint32_t ph)
 {
     uint32_t i = ph >> 22;
-    int32_t a = sine_pt(i), b = sine_pt(i + 1u);
+    int32_t a = SINE[i], b = SINE[(i + 1u) & 1023u];
     return a + (((b - a) * (int32_t)((ph >> 7) & 0x7FFFu)) >> 15);
 }
 static inline int32_t osc_sine(uint32_t ph) { return sine_i(ph); }
