@@ -2286,7 +2286,12 @@ static void ui_draw(void)
 {
     static uint8_t counting;
     style_apply();
-    ui.frame++;
+    {   /* MENU > MOTION: the frame advances by its share of normal speed (ui.c MOTION_Q8); 100% is one frame a draw */
+        static uint16_t frame_acc;
+        frame_acc += MOTION_Q8[ui_motion & 3u];
+        ui.frame += frame_acc >> 8;
+        frame_acc &= 255u;
+    }
     if (counting != (uint8_t)seq_counting()) {          /* a count-in began or ended: the page drawn again after it */
         counting = (uint8_t)seq_counting();
         ui.force = 1;

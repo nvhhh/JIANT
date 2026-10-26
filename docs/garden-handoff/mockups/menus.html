@@ -1,0 +1,208 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>GARDEN: BEING, ECO X-Y view, MENU overlay (reference mockup)</title>
+<!-- Reference mockup for the GARDEN UI (docs/garden-handoff/INSTRUCTIONS.md §7). Approved by the user.
+     Open normally for the live animation, or ?shot&t=2.5&lvl=70 for one fixed frame (240 px tiles, 4 columns). -->
+<style>
+  body { margin:0; font:13px/1.4 system-ui, sans-serif; color:#2B1E16; background:#fff; padding:12px; }
+  .wrap { display:grid; grid-template-columns: repeat(3, 360px); gap:18px; padding:8px 0; justify-content:start; }
+  .cell { display:flex; flex-direction:column; gap:6px; }
+  .lbl { font-weight:600; letter-spacing:.04em; }
+  .lbl small { font-weight:400; color:#6b5a4c; }
+  canvas { width:360px; height:360px; image-rendering:pixelated; border-radius:14px; border:2px solid #2B1E16; display:block; }
+  .ctl { display:flex; gap:10px; align-items:center; font-size:12px; margin:4px 0 10px; }
+  input[type=range] { width:200px; }
+  body.shot { padding:0; }
+  body.shot .ctl, body.shot .lbl { display:none; }
+  body.shot .wrap { grid-template-columns: repeat(4, 240px); gap:0; padding:0; }
+  body.shot .cell { gap:0; }
+  body.shot canvas { width:240px; height:240px; border:0; border-radius:0; }
+</style></head>
+<body>
+<div class="ctl">Music level <input id="lvl" type="range" min="0" max="100" value="70"></div>
+<div class="wrap" id="wrap"></div>
+<script>
+const QS = new URLSearchParams(location.search);
+const C = { bg:'#F3ECDF', surf:'#E6DAC4', ink:'#2B1E16', blue:'#3F6FA8', pblue:'#A9CBEA',
+            orange:'#F5A66B', burnt:'#C8602A', mid:'#6b5a4c', line:'#d6c9b2',
+            dirt:'#C2A07E', dirtLt:'#D9C2A6', dirtDk:'#A6876A' };
+const lvlEl = document.getElementById('lvl');
+if (QS.has('lvl')) lvlEl.value = QS.get('lvl');
+const BPM = 120;
+let ctx;
+function music(t) {
+  const beat = t * 2, env = Math.pow(1 - (beat % 1), 3);
+  const bass = 0.5 + 0.5 * Math.sin(t * Math.PI), lead = 0.5 + 0.5 * Math.sin(t * 2 * Math.PI * 1.7 + Math.sin(t * 0.9) * 2);
+  return Math.min(1, env * 0.55 + bass * 0.25 + lead * 0.2) * (+lvlEl.value / 100);
+}
+function lerpHex(a, b, k) {
+  const p = h => [1, 3, 5].map(i => parseInt(h.substr(i, 2), 16));
+  const A = p(a), B = p(b);
+  return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * k).toString(16).padStart(2, '0')).join('');
+}
+function poly(pts, col) {
+  ctx.fillStyle = col; ctx.beginPath();
+  pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+  ctx.closePath(); ctx.fill();
+}
+function blob(x, y, r, n, col, e, seed, sx = 1, sy = 1) {
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const a = i / n * Math.PI * 2;
+    const k = 1 + 0.14 * Math.sin(a * 3 + seed) + 0.1 * e * Math.sin(a * 5 + seed * 1.7);
+    pts.push([x + Math.cos(a) * r * k * sx, y + Math.sin(a) * r * k * sy]);
+  }
+  poly(pts, col);
+}
+function scene() {
+  for (let y = 0; y < 186; y += 2) { ctx.fillStyle = lerpHex(C.bg, '#A9CBEA', Math.pow(1 - y / 186, 1.4)); ctx.fillRect(0, y, 240, 2); }
+  ctx.fillStyle = C.dirt; ctx.fillRect(0, 182, 240, 58);
+  ctx.fillStyle = C.dirtLt; ctx.fillRect(0, 182, 240, 3);
+  ctx.fillStyle = C.blue; for (let x = 6; x < 240; x += 18) ctx.fillRect(x, 178, 3, 4);
+}
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r); ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
+}
+
+// ---- BEING: the track's creature large, its four HOME knobs as pod organs at the corners
+function pod(x, y, label, val, col, e, seed, cx, cy) {
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 0.8; ctx.setLineDash([2, 2]);
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(cx, cy); ctx.stroke(); ctx.setLineDash([]);
+  blob(x, y, 13, 7, col, e, seed, 1, 1.1);
+  ctx.fillStyle = C.surf; ctx.fillRect(x - 10, y + 13, 20, 4);
+  ctx.fillStyle = C.blue; ctx.fillRect(x - 10, y + 13, 20 * val, 4);
+  ctx.fillStyle = C.ink; ctx.font = '8px monospace';
+  ctx.fillText(label, x - 14, y - 16);
+  ctx.fillText(String(Math.round(val * 127)), x - 6, y + 27);
+}
+function mushroom(t, e) {
+  const beat = t * 2, hop = Math.pow(Math.abs(Math.sin(beat * Math.PI)), 2) * (2 + 5 * e);
+  const x = 120, base = 176 - hop, s = 1 + 0.05 * e;
+  poly([[x - 9 * s, base], [x - 6 * s, base - 46], [x + 6 * s, base - 46], [x + 9 * s, base]], C.surf);
+  blob(x, base - 58, 34 * s, 9, C.burnt, e, 3, 1.15, 0.85);
+  for (const [dx, dy, r] of [[-16, -66, 4], [4, -74, 3], [16, -60, 3.5], [-4, -54, 2.5]]) blob(x + dx * s, base + dy + 8, r * s, 5, C.surf, e, dx + 9);
+  ctx.fillStyle = C.ink; ctx.fillRect(x - 9, base - 46, 3, 4); ctx.fillRect(x + 6, base - 46, 3, 4);
+  ctx.fillRect(x - 3, base - 40, 6, 1);
+}
+function being(t, e) {
+  scene();
+  ctx.fillStyle = C.ink; ctx.font = '8px monospace'; ctx.fillText('HOME / BEING', 8, 14);
+  const cx = 120, cy = 116, vals = [0.55 + 0.4 * e, 0.3 + 0.3 * Math.sin(t), 0.6 + 0.3 * Math.cos(t * 0.7), 0.4 + 0.2 * e];
+  const pods = [[34, 52, 'K1 PITCH'], [206, 52, 'K2 CUT'], [34, 150, 'K3 DRIVE'], [206, 150, 'K4 PAN']];
+  mushroom(t, e);
+  pods.forEach(([x, y, label], i) => pod(x, y, label, vals[i], i % 2 ? C.blue : C.orange, e, i * 5 + 1, cx, cy));
+}
+
+// ---- ECO X-Y: the SELECT knob's view on ECO; a vectorscope on dark ink, the left and right channels
+// plotted against each other on the L / R diagonals, the last second as a fading trail, an orange head
+function xy(t, e) {
+  ctx.fillStyle = C.ink; ctx.fillRect(0, 0, 240, 240);
+  ctx.strokeStyle = C.surf; ctx.fillStyle = C.surf; ctx.lineWidth = 0.8; ctx.globalAlpha = 0.45;
+  const arrow = (x, y, a) => { ctx.beginPath(); ctx.moveTo(x, y);
+    ctx.lineTo(x - 5 * Math.cos(a - 0.4), y - 5 * Math.sin(a - 0.4)); ctx.lineTo(x - 5 * Math.cos(a + 0.4), y - 5 * Math.sin(a + 0.4));
+    ctx.closePath(); ctx.fill(); };
+  ctx.beginPath();
+  ctx.moveTo(120, 120); ctx.lineTo(14, 14); ctx.moveTo(120, 120); ctx.lineTo(226, 14);
+  ctx.moveTo(120, 120); ctx.lineTo(14, 226); ctx.moveTo(120, 120); ctx.lineTo(226, 226);
+  ctx.moveTo(120, 8); ctx.lineTo(120, 232); ctx.stroke();
+  arrow(14, 14, Math.PI * 1.25); arrow(226, 14, Math.PI * 1.75); arrow(14, 226, Math.PI * 0.75); arrow(226, 226, Math.PI * 0.25);
+  arrow(120, 8, Math.PI * 1.5); arrow(120, 232, Math.PI * 0.5);
+  ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(8, 120); ctx.lineTo(232, 120); ctx.stroke(); ctx.setLineDash([]);
+  ctx.font = '7px monospace';
+  ctx.fillText('L', 4, 12); ctx.fillText('R', 230, 12); ctx.fillText('M', 124, 14);
+  ctx.fillText('L-R', 4, 117); ctx.fillText('L+R', 222, 117);
+  ctx.globalAlpha = 1;
+  const lvl = 0.25 + 0.75 * e, w = 2 * Math.PI * BPM / 60 / 4, A = 70;
+  const sigL = s => lvl * (0.8 * Math.sin(w * s) + 0.3 * Math.sin(2.3 * w * s + 0.5));
+  const sigR = s => lvl * (0.8 * Math.sin(1.5 * w * s + 1) + 0.3 * Math.sin(3.1 * w * s));
+  const toX = (L, R) => 120 + A * (R - L) / Math.SQRT2, toY = (L, R) => 120 - A * (L + R) / Math.SQRT2;
+  ctx.fillStyle = C.pblue;
+  for (let k = 0; k < 300; k++) {
+    const tau = k * 0.004, L = sigL(t - tau), R = sigR(t - tau);
+    ctx.globalAlpha = Math.pow(1 - k / 300, 1.6) * 0.9;
+    ctx.fillRect(Math.round(toX(L, R)), Math.round(toY(L, R)), 2, 2);
+  }
+  ctx.globalAlpha = 1;
+  const hx = toX(sigL(t), sigR(t)), hy = toY(sigL(t), sigR(t));
+  ctx.fillStyle = C.orange; ctx.fillRect(Math.round(hx) - 2, Math.round(hy) - 2, 4, 4);
+  ctx.fillStyle = C.surf; ctx.font = '8px monospace';
+  ctx.fillText('X-Y · L / R', 8, 236);
+}
+
+// ---- MENU overlay: over the dimmed garden; pebble tabs, a rounded panel, rows with value bars, the
+// cursor row in pastel blue with an orange pebble, four knob pods whose arcs turn with their values.
+// A page of the real menu: four rows, row n on KNOB n; its pod shows the value (INSTRUCTIONS.md §7.3)
+const ROWS = [   // one page of the real menu: four rows, row n on KNOB n (menu_items.c MPAGE); COLOR / SKIN / STYLE retired
+  { name: 'MOTION', unit: '', vals: ['50%', '100%', '150%', '200%'] },
+  { name: 'ANIMATION', unit: '', vals: ['OFF', 'ON'] },
+  { name: 'SCREEN SLEEP', unit: '', vals: ['NEVER', '1 MIN', '5 MIN', '10 MIN', '30 MIN'] },
+  { name: 'LED GLOW', unit: '', vals: ['OFF', 'DIM LO', 'DIM HI', 'INV'] },
+];
+function menu(t, e) {
+  scene();
+  ctx.fillStyle = 'rgba(43,30,22,0.45)'; ctx.fillRect(0, 0, 240, 240);
+  ['SCREEN', 'AUDIO', 'MIDI', 'SYSTEM'].forEach((name, i) => {
+    const x = 34 + i * 58, on = i === 0;
+    blob(x, 12, 9, 8, on ? C.orange : C.surf, 0, i, 2.7, 0.9);
+    ctx.fillStyle = C.ink; ctx.font = '7px monospace'; ctx.textAlign = 'center'; ctx.fillText(name, x, 15); ctx.textAlign = 'left';
+  });
+  roundRect(10, 28, 220, 150, 8); ctx.fillStyle = C.bg; ctx.globalAlpha = 0.96; ctx.fill(); ctx.globalAlpha = 1;
+  ctx.strokeStyle = C.burnt; ctx.lineWidth = 1.5; ctx.stroke(); ctx.lineWidth = 1;
+  ctx.fillStyle = C.mid; ctx.font = '7px monospace'; ctx.fillText('MENU / SCREEN', 18, 40);
+  const cur = Math.floor(t / 2) % ROWS.length;   // the row whose knob was turned last
+  const fr = [];
+  ROWS.forEach((r, i) => {
+    const y = 58 + i * 28;
+    const k = i === cur ? 0.5 + 0.5 * Math.sin(t * 1.5) : 0.5 + 0.5 * Math.sin(i * 1.7 + 1);
+    const j = Math.min(r.vals.length - 1, Math.floor(k * r.vals.length)), frac = r.vals.length > 1 ? j / (r.vals.length - 1) : 1;
+    fr.push(frac);
+    if (i === cur) { roundRect(14, y - 11, 212, 18, 4); ctx.fillStyle = C.pblue; ctx.fill(); blob(20, y - 2, 3, 6, C.orange, 0, i); }
+    ctx.fillStyle = C.mid; ctx.font = '7px monospace'; ctx.fillText(String(i + 1), 28, y);
+    ctx.fillStyle = C.ink; ctx.font = '8px monospace'; ctx.fillText(r.name, 38, y);
+    ctx.fillStyle = C.blue; ctx.textAlign = 'right'; ctx.fillText(r.vals[j], 208, y); ctx.textAlign = 'left';
+    ctx.fillStyle = C.surf; ctx.fillRect(38, y + 4, 170, 2);
+    ctx.fillStyle = i === cur ? C.orange : C.blue; ctx.fillRect(38, y + 4, 170 * frac, 2);
+  });
+  const knobs = ROWS.map((r, i) => ['K' + (i + 1), fr[i]]);   // pod n shows row n's value
+  knobs.forEach(([name, v], i) => {
+    const x = 36 + i * 56, y = 205, ang = -Math.PI * 0.75 + v * Math.PI * 1.5;
+    blob(x, y, 13, 8, i % 2 ? C.blue : C.orange, 0, i + 3);
+    ctx.strokeStyle = C.surf; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 9, -Math.PI * 0.75, Math.PI * 0.75); ctx.stroke();
+    ctx.strokeStyle = C.ink; ctx.beginPath(); ctx.arc(x, y, 9, -Math.PI * 0.75, ang); ctx.stroke(); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(ang) * 7, y + Math.sin(ang) * 7); ctx.stroke();
+    ctx.fillStyle = C.ink; ctx.font = '7px monospace'; ctx.textAlign = 'center'; ctx.fillText(name, x, y + 24); ctx.textAlign = 'left';
+  });
+}
+const MENUS = [
+  ['BEING', 'the track\'s creature with four knob pods', being],
+  ['ECO_XY', 'SELECT knob view on ECO: left and right channels', xy],
+  ['MENU', 'the menu overlay over the garden', menu],
+];
+const wrap = document.getElementById('wrap');
+const cells = MENUS.map(([name, sub, fn]) => {
+  const cell = document.createElement('div'); cell.className = 'cell';
+  cell.innerHTML = `<div class="lbl">${name} <small>${sub}</small></div>`;
+  const cv = document.createElement('canvas'); cv.width = 240; cv.height = 240;
+  cell.appendChild(cv); wrap.appendChild(cell);
+  return [cv.getContext('2d'), fn];
+});
+if (QS.has('shot')) {
+  document.body.classList.add('shot');
+  const t = +(QS.get('t') || 2.5), e = music(t);
+  cells.forEach(([c, fn]) => { ctx = c; fn(t, e); });
+} else {
+  let t0 = performance.now(), last = 0;
+  function frame(now) {
+    if (now - last >= 1000 / 15) {
+      last = now;
+      const t = (now - t0) / 1000, e = music(t);
+      cells.forEach(([c, fn]) => { ctx = c; fn(t, e); });
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+</script>
+</body></html>

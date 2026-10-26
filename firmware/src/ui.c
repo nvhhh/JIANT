@@ -67,6 +67,11 @@ static uint32_t up_gen;                      /* bumped on every user bank change
  * every engine's presets of that type, after Skiff by illuminus5), the type in a byte no engine uses (engine 15's
  * favourite byte 18: 0 in older settings, ALL / FAV as they were) */
 #define list_type (favorites.factory[15][18])
+/* (GARDEN) MENU > SCREEN 2 > MOTION: how fast the animations run. 0 100% (the default, and every older setting: byte 13
+ * was never used), 1 50%, 2 150%, 3 200%. The hints keep bytes 0..3; 4..12 held the layer buttons' counts, kept unused.
+ * MOTION_Q8: the frame step in 1/256ths per draw (ui_draw.c ui_draw; 256 = one frame, as before) */
+#define ui_motion (favorites.factory[15][13])
+static const uint16_t MOTION_Q8[4] = {256, 128, 384, 512};
 _Static_assert(PT_N == 10, "settings_persist.c checks the LIST type against 10");
 static const char *const N_LIST[PT_N + 1] = {"ALL", "FAV", "BASS", "LEAD", "PAD", "KEYS", "PLUCK", "BELL", "VOX", "DRUM",
                                               "FX"};

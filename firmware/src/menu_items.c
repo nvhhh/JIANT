@@ -16,7 +16,8 @@
 enum { MI_COLOR, MI_SKIN, MI_SCOPE, MI_ECO, MI_STYLE, MI_LARGE, MI_ANIM, MI_LEDS, MI_SCROFF, MI_HOLD, MI_ACCEL, MI_LATCH, MI_BPMLOCK, MI_SCLLED,
        MI_LOWCUT, MI_USB,
        MI_CLICK, MI_CLKLVL, MI_COUNTIN, MI_TRACKS, MI_LOAD, MI_MIDIOUT, MI_LEARN, MI_LCLEAR, MI_SERIAL, MI_RESTORE, MI_CPU,
-       MI_CLOCK, MI_PANEL, MI_ABOUT, MI_COUNT };   /* (1.1: the metronome's rows; 1.2: RESTORE LAST, SCALE LEDS; 0.9.12: MIDI
+       MI_CLOCK, MI_MOTION, MI_PANEL, MI_ABOUT, MI_COUNT };   /* (GARDEN: MOTION, ui.c ui_motion; PANEL and ABOUT take the next numbers)
+                      * (1.1: the metronome's rows; 1.2: RESTORE LAST, SCALE LEDS; 0.9.12: MIDI
                       * OUT, LEARN, LEARN CLEAR; CPU, CPU CLOCK, cpu_safe.c; 0.9.18: INIT SYSTEM gone, SAVE > TOOLS > NEW
                       * PROJECT is the same) */
 #define MI_VALUES MI_PANEL
@@ -27,7 +28,7 @@ static const char *const MI_NAME[MI_COUNT] = {"COLOR", "SKIN", "SCOPE", "ECO STY
                                               "HOLD TIME", "KNOB SPEEDUP", "FX LATCH", "BPM LOCK", "SCALE LEDS",
                                               "SPEAKER EQ", "USB LEVEL", "CLICK", "CLICK LEVEL", "COUNT-IN", "TRACKS", "LOAD",
                                               "MIDI OUT", "LEARN", "LEARN CLEAR", "USB AUDIO",
-                                              "RESTORE LAST", "CPU CORES", "CPU CLOCK", "CALIBRATION", "ABOUT"};
+                                              "RESTORE LAST", "CPU CORES", "CPU CLOCK", "MOTION", "CALIBRATION", "ABOUT"};
 /* (0.9.18) the MENU as the rest of the system (rule 1..6): pages of four knobs, KNOB n the page's setting n, SELECT walks
  * the pages, ALGORITHM jumps to the next / previous tab; the tabs the groups (a dot a page), the footer MENU . TAB . page
  * n/N (a page named as its tab, or its tab and a number: MENU . page). Each row on one page (tests/ui_test.c checks it); the editor gets a row's tab after its MENU_DESC reply (tab
@@ -35,12 +36,13 @@ static const char *const MI_NAME[MI_COUNT] = {"COLOR", "SKIN", "SCOPE", "ECO STY
  * OCT+ does it */
 enum { MTAB_SCREEN, MTAB_AUDIO, MTAB_MIDI, MTAB_USB, MTAB_SYSTEM, MTAB_COUNT };
 static const char *const MTAB_NAME[MTAB_COUNT] = {"SCREEN", "AUDIO", "MIDI", "USB", "SYSTEM"};
-#define MP_COUNT 9u
+#define MP_COUNT 10u
 typedef struct { char name[9]; uint8_t tab, row[4]; } menu_page_t;
 static const menu_page_t MPAGE[MP_COUNT] = {   /* (a page opens on its first setting: a value, never an action) */
     {"SCREEN", MTAB_SCREEN, {MI_COLOR, MI_SKIN, MI_STYLE, MI_LARGE}},
     {"SCREEN 2", MTAB_SCREEN, {MI_SCOPE, MI_ANIM, MI_SCROFF, MI_ECO}},
     {"LEDS", MTAB_SCREEN, {MI_LEDS, MI_SCLLED, MI_NONE, MI_NONE}},
+    {"MOTION", MTAB_SCREEN, {MI_MOTION, MI_NONE, MI_NONE, MI_NONE}},   /* (GARDEN) how fast the animations run */
     {"AUDIO", MTAB_AUDIO, {MI_LOWCUT, MI_TRACKS, MI_LOAD, MI_BPMLOCK}},
     {"CLICK", MTAB_AUDIO, {MI_CLICK, MI_CLKLVL, MI_COUNTIN, MI_NONE}},
     {"MIDI", MTAB_MIDI, {MI_MIDIOUT, MI_LEARN, MI_LCLEAR, MI_NONE}},
@@ -77,6 +79,7 @@ static uint32_t mtab_pages(uint32_t t)                 /* .. and how many it has
 static const char *const STYLE_N[2] = {"FLAT", "LINE"};
 static const char *const SCOPEOPT_N[4] = {"OFF", "ON", "BUBBLES", "ORBIT"};   /* (0.9.7) ui.c ui_scope; (0.9.18) 2, 3 */
 static const char *const ECO_N[2] = {"OG", "GOOBERS"};   /* ui.c ui_eco_style: 0 the beings, 1 the goobers */
+static const char *const MOTION_N[4] = {"100%", "50%", "150%", "200%"};   /* (GARDEN) ui.c ui_motion, MOTION_Q8 */
 /* (0.8.9) SKIN (ui_skin, gfx.c SKIN_*): COLORS the lens in the 0.6 colours (older settings: 0); HUD the picture full
  * screen, the words floating over it; (0.9.7) AIR, HUD's look with the knobs' row on top (the default of new settings).
  * The menu steps them AIR COLORS HUD (SKIN_MENU: the editor's MENU_DESC lists them so too). (0.9.17) BOTTOM retired: a
@@ -167,7 +170,7 @@ static const menu_flag_t *menu_flag(uint32_t row)
 static uint32_t menu_n(uint32_t row)
 {
     return row == MI_COLOR ? NPALETTES : row == MI_SKIN ? SKIN_MENU_N : row == MI_SCOPE ? 4u : row == MI_ECO ? 2u : row == MI_LOWCUT || (row >= MI_CLICK && row <= MI_COUNTIN) || row == MI_LOAD || row == MI_TRACKS ? 3u :
-           row == MI_HOLD || row == MI_MIDIOUT ? 4u : row == MI_USB ? 6u : row == MI_SERIAL ? 5u : row == MI_LEDS ? LEDS_COUNT : row == MI_SCROFF ? NELEM(SCROFF_N) : 2u;
+           row == MI_HOLD || row == MI_MIDIOUT ? 4u : row == MI_USB ? 6u : row == MI_SERIAL ? 5u : row == MI_LEDS ? LEDS_COUNT : row == MI_SCROFF ? NELEM(SCROFF_N) : row == MI_MOTION ? NELEM(MOTION_N) : 2u;
 }
 static uint32_t menu_get(uint32_t row)
 {
@@ -186,6 +189,7 @@ static uint32_t menu_get(uint32_t row)
     case MI_SERIAL: return usb_out == 3u ? 4u : usb_out == 2u ? 3u : usb_out ? 2u : (ui_prefs & PREF_SERIAL_OFF) ? 1u : 0u;
     case MI_HOLD: return settings_hold % 4u;
     case MI_SCROFF: return scr_get();
+    case MI_MOTION: return ui_motion % NELEM(MOTION_N);
     case MI_CLICK: case MI_CLKLVL: case MI_COUNTIN: return rp_get(row - MI_CLICK);
     case MI_LOAD: return load_get();
     case MI_TRACKS: return trks_pos();                  /* (0.9.19: 4, 6, 8) */
@@ -223,6 +227,7 @@ static const char *menu_vname(uint32_t row, uint32_t v)
     case MI_MIDIOUT: return MIDIOUT_N[v & 3u];
     case MI_CPU: case MI_CLOCK: return CPU_N[row == MI_CLOCK][v & 1u];
     case MI_SCROFF: return SCROFF_N[v % NELEM(SCROFF_N)];
+    case MI_MOTION: return MOTION_N[v % NELEM(MOTION_N)];
     case MI_LEDS: return LEDS_NAME[LEDS_MENU[v % LEDS_COUNT]];
     }
     return "";
@@ -264,6 +269,7 @@ static void menu_put(uint32_t row, uint32_t v)
         break;
     case MI_HOLD: settings_hold = (uint8_t)v; break;
     case MI_SCROFF: scr_put(v); break;                 /* (read every frame: ui.c scr_frame) */
+    case MI_MOTION: ui_motion = (uint8_t)(v % NELEM(MOTION_N)); break;   /* (GARDEN: read every frame, ui_draw.c) */
     case MI_LEDS: settings_leds = LEDS_MENU[v]; break;
     case MI_CLICK: case MI_CLKLVL: case MI_COUNTIN: rp_put(row - MI_CLICK, v); break;   /* (at once: click.c, seq.c) */
     case MI_LOAD: load_put(v % 3u); break;
