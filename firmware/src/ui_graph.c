@@ -1938,11 +1938,13 @@ static void draw_graph(void)
         return;
     }
     if (gd_back()) {                                 /* (GARDEN) the garden round it, the panel a BG card, its edge burnt */
-        if (gd_edged == (int32_t)(graph_y() * 256u + graph_h()))
+        int bare = ui.home && home_level() == 1u && !home_set();   /* (Phase 6: BEING stands in the garden, no card) */
+        if (!bare && gd_edged == (int32_t)(graph_y() * 256u + graph_h()))
             gd_edges((int32_t)graph_y(), (int32_t)graph_h(), 1);
         else
             gd_scene(0, (int32_t)graph_y());
-        gd_ring(3, 1, 234, (int32_t)graph_h() - 2);
+        if (!bare)
+            gd_ring(3, 1, 234, (int32_t)graph_h() - 2);
     } else if (lz_low())                             /* (0.8.9) BOTTOM, HUD: no panel, the picture on the background */
         ;
     else if (lz_on())                                /* (0.8.5) a lens page: the mock-up's panel, 4 .. 236 (0.8.9 COLORS: */

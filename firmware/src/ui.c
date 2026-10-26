@@ -276,6 +276,7 @@ static struct {
     uint8_t nmem[13];            /* (0.9.2) each section's page last shown, its chain's entry ^ its default (ui_lens.c
                                   * nav_mem: EDIT one per kind of track) */
     uint8_t fxmod;               /* (0.8.5) FX: the effect last shown (BUSES' tile lit) */
+    uint8_t xy;                  /* (GARDEN, Phase 6) ECO's X-Y view shown (SELECT left on ECO) */
     uint8_t hlv, hset[2];        /* .. HOME: ECO (0) or BEING (1), each one's page (HOME / MACROS, HOME / ROUTES) */
     uint8_t focus;               /* .. EDIT > FOCUS: the parameter (E1..E8: 0..7) */
     uint8_t stage;               /* .. ENV > STAGE: the stage (ATK DEC SUS REL: 0..3) */
@@ -694,7 +695,7 @@ static int lz_top(void) { return 0; }                  /* (0.9.17, card_y; GARDE
  * their header on BG, as every other page's) */
 static int hud_home(void)
 {
-    return skin_hud() && !ui.uboot && !seq_counting() && lz_low() && lz_fam() == LZ_HOME && home_level() == 0u;   /* (0.9.7 AIR too) */
+    return skin_hud() && !ui.uboot && !seq_counting() && lz_low() && lz_fam() == LZ_HOME && home_level() == 0u && !ui.xy;   /* (0.9.7 AIR too; not the X-Y view) */
 }
 /* (GARDEN, Phase 3) every other lens page on the scene too: its header, tabs, pods and footer on the garden (still), its
  * panel a rounded BG card over it */
@@ -1083,6 +1084,7 @@ static void open_family(uint32_t fam) { nav_button(sec_of_fam(fam)); }
 static void go_home(void)
 {
     ui.home = 1;
+    ui.xy = 0;
     ui.plk_src = 0;                              /* (parameter locks: HOME's four) */
     ui.entry_open = 0;
     ui.hot_t = 0;

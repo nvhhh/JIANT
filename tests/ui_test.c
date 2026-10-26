@@ -99,6 +99,8 @@ static void lcd_power(uint32_t s) { host_pw_log(s); }
 static void lcd_wake_now(void) { host_pw_log(3u); }
 #define SCOPE_N 512u                              /* audio.c: the HOME oscilloscope */
 static int16_t scope_buf[SCOPE_N];
+static int16_t scope_r[SCOPE_N];                       /* (GARDEN, Phase 6: audio.c's right channel, ECO's X-Y view) */
+static uint8_t scope_xy;
 static uint32_t scope_w;
 static uint32_t host_blit_rows;                    /* rows blitted (what a frame draws) */
 static void lcd_blit(uint32_t x, uint32_t y, uint32_t w, uint32_t h, const uint16_t *p)
@@ -10093,11 +10095,8 @@ static int test_home_a(void)
                 d += memcmp(a + y * 240u, host_screen + y * 240u, 480u) != 0;
             ok &= d == 0u;
         }
-        mut_flash[0] = 12;                                        /* .. one lands: its ring, its number white */
-        ha_eco_at(5000);
-        ok &= memcmp(a, host_screen, sizeof a) != 0;
-        mut_flash[0] = 0;
-        bad += check("0.9.7 HOME A (AIR): no MUTATE ring until a mutation lands", ok);
+        /* (GARDEN, Phase 6: ECO is the standby garden; the beings' MUTATE ring, when one lands, retired with them) */
+        bad += check("0.9.7 HOME A (AIR): MUTATE armed draws nothing new on ECO", ok);
     }
     ui_prefs = 0;
     ui_power_on();
@@ -10634,9 +10633,12 @@ static int test_lz_home(void)
     turn(EN_K1, 1); frame();
     ok &= !home_set() && home_level() == 0u && (uint32_t)TSEL->p[ENGINES[TSEL->eng_req]->knob[0]] != c &&
           macro_v[0] == (uint8_t)(k + 3u);
-    turn(EN_SELECT, -1); frame();                                   /* (no wrap) */
-    ok &= home_level() == 0u && !home_set() && ui.home && !ui.confirm;
-    bad += check("0.9.2 HOME: ECO MACROS BEING .. one chain by SELECT (no wrap), a HOME tap the next group; tabs, crumb, n/7", ok);
+    turn(EN_SELECT, -1); frame();                                   /* (no wrap: GARDEN, Phase 6, the X-Y view) */
+    ok &= home_level() == 0u && !home_set() && ui.home && !ui.confirm && ui.xy && !hud_home();
+    turn(EN_SELECT, 1); frame();                                    /* (SELECT again: ECO) */
+    ok &= home_level() == 0u && !home_set() && ui.home && !ui.xy && hud_home();
+    bad += check("0.9.2 HOME: ECO MACROS BEING .. one chain by SELECT (no wrap; SELECT left on ECO the X-Y view, SELECT back), "
+                 "a HOME tap the next group; tabs, crumb, n/7", ok);
     turn(EN_SELECT, 3); frame();                                    /* ROUTES */
     ok = home_level() == 1u && home_set() && home_macros() && lz_crumb_is("HOME \xB7 BEING \xB7 ROUTES") && lz_count_is("4/7");
     fm1_ms += 1000u;

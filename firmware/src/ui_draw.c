@@ -2511,6 +2511,11 @@ static void ui_draw_body(uint32_t counting)
             ui.force = 1;
         }
     }
+    scope_xy = (uint8_t)eco_xy_on();                    /* (the audio's right-side tap: only while it shows) */
+    if (scope_xy) {                                     /* (GARDEN, Phase 6) ECO's X-Y view: the whole screen */
+        draw_xy();
+        skip = 1;
+    }
     if (ui.force && !skip)
         draw_frame();
     felucca_dbg.stage = 3;

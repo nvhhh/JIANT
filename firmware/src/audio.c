@@ -27,7 +27,15 @@ static uint32_t audio_cpu_rem;
 static uint32_t audio_last_half = 2u, audio_lost;    /* (0.8.9) halves never rendered: a render past two halves (console) */                         /* keep the fractional IIR step: no low-load bias */
 #define SCOPE_N 512u
 static int16_t scope_buf[SCOPE_N];
+static int16_t scope_r[SCOPE_N];                      /* (GARDEN, Phase 6) the right channel beside it: ECO's X-Y view, */
 static uint32_t scope_w;
+static volatile uint8_t scope_xy;                      /* written only while it is open (the ISR's loop as it was) */
+static __attribute__((noinline)) void scope_tap_r(const int32_t *out, uint32_t n)
+{
+    uint32_t i, w = scope_w;
+    for (i = 1; i < n; i += 2u)
+        scope_r[w++ & (SCOPE_N - 1u)] = (int16_t)out[2u * i + 1u];
+}
 
 static __attribute__((noinline)) void prf_block(void)   /* core 0, a block's end (audio.c audio_block) */
 {
@@ -91,6 +99,8 @@ static void audio_block(int32_t *out, uint32_t n)       /* mix (fx.c), then Q15 
 #endif
     if (fx_usb_fixed)                                   /* USB LEVEL FIXED: USB took the full level, the DAC */
         usb_fixed_dac(out, n);                          /* (speaker, headphones) gets MASTER's (fx.c) */
+    if (scope_xy)                                       /* (GARDEN, Phase 6) ECO's X-Y view open: the right side too */
+        scope_tap_r(out, n);
     for (i = 1; i < n; i += 2u)                         /* the HOME scope: the music, before the click */
         scope_buf[scope_w++ & (SCOPE_N - 1u)] = (int16_t)out[2u * i];
     click_render(out, n);                               /* the metronome (click.c): the DAC only, not USB */

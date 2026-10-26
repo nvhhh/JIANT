@@ -439,21 +439,29 @@ static void menu_panel(void)
         if (r == MI_NONE)
             continue;
         sel = r == ui.menu_sel;
-        bg = sel ? T_TINT : T_RAISE;
-        cv_rect(8, y, 224, MROW_H - 2, bg);
-        if (sel)
-            cv_rect(8, y, 3, MROW_H - 2, T_ACCENT);
+        bg = sel ? GD_PBLUE : T_BG;                    /* (GARDEN, Phase 6, the mockup's MENU: the row turned last on a
+                                                        * pblue band, an orange pebble at its left, its bar orange) */
+        if (sel) {
+            cv_rrect(8, y, 224, MROW_H - 2, 4, bg, T_BG);
+            gd_blob(12 * 16, (y + 8) * 16, 56, 7, GD_ORANGE, c + 1u, 256, 256);
+        }
         kn[0] = (char)('1' + c);
         GFX_HOOK_ALIGN(0, y + 3, 0, y + 16, AL_V, "menu row name centred up/down");
-        cv_text(16, y + 3 + CAP_IN(X, 13), &AF_X, kn, T_THEME);
+        cv_text(18, y + 3 + CAP_IN(X, 13), &AF_X, kn, T_MID);
         GFX_HOOK_ALIGN(0, y + 3, 0, y + 16, AL_V, "menu row name centred up/down");
-        cv_text_on(26, y + 3 + CAP_IN(S, 13), &AF_S, MI_NAME[r], sel ? T_TEXT : T_MID, bg);
+        cv_text_on(28, y + 3 + CAP_IN(S, 13), &AF_S, MI_NAME[r], T_TEXT, bg);
         menu_val(r, v);
         if (v[0]) {
             GFX_HOOK_ALIGN(0, y + 3, 0, y + 16, AL_V, "menu row name centred up/down");
             cv_text_r(226, y + 3 + CAP_IN(S, 13), &AF_S, v, menu_vcol(c, r), bg);
         }
-        cv_free_text(26, y + 20 - AF_X_CAP_Y, &AF_X, menu_help(r), T_DIM, bg, 202);
+        {                                              /* its value's bar, 2 px */
+            int32_t f = menu_ratio(r);
+            cv_rect(28, y + 17, 198, 2, ux_mix(bg, T_LINE, 70));
+            if (f >= 0)
+                cv_rect(28, y + 17, (198 * f + 500) / 1000, 2, sel ? GD_ORANGE : GD_BLUE);
+        }
+        cv_free_text(28, y + 22 - AF_X_CAP_Y, &AF_X, menu_help(r), T_DIM, bg, 198);
     }
 }
 static void draw_menu(void)
@@ -519,7 +527,13 @@ static void draw_menu(void)
     draw_tabs();
     menu_cards();
     cv_begin(240, graph_h(), T_BG);                    /* (the panel as draw_graph's: COLORS its box, AIR / HUD none) */
-    if (!lz_low())
+    if (gd_back() && !gd_plain) {                      /* (GARDEN, Phase 6) a BG card over the garden, its edge burnt */
+        gd_scene(0, (int32_t)graph_y());
+        cv_rect(4, 2, 232, (int32_t)graph_h() - 4, T_BG);
+        gd_ring(3, 1, 234, (int32_t)graph_h() - 2);
+        gd.x0 = gd.y0 = 0;                             /* (the pebbles: gd_poly in the panel's own rows) */
+        gd.y1 = (int32_t)graph_h();
+    } else if (!lz_low())
         cv_rrect(4, 0, 232, (int32_t)graph_h(), 6, T_SURF, T_BG);
     cv_bg = T_SURF;
     menu_panel();
