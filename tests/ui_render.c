@@ -921,8 +921,6 @@ static void vx_phon(uint32_t ph, int32_t peak)
     g->gv = (int16_t)(P->av << 7); g->gf = (int16_t)(P->af << 7); g->ga = (int16_t)(P->cls == PC_ASP ? 14000 : 0);
     str_cpy(g->w, "voz", sizeof g->w);
     TSEL->peak = peak;
-    vxs.init = 0;
-    memset(vxs.fr, 0xFF, sizeof vxs.fr);   /* (its level read afresh at the first frame drawn) */
     go_title("EDIT 1");
 }
 /* (0.9.9) VOICE's tract sung a while (the mock-up's time running: the nod struck at the vowel's onset, the pulses up the
@@ -945,8 +943,8 @@ static void vx_sing(uint32_t ph0, uint32_t n0, uint32_t ph, uint32_t n, int32_t 
         cv_begin(240, 140, T_SURF);
         vx_draw(TSEL, 4, 2, 232, 136, -1);
     }
-    fm1_ms = vxs.ms[0] = ms;
-    ui.frame = vxs.fr[0] = fr;
+    fm1_ms = ms;
+    ui.frame = fr;
     TSEL->peak = peak;
     ui_scope = !full;
     if (home) { ui.home = 1; ui.hlv = 1; ui.hset[1] = 0; eco.en[song.sel] = 220; }
@@ -959,8 +957,6 @@ static void vx_animal_scene(const char *pre, int32_t size)
         if (!strcmp(ENGINES[e]->presets[k].name, pre)) apply_preset_to(TSEL, k);
     if (size >= 0) TSEL->p[P_E3] = (int16_t)size;
     TSEL->engine = TSEL->eng_req;
-    vxs.w[1] = 0;
-    memset(vxs.fr, 0xFF, sizeof vxs.fr);
     song.playing = 0;
     song.master_q12 = 4096;
     for (k = 0; k < NTRK; k++) if (k != song.sel) trk[k].p[P_MUTE] = 1;
@@ -974,6 +970,7 @@ static void vx_kit_scene(uint32_t lanes, uint32_t dm)
 {
     static const uint8_t N[8] = {36, 38, 39, 42, 46, 45, 37, 49};
     uint32_t k;
+    int32_t e8[8];
     eng(ENGI_DRUM);
     TSEL->engine = TSEL->eng_req;
     song.playing = 0;
@@ -985,12 +982,11 @@ static void vx_kit_scene(uint32_t lanes, uint32_t dm)
         for (k = 0; K && k < 8u; k++) { K[k].x.live = 0; K[k].age = 255; K[k].fl = 0; }
         vxs.last = 0;
     }
-    vx_kit(TSEL, 0, 0, 256, -1, -1);              /* (the lanes' ages seen once: the hits below are new) */
+    vx_lanes(TSEL, e8);                           /* (the lanes' ages seen once: the hits below are new) */
     for (k = 0; k < 8u; k++)
         if (lanes >> k & 1u) { dx_in_tch = (uint8_t)dm; trk_note_on(TSEL, N[k], k == 1u ? 127 : 100); }
     dx_in_tch = 0;
     vx_run(6);
-    memset(vxs.fr, 0xFF, sizeof vxs.fr);
 }
 /* (0.9.4) EDIT > KIT's beings: lane l struck n times (dm: its TOUCH, 2 GHOST 3 FLAM), each hit seen by a frame drawn
  * before the next (a ratchet's squashes); n 0: the kit silent */
@@ -998,9 +994,10 @@ static void vx_bug_scene(uint32_t l, uint32_t dm, uint32_t n)
 {
     static const uint8_t N[8] = {36, 38, 39, 42, 46, 45, 37, 56};
     uint32_t k;
+    int32_t e8[8];
     vx_kit_scene(0, 0);
     for (k = 0; k < n; k++) {
-        if (k) { vx_kit(TSEL, 0, 0, 256, -1, -1); fm1_ms += 40u; }
+        if (k) { vx_lanes(TSEL, e8); fm1_ms += 40u; }
         dx_in_tch = (uint8_t)dm;
         trk_note_on(TSEL, N[l & 7u], 110);
         dx_in_tch = 0;
@@ -1028,8 +1025,6 @@ static void v6_scene(uint32_t e, const char *pre, const char *page, const int16_
     song.playing = 0;
     song.master_q12 = 4096;
     for (i = 0; i < NTRK; i++) if (i != song.sel) trk[i].p[P_MUTE] = 1;
-    memset(vxs.fr, 0xFF, sizeof vxs.fr);
-    vxs.lm = -1;                                         /* (0.9.10: LOFI's morph there at once) */
     vx_run(40);
     if (note) {
         trk_note_on(TSEL, note, 110);
@@ -1037,10 +1032,7 @@ static void v6_scene(uint32_t e, const char *pre, const char *page, const int16_
         TSEL->peak = 7000;
     } else
         memset(scope_buf, 0, sizeof scope_buf);
-    vx_age(TSEL, c, 0);                                  /* (the note seen, age ms ago) */
-    vxs.nms[c] = fm1_ms - age;
-    vxs.mt[c] = 30u * 256u * 3u + c * 977u;
-    vxs.swt = vxs.mt[c] >> 8;
+    (void)age; (void)c;                                  /* (GARDEN: the creatures run on the plants' clock) */
     if (page) go_title(page); else { ui.home = 1; ui.hlv = 1; ui.hset[1] = 0; }
 }
 /* (0.9.17) a short line on the selected track for the SEQ pages that drew their own panel before (TRACK, MUTATE, AUTOMATION,
@@ -1736,8 +1728,7 @@ static void setup(int s)
     case S_VX_HEAD_T: vx_phon(PH_T, 5000); break;
     case S_VX_HEAD_F: vx_phon(PH_F, 4000); ui.hot_col = 2; ui.hot_t = 30; break;
     case S_VX_HEAD_VOWEL:                               /* LANG OFF: VOWEL -> VOWEL2 (O, rounded) */
-        eng(ENGI_VOICE_UI); TSEL->p[P_VLANG] = 0; TSEL->p[P_E0] = 100; TSEL->p[P_E5] = 90; TSEL->peak = 6000; vxs.init = 0;
-        memset(vxs.fr, 0xFF, sizeof vxs.fr);
+        eng(ENGI_VOICE_UI); TSEL->p[P_VLANG] = 0; TSEL->p[P_E0] = 100; TSEL->p[P_E5] = 90; TSEL->peak = 6000;
         go_title("EDIT 2");
         break;
     case S_VX_HEAD_HOME: vx_phon(PH_E, 6000); ui.home = 1; ui.hlv = 1; ui.hset[1] = 0; break;

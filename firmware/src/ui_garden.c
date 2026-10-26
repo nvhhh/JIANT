@@ -353,15 +353,16 @@ static void gd_leaf(int32_t x, int32_t y, uint32_t a, int32_t L, int32_t W, uint
     }
     gd_poly(pt, 6, 2, c);
 }
-/* a wobbly round thing at x, y (px), r (Q4), n points, stretched sx, sy (Q8) */
+/* a wobbly round thing at x, y (Q4), r (Q4), n points (12 at most), stretched sx, sy (Q8) */
 static void gd_blob(int32_t x, int32_t y, int32_t r, uint32_t n, uint16_t c, uint32_t sd, int32_t sx, int32_t sy)
 {
-    int32_t pt[20], i;
+    int32_t pt[24], i;
+    n = n > 12u ? 12u : n;
     for (i = 0; i < (int32_t)n; i++) {
         uint32_t a = (uint32_t)i * 65536u / n;
         int32_t k = 256 + (36 * gd_s(a * 3u + sd * 4096u) >> 8);
-        pt[2 * i] = x * 16 + (r * k >> 8) * sx / 256 * gd_s(a + 16384u) / 256;
-        pt[2 * i + 1] = y * 16 + (r * k >> 8) * sy / 256 * gd_s(a) / 256;
+        pt[2 * i] = x + (r * k >> 8) * sx / 256 * gd_s(a + 16384u) / 256;
+        pt[2 * i + 1] = y + (r * k >> 8) * sy / 256 * gd_s(a) / 256;
     }
     gd_poly(pt, n, 2, c);
 }
@@ -445,11 +446,11 @@ static void gd_plants(uint32_t sc)
             for (x = 0; x < 240; x += 2)
                 cv_rect(x - gd.x0, 146 + r * 8 + (gd_s((uint32_t)x * 626u - gd_pl.t * (uint32_t)(30 + 10 * r)) * amp >> 12), 2, 2,
                         r ? GD_BLUE : GD_PBLUE);
-        gd_blob(50, 140 - gd_hop(102), 128, 7, GD_BURNT, 1, 256, 282);   /* the apple, */
+        gd_blob(50 * 16, (140 - gd_hop(102)) * 16, 128, 7, GD_BURNT, 1, 256, 282);   /* the apple, */
         gd_leaf(52 * 16, (133 - gd_hop(102)) * 16, 49152u - 6000u, 128, 48, GD_BLUE);
-        gd_blob(130, 140 - gd_hop(141), 128, 9, GD_ORANGE, 3, 256, 256);  /* the orange, */
-        gd_blob(195, 143 - gd_hop(179), 67, 5, GD_BURNT, 5, 256, 256);   /* the cherries */
-        gd_blob(205, 145 - gd_hop(179), 67, 5, GD_BURNT, 6, 256, 256);
+        gd_blob(130 * 16, (140 - gd_hop(141)) * 16, 128, 9, GD_ORANGE, 3, 256, 256);  /* the orange, */
+        gd_blob(195 * 16, (143 - gd_hop(179)) * 16, 67, 5, GD_BURNT, 5, 256, 256);   /* the cherries */
+        gd_blob(205 * 16, (145 - gd_hop(179)) * 16, 67, 5, GD_BURNT, 6, 256, 256);
     } else if (sc == GS_SEQ) {                          /* the bed: the bank shown, 2 rows of 8 */
         uint32_t ph = song.playing ? seq_src(t, t->seq_idx) : 0xFFFFu;
         for (i = 0; i < 16; i++) {

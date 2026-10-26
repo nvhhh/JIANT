@@ -11274,10 +11274,10 @@ static void vxt_case(uint32_t e, const char *pre, const char *page, uint32_t k, 
     if (page) go_title(page); else { ui.home = 1; ui.hlv = 1; ui.hset[1] = 0; }
     transport_req = 1;
     vxt_run(1500, 1);
-    j = vxs.fr[k];
     vxt_snap();
     vxt_run(160, 1);
-    *mv = !vxt_same() && vxs.fr[k] != j;
+    *mv = !vxt_same() && (page || vxs.en[song.sel] > 0);   /* (GARDEN: HOME's sky moves anyway: its level too; k unused) */
+    (void)k; (void)j;
     seq_stop();
     song.playing = 0;
     trk_all_off(TSEL);
@@ -11286,9 +11286,9 @@ static void vxt_case(uint32_t e, const char *pre, const char *page, uint32_t k, 
     memset(scope_buf, 0, sizeof scope_buf);
     vxt_run(600, 1);
     vxt_snap();
-    j = vxs.tm[k];
     vxt_run(600, 1);
-    *st = page ? vxt_same() : vxs.tm[k] == j && !vxs.en[k];   /* (HOME: its beings swim on; the creature holds) */
+    *st = !vxs.en[song.sel] && (e != ENGI_SHRUB || vxt_same());   /* (GARDEN: in silence slow, never frozen (SHRUB still): its level
+                                                         * fallen to 0) */
 }
 static int test_engvis(void)
 {
@@ -11315,131 +11315,12 @@ static int test_engvis(void)
         ok &= mv && st;
     }
     bad += check("0.9.4 / 0.9.6 the engines' creatures (VOICE ANIMAL DRUM-X ANALOG FM6 WHEEL NOISE PHASE LOFI; EDIT, FM6's OPERATOR "
-                 "pages, HOME): move with the sound, still in silence", ok);
-    {   /* (0.9.9) VOICE's tract (SCOPE OFF, the whole panel; WORDS on): an open vowel opens the jaw down (the chin
-         * drops; the condyle glides forward), the lips apart; a nasal drops the velum and the branch to the nose opens (its ink over the
-         * palate, where an open vowel leaves none); the pulses travel and the waves leave while it sings */
-        static const uint8_t PH3[3] = {PH_I, PH_A, PH_M};
-        uint32_t ink[3], x, y, f, k;
-        int32_t chin[3][2], cond[2], lips[3] = {0, 0, 0}, pul = 0, wav = 0;
-        sing_t *g = &sing[0];
-        ui_power_on();
-        ui_scope = 0;
-        for (x = 1; x < NTRK; x++) trk[x].p[P_MUTE] = 1;
-        song.sel = 0;
-        set_engine_of(TSEL, 5);
-        TSEL->p[P_VLANG] = LG_ES;
-        go_title("EDIT 1");
-        for (k = 0; k < 3u; k++) {
-            const phon_t *P = &PHON[PH3[k]];
-            vxs.init = 0;
-            for (f = 0; f < 24u; f++) {
-                memset(g, 0, sizeof *g);
-                g->lang = LG_ES; g->live = 1; g->np = 1; g->cd = 1; g->ph[0] = PH3[k]; g->st = 1;
-                g->f[0] = (int16_t)P->f1; g->f[1] = (int16_t)P->f2; g->gv = (int16_t)(P->av << 7);
-                TSEL->peak = 6500;
-                frame();
-                for (x = 0; x < 4u; x++) { pul |= vxs.pw[0][x] != 0; wav |= vxs.pw[1][x] != 0; }
-            }
-            vh_jaw(chin[k], -31 * 16, 54 * 16);         /* (the chin, turned with the jaw as it now is) */
-            lips[k] = vxs.art[5];
-            if (k == 1u) vh_jaw(cond, 14 * 16, 6 * 16);  /* (the condyle: gliding forward as it opens) */
-            for (ink[k] = 0, y = LZ_GRAPH_Y + 8; y < LZ_GRAPH_Y + 22; y++)   /* (over the palate, behind the nose: the
-                                                         * branch's middle, units -36 .. -12 x 10 .. 14) */
-                for (x = 88; x < 136u; x++)
-                    ink[k] += host_screen[y * 240 + x] != host_screen[(LZ_GRAPH_Y + 15) * 240 + 200];
-        }
-        ok = chin[1][1] > chin[0][1] + 24 && chin[0][1] >= 54 * 16 && cond[0] < 14 * 16 - 16 && lips[1] < 40 &&
-             vxs.art[6] > 200 && ink[2] > 20u && ink[1] < 4u && pul && wav;
-        if (!ok) printf("  chin I %d,%d A %d,%d; ink A %u M %u; pulses %d waves %d\n", chin[0][0], chin[0][1], chin[1][0],
-                        chin[1][1], ink[1], ink[2], pul, wav);
-        bad += check("0.9.9 VOICE's tract: an open vowel opens the jaw down (its condyle gliding forward); a nasal drops the velum and opens "
-                     "the branch to the nose; glottal pulses up the tube and waves out while it sings", ok);
-    }
-    {   /* MODE turned in silence: the creature glides to the mammal, then holds */
-        int32_t m0, m1;
-        int changed;
-        vxt_case(ENGI_ANIMAL, "CANARY", "EDIT 1", 1, &mv, &st);
-        m0 = vxs.w[0];
-        vxt_snap();
-        TSEL->p[P_E0] = AN_GLOTT;
-        vxt_run(64, 0);
-        changed = !vxt_same();
-        vxt_run(1500, 0);
-        m1 = vxs.w[0];
-        vxt_snap();
-        vxt_run(400, 0);
-        ok = changed && m0 < 160 && m1 > 230 && vxt_same();
-        bad += check("0.9.4 ANIMAL: MODE WHSTL -> GLOTT turns the bird into a mammal (a glide), then it holds still", ok);
-        TSEL->p[P_E3] = 0;                              /* SIZE all the way down: a mammal leaning back to the bird */
-        vxt_run(1500, 0);
-        bad += check("0.9.4 ANIMAL: SIZE leans GLOTT's mammal towards the bird", vxs.w[0] < m1 - 40);
-    }
-    {   /* (0.9.10) LOFI's V1 "DIP": CHIP turned in silence glides the caterpillar (8BIT) into the chip (1BIT), then it
-         * holds; 4BIT / STEP half way, 4B/2 nearly; the other knobs change the drawing (in silence too), which stays still */
-        static const struct { uint8_t chip; int16_t m; } CH[] = {{3, 256}, {0, 102}, {1, 179}, {4, 115}, {2, 0}};
-        static const struct { const char *pre; uint8_t p; int16_t v; } KN[] = {
-            {"BYTEBEAT", P_FTYPE, 1}, {"BYTEBEAT", P_FRES, 127}, {"BYTEBEAT", P_DIST, 127}, {"BYTEBEAT", P_E6, 127},
-            {"BYTEBEAT", P_FCUT, 20}, {"BYTEBEAT", P_E3, 120}, {"BYTEBEAT", P_E7, 127}, {"BYTEBEAT", P_E2, 90},
-            {"BYTEBEAT", P_FTYPE, 3}, {"PULSE LD", P_E2, 127}, {"PULSE LD", P_E5, 127}, {"PULSE LD", P_E7, 127},
-            {"PULSE LD", P_MORPH, 127}};
-        int32_t m0, mid;
-        int changed, held, glide = 1, knobs = 1;
-        uint32_t k;
-        vxt_case(3, "BYTEBEAT", "EDIT 1", 8, &mv, &st);
-        m0 = vxs.lm;
-        vxt_snap();
-        TSEL->p[P_E0] = 3;                               /* (1BIT) */
-        vxt_run(64, 0);
-        changed = !vxt_same();
-        mid = vxs.lm;
-        vxt_run(1500, 0);
-        glide = vxs.lm == 256;
-        vxt_snap();
-        vxt_run(400, 0);
-        held = vxt_same();
-        bad += check("0.9.10 LOFI: at 8BIT the organism (morph 0); CHIP 1BIT glides it into the DIP (morph 0 .. 1 over frames), "
-                     "then it holds still in silence", m0 == 0 && changed && mid > 0 && mid < 200 && glide && held);
-        for (k = 0; k < NELEM(CH); k++) {
-            TSEL->p[P_E0] = CH[k].chip;
-            vxt_run(1500, 0);
-            if (vxs.lm != CH[k].m) { printf("  CHIP %u: morph %d (want %d)\n", CH[k].chip, vxs.lm, CH[k].m); glide = 0; }
-        }
-        bad += check("0.9.10 LOFI: the morph glides to CHIP's target (4BIT .40, 4B/2 .70, 1BIT 1, STEP .45, 8BIT 0)", glide);
-        for (k = 0; k < NELEM(KN); k++) {
-            int16_t v0;
-            if (k == 0u || strcmp(KN[k].pre, KN[k - 1u].pre))
-                vxt_case(3, KN[k].pre, "EDIT 1", 8, &mv, &st);
-            vxt_snap();
-            v0 = TSEL->p[KN[k].p];
-            TSEL->p[KN[k].p] = KN[k].v;
-            vxt_run(64, 0);
-            changed = !vxt_same();
-            vxt_snap();
-            vxt_run(200, 0);
-            held = vxt_same();
-            TSEL->p[KN[k].p] = v0;
-            vxt_run(64, 0);
-            if (!changed || !held) { printf("  %s p%u = %d: %s\n", KN[k].pre, KN[k].p, KN[k].v, !changed ? "the drawing unchanged" : "moving in silence"); knobs = 0; }
-        }
-        bad += check("0.9.10 LOFI: TYPE RES DIST BEND CUT VAR LOOP ALGO COMB DUTY VIB MASK MORPH each change the drawing, still in silence", knobs);
-    }
+                 "pages, HOME): move with the sound, their level falling to 0 in silence (GARDEN: slow there, never frozen)", ok);
+    /* (GARDEN, Phase 5) retired with the old visuals: VOICE's tract, ANIMAL's bird-to-mammal glide, LOFI's DIP morph */
     {   /* DRUM-X: KIT's beings (EDIT 1) and SOUND 1..4; KIT 2, KIT 3, X-MOD keep the colony; a hit squashes its being, a
          * ratchet's hits each */
-        static const char *const PG[] = {"EDIT 1", "SOUND", "SOUND 4", "EDIT 2", "KIT 3", "X-MOD"};
         uint32_t k, h0, n = 0;
-        int ran[6];
-        vxt_case(ENGI_DRUM, "DRUM-X", "EDIT 1", 2, &mv, &st);
-        for (k = 0; k < NELEM(PG); k++) {
-            uint32_t f0;
-            go_title(PG[k]);
-            vxt_run(48, 0);
-            f0 = vxs.fr[2];
-            vxt_run(48, 0);
-            ran[k] = vxs.fr[2] != f0;
-        }
-        ok = ran[0] && ran[1] && ran[2] && !ran[3] && !ran[4] && !ran[5];
-        bad += check("0.9.4 DRUM-X: KIT and SOUND 1..4 draw the kit's beings, KIT 2 / KIT 3 / X-MOD the colony", ok);
+        vxt_case(ENGI_DRUM, "DRUM-X", "EDIT 1", 2, &mv, &st);   /* (GARDEN: the KIT 2 / KIT 3 / X-MOD colony check retired) */
         go_title("EDIT 1");
         vxt_run(48, 0);
         h0 = vxs.hitm[3];
