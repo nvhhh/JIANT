@@ -16,6 +16,9 @@
 #ifndef FELUCCA_OTA_DRYRUN
 #define FELUCCA_OTA_DRYRUN 0     /* 1 = stage, ask "success", then undo: no record, no reset */
 #endif
+#ifndef FELUCCA_DYN
+#define FELUCCA_DYN 1            /* the compressors (fx.c track_dyn); 0: the development build's flash room for the console */
+#endif
 #ifndef FELUCCA_CDC
 #define FELUCCA_CDC 0            /* USB CDC-ACM serial console: dropped (JIANT, the flash room for DYN) */
 #endif
