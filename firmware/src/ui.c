@@ -689,13 +689,16 @@ static uint32_t lz_fam(void)                            /* which lens */
     return save_on() ? LZ_SAVE : fx_on() ? LZ_FX : LZ_SEQ;
 }
 static int lz_mock_cards(void) { return lz_on() && lz_fam() <= LZ_FX; }
-static int lz_top(void) { return lz_low() && (UX_SKIN == SKIN_AIR || lz_fam() == LZ_SEQ); }   /* (0.9.17, card_y) */
+static int lz_top(void) { return 0; }                  /* (0.9.17, card_y; GARDEN: the pods along the bottom, as the mockups) */
 /* (MENU > LARGE: their cards as they are; 0.9.0: not under the count-in or UPDATE MODE's countdown, which cover the page:
  * their header on BG, as every other page's) */
 static int hud_home(void)
 {
     return skin_hud() && !ui.uboot && !seq_counting() && lz_low() && lz_fam() == LZ_HOME && home_level() == 0u;   /* (0.9.7 AIR too) */
 }
+/* (GARDEN, Phase 3) every other lens page on the scene too: its header, tabs, pods and footer on the garden (still), its
+ * panel a rounded BG card over it */
+static int gd_back(void) { return !ui.uboot && !seq_counting() && lz_low() && !hud_home(); }
 /* the tab lit: the section's group shown, the menu's tab, a layer's view */
 static uint32_t menu_tab(void);
 static uint32_t menu_page(void);                        /* (0.9.18) the MENU's page (ui_menu.c) */

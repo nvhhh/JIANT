@@ -21,6 +21,9 @@ static void lz_begin(uint32_t w, uint32_t h, uint32_t x, uint32_t y)
     if (hud_home()) {
         eco_backdrop((int32_t)x, (int32_t)y, 0);
         cv_halo = 1;
+    } else if (gd_back() && !gd_plain) {
+        gd_scene((int32_t)x, (int32_t)y);
+        cv_halo = 1;
     }
 }
 static void lz_blit(uint32_t x, uint32_t y)
@@ -1917,7 +1920,13 @@ static void draw_graph(void)
         lz_blit(0, graph_y());
         return;
     }
-    if (lz_low())                                    /* (0.8.9) BOTTOM, HUD: no panel, the picture on the background */
+    if (gd_back()) {                                 /* (GARDEN) the garden round it, the panel a BG card, its edge burnt */
+        if (gd_edged == (int32_t)(graph_y() * 256u + graph_h()))
+            gd_edges((int32_t)graph_y(), (int32_t)graph_h(), 1);
+        else
+            gd_scene(0, (int32_t)graph_y());
+        gd_ring(3, 1, 234, (int32_t)graph_h() - 2);
+    } else if (lz_low())                             /* (0.8.9) BOTTOM, HUD: no panel, the picture on the background */
         ;
     else if (lz_on())                                /* (0.8.5) a lens page: the mock-up's panel, 4 .. 236 (0.8.9 COLORS: */
         cv_rrect(4, 0, 232, (int32_t)graph_h(), 6, T_SURF, T_BG);   /* rounded, as the 0.6's) */

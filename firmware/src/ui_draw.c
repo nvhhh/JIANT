@@ -216,24 +216,24 @@ static void head_geo(head_geo_t *g, const char *bpm)
 {
     char z[8] = "0000000";
     z[str_len(bpm) < 7u ? str_len(bpm) : 7u] = 0;
-    g->bx = HEAD_BPM_X;
     text_ink(&AF_M, z, g->b);
-    g->mx0 = HEAD_TR_X;
-    g->mx1 = HEAD_TR_X + 8;
+    g->bx = hud_home() || gd_back() ? HEAD_LOAD_X - 6 - g->b[2] : HEAD_BPM_X;   /* (GARDEN: right, by the load) */
+    g->mx0 = g->bx == HEAD_BPM_X ? HEAD_TR_X : g->bx - HEAD_GAP - 8;
+    g->mx1 = g->mx0 + 8;
     g->sx0 = g->mx1 + 1;
     g->sx1 = g->bx + g->b[2] + 2;
 }
-static void head_transport(void)
+static void head_transport(int32_t tx)
 {
     int32_t r, k;
     uint16_t c = seq_counting() ? T_ACCENT : song.playing ? T_THEME : T_MID;
     if (!song.playing && !seq_counting()) {
-        cv_rect(HEAD_TR_X, HEAD_MID - 4, 8, 9, c);
+        cv_rect(tx, HEAD_MID - 4, 8, 9, c);
         return;
     }
     for (k = cv_halo; k >= 0; k--)                      /* (0.8.9) a triangle, 8 x 11, pointing right (HUD: its outline) */
         for (r = 0; r < 11; r++)
-            cv_rect(HEAD_TR_X + k, HEAD_MID - 5 + r + k, 1 + (5 - (r < 5 ? 5 - r : r - 5)) * 7 / 5, 1, k ? T_BG : c);
+            cv_rect(tx + k, HEAD_MID - 5 + r + k, 1 + (5 - (r < 5 ? 5 - r : r - 5)) * 7 / 5, 1, k ? T_BG : c);
 }
 static void sound_name(const track_t *t, char *b);
 /* the centre's words (b holds 40) and their colour */
@@ -318,6 +318,47 @@ static int32_t head_group(void)
     cv_text(x, HEAD_SY, &AF_S, b, T_THEME);
     return x0;
 }
+/* (GARDEN, Phase 3) the top line over the sky, no bar: the breadcrumb (a message in its place) at the left; at the right
+ * the REC mark, BPM LOCK's, the track's pebble, the play state, the BPM (small), the load, the battery */
+static int32_t crumb_mx;                                /* (GARDEN) the header's breadcrumb: its right end, no count */
+static int32_t crumb_count(char *b);
+static void draw_crumbs(int32_t y, uint16_t fg, uint16_t last);
+static void foot_crumbs(char *b, uint32_t n);
+static void head_garden(const head_geo_t *g, const char *bpm, int msg)
+{
+    char n[2] = {(char)('1' + song.sel % NTRK), 0};
+    int32_t kx = g->mx0 - 4 - 13, x = kx;
+    uint8_t h = cv_halo;
+    if (!ui.roll[ROLL_BPM].from[0])
+        GFX_HOOK_ALIGN(0, 0, 0, HEAD_RULE_Y, AL_V, "header text on its middle");
+    roll_text(ROLL_BPM, g->bx, HEAD_BMY, bpm, ui.bpm_t ? T_ACCENT : T_THEME);
+    head_transport(g->mx0);
+    if (ui_prefs & PREF_BPM_LOCK) {                    /* (the lock, 8 x 10) */
+        x -= HEAD_GAP + 8;
+        cv_rect(x + 2, HEAD_MID - 5, 4, 1, T_MID);
+        cv_rect(x + 1, HEAD_MID - 4, 1, 3, T_MID);
+        cv_rect(x + 6, HEAD_MID - 4, 1, 3, T_MID);
+        cv_rect(x, HEAD_MID - 1, 8, 6, T_MID);
+    }
+    if (song.rec) {
+        x -= HEAD_GAP + 9;
+        draw_rec_mark(x - 3, T_BG);
+    }
+    gd_pebble(kx - 1, HEAD_MID - 7, 15, 15, song.sel, T_ACCENT);
+    cv_halo = 0;
+    GFX_HOOK_ALIGN(kx, HEAD_MID - 6, kx + 13, HEAD_MID + 7, AL_HV, "header track number in its box");
+    cv_text_in(kx, HEAD_XY, 13, &AF_X, n, T_INK, T_ACCENT);
+    cv_halo = h;
+    if (msg)
+        head_msg(6, x - 12);
+    else {
+        crumb_mx = x - 8;
+        draw_crumbs(HEAD_XY, T_TEXT, T_TEXT);
+        crumb_mx = 0;
+    }
+    draw_battery(HEAD_BAT_X);
+    draw_load(HEAD_LOAD_X);
+}
 static void draw_head(void)
 {
     char b[16], ttl[40];
@@ -332,6 +373,12 @@ static void draw_head(void)
     int msg = ui.msg_t || ui.layer;
     int centre = !msg || ui.bpm_t || ui.layer == LAYER_GLO;   /* the BPM being changed: it stays, the message right */
     int32_t lx, r = HEAD_LOAD_X - 6;
+    int gl = hud_home() || gd_back();
+    if (gl) {                                           /* (GARDEN: the breadcrumb in the line) */
+        char cr[48];
+        foot_crumbs(cr, sizeof cr);
+        sig += str_hash(sig, cr);
+    }
     if (song.g[G_BPM] != ui.roll_bpm) {
         char a[8];
         fmt_int(a, ui.roll_bpm);
@@ -343,7 +390,8 @@ static void draw_head(void)
     }
     fmt_int(b, song.g[G_BPM]);
     head_geo(&g, b);
-    if (!ui.force && sig == ui.head_sig) {
+    if (!ui.force && sig == ui.head_sig && !(gl && ui.roll[ROLL_BPM].from[0])) {   /* (GARDEN: rolling, the line whole:
+                                                         * its cells (gfx.c cv_blit_cells) know the line, not a strip) */
         if (ui.roll[ROLL_BPM].from[0]) {               /* rolling: the BPM's strip only (the rule under it again) */
             cv_begin((uint32_t)(g.sx1 - g.sx0), H_HEAD, T_BG);
             roll_text(ROLL_BPM, g.bx - g.sx0, HEAD_BMY, b, ui.bpm_t ? T_ACCENT : T_THEME);
@@ -355,6 +403,11 @@ static void draw_head(void)
     }
     ui.head_sig = sig;
     lz_begin(240, H_HEAD, 0, Y_HEAD);
+    if (gl) {
+        head_garden(&g, b, msg);
+        lz_blit(0, Y_HEAD);
+        return;
+    }
     tc = hud_cap(tc);
     if (!ui.menu) {                                     /* (0.8.9) the track's box, as the 0.6 had it */
         char n[2] = {(char)('1' + song.sel % NTRK), 0};
@@ -365,7 +418,7 @@ static void draw_head(void)
         cv_text_in(HEAD_TK_X, HEAD_XY, 13, &AF_X, n, T_INK, T_ACCENT);
         cv_halo = h;
     }
-    head_transport();
+    head_transport(HEAD_TR_X);
     if (!ui.roll[ROLL_BPM].from[0])
         GFX_HOOK_ALIGN(0, 0, 0, HEAD_RULE_Y, AL_V, "header text on its middle");
     roll_text(ROLL_BPM, g.bx, HEAD_BMY, b, ui.bpm_t ? T_ACCENT : T_THEME);
@@ -434,25 +487,40 @@ static void draw_rules(uint32_t y, uint32_t h)
 }
 /* full redraw: the strips (header, cards, panel, footer) cover the rest; only the BG between them is filled.
  * (0.8.5, the mock-up's skin) the cards RAISE boxes: no dividers between them (LINE: its rules) */
+/* the BG between the strips (GARDEN: the garden there, as under them) */
+static void fr_fill(uint32_t x, uint32_t y, uint32_t w, uint32_t h)
+{
+    if (!w || !h)
+        return;
+    if (!gd_back()) {
+        lcd_fill(x, y, w, h, T_BG);
+        return;
+    }
+    cv_begin(w, h, T_BG);
+    gd_scene((int32_t)x, (int32_t)y);
+    cv_blit(x, y);
+}
 static void draw_frame(void)
 {
     uint32_t i, ch = card_h(), gy = graph_y(), gh = graph_h(), cy = card_y(), fy = foot_y();   /* (MENU > LARGE: tall
                                                          * cards, a strip; 0.8.5 a lens page: the mock-up's) */
     if (hud_home())                                     /* (0.8.9) HUD's HOME: its strips cover the screen */
         return;
+    if (gd_back() && !gd_plain)                         /* (GARDEN) the garden round the panel, kept for its redraws */
+        gd_edges((int32_t)gy, (int32_t)gh, 0);
     if (cy > gy) {                                      /* (0.8.9) BOTTOM, HUD: the panel, then the knobs' row */
-        lcd_fill(0, H_HEAD, 240, gy - H_HEAD, T_BG);
-        lcd_fill(0, gy + gh, 240, cy - gy - gh, T_BG);
-        lcd_fill(0, cy + ch, 240, fy - cy - ch, T_BG);
+        fr_fill(0, H_HEAD, 240, gy - H_HEAD);
+        fr_fill(0, gy + gh, 240, cy - gy - gh);
+        fr_fill(0, cy + ch, 240, fy - cy - ch);
     } else {
-        lcd_fill(0, H_HEAD, 240, cy - H_HEAD, T_BG);
-        lcd_fill(0, cy + ch, 240, gy - cy - ch, T_BG);
-        lcd_fill(0, gy + gh, 240, fy - gy - gh, T_BG);
+        fr_fill(0, H_HEAD, 240, cy - H_HEAD);
+        fr_fill(0, cy + ch, 240, gy - cy - ch);
+        fr_fill(0, gy + gh, 240, fy - gy - gh);
     }
-    lcd_fill(0, cy, (uint32_t)CARD_X(0), ch, T_BG);
+    fr_fill(0, cy, (uint32_t)CARD_X(0), ch);
     for (i = 0; i < 4u; i++)                            /* right of each card */
-        lcd_fill((uint32_t)(CARD_X(i) + CARD_W), cy, i < 3u ? (uint32_t)(CARD_X(i + 1u) - CARD_X(i) - CARD_W) :
-                 240u - (uint32_t)(CARD_X(i) + CARD_W), ch, T_BG);
+        fr_fill((uint32_t)(CARD_X(i) + CARD_W), cy, i < 3u ? (uint32_t)(CARD_X(i + 1u) - CARD_X(i) - CARD_W) :
+                 240u - (uint32_t)(CARD_X(i) + CARD_W), ch);
     if (UX_STYLE)                                       /* LINE: the dividers in the gaps */
         draw_rules(cy, ch);
 }
@@ -696,7 +764,7 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
             gk = knob_col(c, ratio, card_bip);          /* (the gauge's, the frame's) */
             vc = gk;
         }
-        lc = arm || mot ? T_THEME : low && !hot && !hud ? T_MID : T_TEXT;   /* (0.9.0 HUD's HOME: TEXT, over the beings) */
+        lc = low ? GD_SURF : arm || mot ? T_THEME : T_TEXT;   /* (GARDEN: on the pod's burnt cap) */
     }
     if (!gk)
         vc = value_col(vc, ratio);
@@ -749,6 +817,11 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
         return;
     if (strip) {                                        /* rolling: the value strip only */
         cv_begin(COL_W, ROLL_H, low ? T_BG : cb);       /* (GARDEN: AIR's cards have no box, as lz_begin draws them) */
+        if (low) {                                      /* (GARDEN) the garden and the pod under it */
+            gd_scene(CARD_X(c), (int32_t)card_y() + ry);
+            cv_oy = -ry;
+            cb = gd_pod(0, ch, hot);
+        }
         cv_oy = -ry;
         if (lz_on() && !low && hot && vc != T_DIM) {    /* (0.8.9 COLORS: the hot card's frame, its sides) */
             uint16_t fc = ux_mix(cb, gk ? gk : T_K(c), 70);
@@ -776,8 +849,8 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
         }
         if (low) {                                      /* (0.8.9) BOTTOM, HUD: no box (HUD's HOME: on the beings) */
             lz_begin((uint32_t)cw, (uint32_t)ch, hud ? c * 60u : (uint32_t)CARD_X(c), card_y());
-            if (fd < 100u)                              /* (0.9.0) faded: no outline (it cut holes in the beings) */
-                cv_halo = 0;
+            cb = gd_pod(ox, ch, hot);                   /* (GARDEN) an acorn: its cap the label's, its body the value's */
+            cv_halo = 0;
         } else {
             cv_begin(COL_W, (uint32_t)ch, T_BG);
             if (!lz_on())
@@ -798,8 +871,8 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
              * page or a layer (LK_LABEL): in M where it fits the card (capitals rows 4..14), else in S. A parameter
              * MOTION drives, an armed action: THEME */
             const aafont_t *lf = kind == LK_LABEL && 5 + text_w(&AF_M, label) <= COL_W - 2 ? &AF_M : lz_on() ? &AF_X : &AF_S;
-            int32_t ly = lf == &AF_M ? 0 : lf == &AF_X ? CARD_XY - low : 1;   /* (0.8.5 a lens card: AF_X, capitals rows 5..11;
-                                                         * 0.8.9 the knob row: 4..10) */
+            int32_t ly = lf == &AF_M ? 0 : lf == &AF_X ? CARD_XY - 2 * low : 1;   /* (0.8.5 a lens card: AF_X, capitals rows 5..11;
+                                                         * 0.8.9 the knob row: 4..10; GARDEN: 3..9, on the cap) */
             int32_t cy = ly + (lf == &AF_M ? AF_M_CAP_Y : lf == &AF_X ? AF_X_CAP_Y : AF_S_CAP_Y);
             int32_t chh = lf == &AF_M ? AF_M_CAP_H - 1 : lf == &AF_X ? AF_X_CAP_H : AF_S_CAP_H;   /* (0.8.9 M: Inter Tight's
                                                          * figures reach a row higher: the chip a row shorter) */
@@ -1101,12 +1174,23 @@ static int32_t crumb_count(char *b)
 static __attribute__((noinline)) void draw_crumbs(int32_t y, uint16_t fg, uint16_t last)
 {
     char cnt[8];
-    int32_t cw = crumb_count(cnt), mx = cw ? 234 - cw - 8 : 234;
+    int32_t cw = crumb_mx ? 0 : crumb_count(cnt), mx = crumb_mx ? crumb_mx : cw ? 234 - cw - 8 : 234;
     char b[48];
     uint32_t i, k = 0;
     int32_t x;
     const aafont_t *f = lz_on() ? &AF_X : &AF_S;        /* (0.8.5: a lens page, the mock-up's small mono) */
     foot_crumbs(b, sizeof b);
+    if (crumb_mx) {                                     /* (GARDEN: the line's, as the mockups': its first part and its
+                                                         * last, "EDIT . OSC", "HOME . ECO") */
+        for (i = 0; b[i] && (uint8_t)b[i] != 0xB7u; i++)
+            ;
+        for (k = i; b[k]; k++)
+            if ((uint8_t)b[k] == 0xB7u)
+                x = (int32_t)k;
+        if (b[i] && (uint32_t)x != i)
+            str_cpy(b + i, b + x, sizeof b - i);
+        k = 0;
+    }
     for (i = 0; b[i]; i++)                              /* (the last part: after the last dot) */
         if ((uint8_t)b[i] == 0xB7u)
             k = i + 2u;
@@ -1182,6 +1266,10 @@ static void draw_foot(void)
         sig += str_hash(str_hash(act_ready() ? 7u : 3u, ha), hb);
     }
     sig += (uint32_t)accw * 977u;
+    if (lz) {                                           /* (GARDEN: the track and its sound) */
+        char tt[40];
+        sig += str_hash(head_title(tt), tt) + (uint32_t)gd_back() * 31u + (uint32_t)hud_home() * 7u;
+    }
     if (!ui.force && sig == ui.foot_sig)
         return;
     ui.foot_sig = sig;
@@ -1215,6 +1303,16 @@ static void draw_foot(void)
                 cv_rect(sx, 14, 9, 2, T_TEXT);          /* the step sounding */
         }
     }
+    if (lz && (hud_home() || gd_back())) {             /* (GARDEN) the breadcrumb is the header's: here the track and its
+                                                         * sound (the header's centre before), the page's count */
+        char cnt[8];
+        int32_t cw = crumb_count(cnt);
+        head_title(s);
+        GFX_HOOK_ALIGN(0, ry + AF_X_CAP_Y, 0, ry + AF_X_CAP_Y + AF_X_CAP_H, AL_V, "footer breadcrumb on its line");
+        cv_free_text(6, ry, &AF_X, s, T_TEXT, T_BG, 226 - cw - 6);
+        if (cw)
+            cv_text_r(234, ry, &AF_X, cnt, T_TEXT, T_BG);
+    } else
     draw_crumbs(ry, hud_cap(T_DIM), accw ? T_ACCENT : hud_cap(T_DIM));   /* (0.9.0 HUD's HOME: TEXT, over the beings) */   /* (0.8.5) row 2: the breadcrumb (the track's engine and sound:
                                                          * the header's centre) */
     lz_blit(0, foot_y());

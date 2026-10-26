@@ -31,15 +31,21 @@ static struct {
     uint16_t fq;                                       /* the clock's fraction */
 } gd;
 
+static uint8_t gd_plain;                               /* (host tests: a strip on BG, to measure its words) */
+static int32_t gd_edged;                               /* (gd_edges: the panel's edges kept for that strip) */
 static int32_t bg_energy(void);                        /* (ui_being.c: the output's level, 0..256, slewed) */
 /* the motion clock: once a draw (ui_draw.c ui_draw) */
 static void gd_tick(void)
 {
     uint32_t dt = fm1_ms - gd.ms, d;
     gd.ms = fm1_ms;
+    if (!hud_home())                                    /* (Phase 3) still behind the other pages: their strips agree */
+        return;
+    gd_edged = 0;
     if (dt > 250u || (ui_prefs & PREF_ANIM_OFF))
         dt = 0;
-    gd.e = bg_energy();
+    if (dt)                                             /* (the level with the clock: a redraw at the same time, the same) */
+        gd.e = bg_energy();
     d = gd.fq + (dt * 1024u * (51u + 461u * (uint32_t)gd.e / 256u) / 1000u * MOTION_Q8[ui_motion & 3u] >> 8);
     gd.fq = (uint16_t)(d & 255u);
     gd.t += d >> 8;
@@ -259,6 +265,58 @@ static void gd_pebble(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t k, ui
     gd.x0 = 0; gd.y0 = 0; gd.y1 = (int32_t)cv_h;
     gd_poly(pt, 8, 1, c);
 }
+/* (Phase 3) a knob's pod: an acorn the card's size at x (its cap rows 0..10 burnt, under the label; its body mid-soil, the
+ * knob turned last orange, under the value and the gauge). What lies under the value */
+static uint16_t gd_pod(int32_t x, int32_t h, int hot)
+{
+    uint16_t pc = hot ? GD_ORANGE : 0xDE14u;            /* (dirt-lt: the soil's lightest, matte) */
+    cv_rrect(x + 3, 5, CARD_W - 6, h - 5, 12, GD_BURNT, 0xC50Fu);
+    cv_rrect(x + 4, 6, CARD_W - 8, h - 7, 11, pc, GD_BURNT);
+    cv_rrect(x, 0, CARD_W, 11, 5, GD_BURNT, 0xC50Fu);   /* (rows 0..10: the value's strip, from row 11, the body's) */
+    cv_rect(x + 3, 9, CARD_W - 6, 2, GD_BURNT);         /* (the cap's lip: square under, round over) */
+    return pc;
+}
+/* a panel's burnt edge (1 px, its corners round, r 7) on the canvas's BG: the ring only, not the whole card again */
+static void gd_ring(int32_t x, int32_t y, int32_t w, int32_t h)
+{
+    uint32_t i;
+    for (i = 0; i < 4u; i++) {
+        int32_t cx = i & 1u ? x + w - 14 : x, cy = i & 2u ? y + h - 14 : y;
+        cv_rrect(cx, cy, 14, 14, 7, GD_BURNT, GD_PBLUE);
+        cv_rrect(cx + 1, cy + 1, 12, 12, 6, T_BG, GD_BURNT);
+        cv_rect(i & 1u ? cx : cx + 7, cy, 7, 14, T_BG);   /* (the circle's halves inside the card: its corner's quarter left) */
+        cv_rect(cx, i & 2u ? cy : cy + 7, 14, 7, T_BG);
+    }
+    cv_rect(x + 7, y, w - 14, 1, GD_BURNT);
+    cv_rect(x + 7, y + h - 1, w - 14, 1, GD_BURNT);
+    cv_rect(x, y + 7, 1, h - 14, GD_BURNT);
+    cv_rect(x + w - 1, y + 7, 1, h - 14, GD_BURNT);
+}
+/* (Phase 3) the garden round a page's panel (the graph strip at gy, gh high: 3 px each side, a row over and under it, its
+ * corners): still on the pages, so worked out once with the frame (keep) and laid into each redraw of the panel (paste).
+ * gd_edged: kept for that strip (0: none, the scene whole under the panel) */
+#define GD_EDGE_N (3u * 2u * 150u + 234u * 2u + 4u * 49u)
+static uint16_t gd_edge[GD_EDGE_N] __attribute__((section(".pool")));
+static void gd_scene(int32_t x0, int32_t y0);
+static void gd_edges(int32_t gy, int32_t gh, int paste)
+{
+    const int32_t r[8][4] = {{0, 0, 3, gh}, {237, 0, 3, gh}, {3, 0, 234, 1}, {3, gh - 1, 234, 1},
+                             {3, 1, 7, 7}, {230, 1, 7, 7}, {3, gh - 8, 7, 7}, {230, gh - 8, 7, 7}};
+    uint32_t i, k, n = 0;
+    for (i = 0; i < 8u; i++) {
+        uint32_t w = (uint32_t)r[i][2], m = w * (uint32_t)r[i][3];
+        if (!paste) {
+            cv_begin(w, (uint32_t)r[i][3], T_BG);
+            gd_scene(r[i][0], gy + r[i][1]);
+        }
+        for (k = 0; k < m && n < GD_EDGE_N; k++, n++)
+            if (paste)
+                cv_px[((uint32_t)r[i][1] + k / w) * 240u + (uint32_t)r[i][0] + k % w] = gd_edge[n];
+            else
+                gd_edge[n] = cv_px[k];
+    }
+    gd_edged = paste ? gd_edged : gy * 256 + gh;
+}
 /* the soil's cell at x, y (3 px; y from 171): two octaves of noise, low contrast, a checker's nudge (Q8; without the
  * depth's darkening). Static: kept once worked out (.pool, 1.8 KB) */
 #define GD_SOIL_Y 171
@@ -341,14 +399,14 @@ static void gd_scene(int32_t x0, int32_t y0)
         }
     }
     if (gd.y0 < 192) {                                 /* 4. the rain: the level sets how many (23 of 130 .. all), the tempo how fast */
-        uint32_t thr = 11598u + 53938u * (uint32_t)e / 256u, sp = (uint32_t)song.g[G_BPM];
+        uint32_t thr = 11598u + 53938u * (uint32_t)e / 256u;
         for (i = 0; i < 130; i++) {
             uint32_t r = gd_h(i, 13);
             int32_t len, ry, rx;
             if (gd_h(i, 17) >= thr)
                 continue;
             len = 4 + (int32_t)(gd_h(i, 7) >> 14);
-            ry = (int32_t)(((gd_h(i, 5) * 186u >> 8) + t * ((70u + (gd_h(i, 3) * 60u >> 16)) * sp / 120u) / 4u) % (186u * 256u) >> 8);
+            ry = (int32_t)(((gd_h(i, 5) * 186u >> 8) + (gd.b >> 7) * (70u + (gd_h(i, 3) * 60u >> 16)) / 4u)   /* (the beats: a tempo change moves no drop) */ % (186u * 256u) >> 8);
             rx = (int32_t)(gd_h(i, 2) * 250u >> 16) - 5 - ry * 12 / 100;
             if (ry + len < gd.y0 || ry >= gd.y1)
                 continue;

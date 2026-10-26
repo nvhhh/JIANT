@@ -2919,10 +2919,20 @@ static uint32_t roll_diff(int32_t x0, int32_t y0, int32_t x1, int32_t y1, int in
 /* the mean row (x16) of the ink (not the card surface) in columns x0..x1-1, rows y0..y1-1 of a screen */
 static int32_t roll_ink_row(const uint16_t *s, int32_t x0, int32_t x1, int32_t y0, int32_t y1)
 {
-    int32_t x, y, n = 0, sum = 0;
+    int32_t x, y, n = 0, sum = 0, best = 0;
+    uint16_t surf = swap16(lz_low() ? T_BG : CARD_BG);   /* (0.8.5: a card RAISE; AIR: no box, BG) */
+    if (lz_low())                                       /* (GARDEN: the pod's body, the colour most of the strip is) */
+        for (y = y0; y < y1; y++)
+            for (x = x0; x < x1; x++) {
+                int32_t c = 0, i, j;
+                for (j = y0; j < y1; j++)
+                    for (i = x0; i < x1; i++)
+                        c += s[j * 240 + i] == s[y * 240 + x];
+                if (c > best) best = c, surf = s[y * 240 + x];
+            }
     for (y = y0; y < y1; y++)
         for (x = x0; x < x1; x++)
-            if (s[y * 240 + x] != swap16(lz_low() ? T_BG : CARD_BG)) { n++; sum += y * 16; }   /* (0.8.5: a card RAISE; AIR: no box, BG) */
+            if (s[y * 240 + x] != surf) { n++; sum += y * 16; }
     return n ? sum / n : -1;
 }
 static int roll_static_now(void)                  /* the screen is the static render (a forced redraw changes nothing) */
@@ -3012,8 +3022,10 @@ static int test_roll(void)
         x0 = g.sx0; x1 = g.sx1;
         n = roll_diff(x0, 0, x1, H_HEAD, 1);
         ok &= n > 20u && roll_diff(x0, 0, x1, H_HEAD, 0) == roll_diff(STRIP(0), 1);   /* (+ the card's strip) */
-        ok &= roll_diff(g.bx, 0, g.bx + text_w(&AF_M, "12"), H_HEAD, 1) == 0;   /* (0.8.5: the BPM in S; 0.8.9 in M) */
-        ok &= x0 < g.bx && x1 <= 140 && x1 - x0 <= 40;
+        ok &= roll_diff(g.bx, 0, g.bx + text_w(&AF_M, "12") - (hud_home() || gd_back() ? 2 : 0), H_HEAD, 1) == 0;   /* (0.8.5:
+                                                         * the BPM in S; 0.8.9 in M; GARDEN: on the garden the rolling digit's
+                                                         * 2 px outline reaches into the 2's box) */
+        ok &= x0 < g.bx && x1 <= HEAD_LOAD_X && x1 - x0 <= 40;   /* (GARDEN: the BPM at the right, by the load) */
     }
     ok &= roll_diff(CARD_X(0), (int32_t)card_y() + ROLL_Y, CARD_X(0) + 5 + text_w(&AF_M, "12"), (int32_t)card_y() + ROLL_Y + ROLL_H, 1) == 0;
     /* TUNE 10 -> 11 on a card: the 1 stays */
@@ -3588,17 +3600,17 @@ static int test_product_ux(void)
     led_pos_init();
     ok = 1;
     for (p = 0; p < NPALETTES; p++) for (b = 0; b < 1u; b++) {
-        uint16_t graph[240 * H_GRAPH], columns[240 * (Y_SEP_END - Y_LABEL)];
+        static uint16_t graph[240 * 240], columns[240 * 64];
         ui_power_on(); palette_set(p); settings.zoom = 1;
         open_family(FAM_ENV); frame();
-        uint32_t gy = lz_on() ? LZ_GRAPH_Y : Y_GRAPH;   /* (0.8.5: ENV a lens, its panel under the cards' 38 px) */
-        memcpy(graph, host_screen + gy * 240, sizeof graph);
-        memcpy(columns, host_screen + Y_LABEL * 240, sizeof columns);
+        uint32_t gy = graph_y(), gh = graph_h(), cy = card_y(), ch = card_h();   /* (GARDEN: the pods under the panel) */
+        memcpy(graph, host_screen + gy * 240, gh * 480u);
+        memcpy(columns, host_screen + cy * 240, ch * 480u);
         ui.hot_col = 1; ui.hot_t = 40; ui.force = 1; ui_draw();
-        ok &= !memcmp(graph, host_screen + gy * 240, sizeof graph);
+        ok &= !memcmp(graph, host_screen + gy * 240, gh * 480u);
         int changed = 0;
-        for (uint32_t y = 0; y < Y_SEP_END - Y_LABEL; y++) for (uint32_t x = 0; x < 240; x++) {
-            uint16_t old = columns[y * 240 + x], now = host_screen[(Y_LABEL + y) * 240 + x];
+        for (uint32_t y = 0; y < ch; y++) for (uint32_t x = 0; x < 240; x++) {
+            uint16_t old = columns[y * 240 + x], now = host_screen[(cy + y) * 240 + x];
             if (x >= (uint32_t)CARD_X(1) && x < (uint32_t)(CARD_X(1) + CARD_W)) changed |= old != now;   /* (0.8.9 COLORS: the
                                                          * card framed in its knob's colour, edge to edge) */
             else ok &= old == now;
@@ -5357,20 +5369,25 @@ static int test_bughunt_ui2(void)
         bad += check("NAME: PLAY stops a running transport (never starts), REC ignored, then OCT+ saves", ok);
     }
     {   /* 6. the piano roll's lowest C name ("C-1") stays inside the panel: nothing drawn left of x 3 */
-        uint32_t p, x, y, out = 0;
-        uint16_t bg;
-        for (p = 0; p < NPALETTES; p++) {
+        uint32_t p, x, y, out = 0, r;
+        static uint16_t m0[240 * 3];
+        for (p = 0; p < NPALETTES; p++) for (r = 0; r < 2u; r++) {   /* (GARDEN: left of the panel the garden: the same
+                                                         * with C-1 shown as with a range that has no label there) */
             track_t *t;
-            uint8_t lo = 0, hi = 127;
+            uint8_t lo = r ? 60 : 0, hi = r ? 72 : 127;
             ui_power_on(); t = TSEL; track_defaults_steps(t); t->p[P_SLEN] = 16;
             settings.palette = (uint8_t)p; palette_set(p);
             t->step[0].time = t->step[5].time = ST_NOTE; t->step[0].n = t->step[5].n = 1;
             t->step[0].note[0] = lo; t->step[5].note[0] = hi;
             go_page(GR_ROLL); cursor_set(0); ui.force = 1; frame(); frame();
-            bg = (uint16_t)((T_BG >> 8) | (T_BG << 8));
-            for (y = Y_GRAPH; y < Y_GRAPH + H_GRAPH; y++)
-                for (x = 0; x < 3u; x++)
-                    out += host_screen[y * 240u + x] != bg;
+            for (y = graph_y(); y < graph_y() + graph_h(); y++)
+                for (x = 0; x < 3u; x++) {
+                    uint16_t *m = &m0[(y - graph_y()) * 3u + x];
+                    if (r)
+                        out += host_screen[y * 240u + x] != *m;
+                    else
+                        *m = host_screen[y * 240u + x];
+                }
         }
         bad += check("piano roll: the C-1 label stays inside the panel (every palette)", !out);
     }
@@ -6910,7 +6927,7 @@ static int test_save_lens(void)
     go_home(); frame();
     press(B_SAVE); frame();
     ok = save_on() && save_level() == SV_SOUND && cur_page()->graph == GR_USER && ui.act == 4u && lz_on() &&
-         card_y() == LA_CARD_Y && graph_y() == LA_GRAPH_Y && foot_y() == LZ_FOOT_Y && lz_tab_lit(0) &&   /* (AIR) */
+         card_y() == LB_CARD_Y && graph_y() == LB_GRAPH_Y && foot_y() == LZ_FOOT_Y && lz_tab_lit(0) &&   /* (GARDEN: the pods along the bottom) */
          lz_crumb_is("SAVE \xB7 SOUND \xB7 USER") && lz_count_is("1/6");
     bad += check("0.9.2 SAVE from HOME at power-on: SOUND's USER, SAVE armed; the tabs (SOUND lit), the crumb, 1/6", ok);
     bad += check("0.9.2 SAVE: one chain USER PRESETS SECTIONS ARRANGE PROJECTS TOOLS; a SAVE tap the next group, round",
@@ -6940,9 +6957,9 @@ static int test_save_lens(void)
     press(B_OCTDN); frame();
     ok &= !name_on() && lz_on();
     btn_down(B_GLO); frames(800);                                            /* (0.8.5) a layer: its own lens */
-    ok &= ui.layer && lz_on() && lz_fam() == LZ_LAYER && card_y() == LZ_CARD_Y;
+    ok &= ui.layer && lz_on() && lz_fam() == LZ_LAYER && card_y() == LB_CARD_Y;
     btn_up(B_GLO); frame(); frame();
-    ok &= !ui.layer && lz_on() && card_y() == LZ_CARD_Y;
+    ok &= !ui.layer && lz_on() && card_y() == LB_CARD_Y;   /* (GARDEN: the pods along the bottom) */
     bad += check("SAVE: the NAME screen keeps its own layout, a layer's map is its own lens (0.8.5)", ok);
     ui_power_on();
     return bad;
@@ -7028,7 +7045,7 @@ static int test_lente(void)
         go_title("TRACK"); frame();
         page_title(ti);
         ok &= str_eq(ti, "TRACK 1/2");
-        ok &= card_y() == LA_CARD_Y && graph_y() == LA_GRAPH_Y && foot_y() == LZ_FOOT_Y && card_h() == LB_CARD_H;   /* (AIR) */
+        ok &= card_y() == LB_CARD_Y && graph_y() == LB_GRAPH_Y && foot_y() == LZ_FOOT_Y && card_h() == LB_CARD_H;   /* (GARDEN: the pods along the bottom) */
     }
     bad += check("0.9.2 SEQ: the page's title within its group (\"COMP 2 2/2\"); the tabs on top, the page under them", ok);
     /* the tools layer and the dice on every page */
@@ -7785,7 +7802,7 @@ static int test_fx_sections(void)
     bad += check("0.9.2 FX: one chain of 16 (TRK BUS DLY REV CHO SLC MST PCH) by SELECT, no wrap; an FX tap each group's first, round",
                  chain_walk(B_FX, CH, 16, TP, 7));
     ui_power_on(); go_home(); frame(); press(B_FX); frame();
-    ok = fx_on() && fx_level() == FXL_TRACK && lz_on() && card_y() == LZ_CARD_Y && lz_tabs() == 8u && lz_tab_lit(0) &&
+    ok = fx_on() && fx_level() == FXL_TRACK && lz_on() && card_y() == LB_CARD_Y && lz_tabs() == 8u && lz_tab_lit(0) &&
          lz_crumb_is("FX \xB7 TRACK \xB7 SENDS") && lz_count_is("1/16");
     turn(EN_SELECT, 3); frame();
     ok &= fx_level() == FXL_BUSES && cur_page()->graph == GR_BUSES && lz_tab_lit(1) && lz_crumb_is("FX \xB7 BUSES \xB7 BUSES");
@@ -9868,7 +9885,7 @@ static int test_large(void)
     song.playing = 0;
     pre_prefs = ui_prefs;
     frame();
-    ok = !(ui_prefs & PREF_LARGE) && large_kind() == LK_OFF && card_h() == LB_CARD_H && graph_y() == LA_HOME_GRAPH_Y;   /* (HOME's AIR layout, the one layout now: was COLORS' lens) */
+    ok = !(ui_prefs & PREF_LARGE) && large_kind() == LK_OFF && card_h() == LB_CARD_H && graph_y() == LB_GRAPH_Y - 1u;   /* (HOME: the pods along the bottom, the scene above them; was AIR's) */
     /* (HOME's
                                                          * lens) */
     ok &= str_eq(MI_NAME[MI_LARGE], "LARGE") && menu_flag(MI_LARGE) &&
@@ -9950,7 +9967,9 @@ static int test_large(void)
         q = p;
         ok &= settings_import(&q, (int)sizeof q) == 1 && !(ui_prefs & ~PREF_ACCEL_OFF);
         ui.force = 1; frame();
-        ok &= large_kind() == LK_OFF && lg_px(30, lz_on() ? LZ_CARD_Y - 1 : Y_SEP_END + 1) == T_BG;   /* (0.8.5: a lens) */
+        ok &= large_kind() == LK_OFF && (lz_on() ? card_y() == LB_CARD_Y && card_h() == LB_CARD_H :   /* (GARDEN: the off
+                                                         * layout's pods along the bottom, the garden round them) */
+                                         lg_px(30, Y_SEP_END + 1) == T_BG);   /* (0.8.5: a lens) */
         bad += check("#15 LARGE saved with the settings; settings from before it: OFF (idempotent)", ok);
     }
     ui_prefs = 0;
@@ -10334,8 +10353,27 @@ static int test_head_centres(void)
                 settings.palette = p; palette_set(p);
                 head_state(s);
                 memset(host_screen, 0, sizeof host_screen);
+                gd_plain = 1;                           /* (GARDEN: the line measured on BG, not on the garden) */
                 ui.force = 1; draw_head(); ui.force = 0;
+                gd_plain = 0;
                 ok &= head_centres(HS_NAME[s], pr);
+                if (gd_back()) {                        /* (GARDEN) the breadcrumb / the message from x 6, the track's pebble,
+                                                         * the play state, the BPM by the load; the load, the battery */
+                    head_geo_t g;
+                    char bb[8];
+                    fmt_int(bb, song.g[G_BPM]);
+                    head_geo(&g, bb);
+                    okp = nhel > 3 && hel[0][0] >= 6 && hel[0][0] <= (msg || s == HS_GLO_TURN ? 12 : 6) && head_span2(g.mx0, g.mx1, &a, &b) && a == g.mx0 &&
+                          head_span2(g.mx0 - 18, g.mx0 - 3, &a, &b) && head_span2(g.bx, HEAD_LOAD_X - 5, &a, &b) &&
+                          head_span2(0, g.mx0 - 18, &a, &b) && b < g.mx0 - 17 - 4;
+                    okp &= head_span2(HEAD_BAT_X, 239, &a, &b) && a >= 222 && b <= 234;
+                    okp &= head_span2(HEAD_LOAD_X, HEAD_BAT_X - 1, &a, &b) && a >= HEAD_LOAD_X && b <= 218;
+                    okp &= !head_span2(HEAD_LOAD_X - 5, HEAD_LOAD_X - 1, &a, &b);
+                    if (pr && !okp) printf("    head %s: misplaced\n", HS_NAME[s]);
+                    place &= okp;
+                    head_clear();
+                    continue;
+                }
                 okp = nhel > 1 && hel[0][0] == HEAD_TK_X && hel[1][0] == HEAD_TR_X;   /* (0.8.9) the track's box first (4),
                                                          * the play state then, its ink from x 22 */
                 if (s != HS_GLO_TURN) {                /* the battery last, in its outline; the load before it */
@@ -10363,7 +10401,8 @@ static int test_head_centres(void)
      
     bad += check("header: every element's ink centred on row 11 (+-1 px) over its LINE rule, every state, FLAT and LINE, every palette", ok);
     bad += check("header: the track's box at 4, play state at 22, the centre / a message on x 120, octave to 196, load 200..218, battery 222..234 "
-                 "(GLO with the tempo turned: the label right of the BPM and its lock)", place);
+                 "(GLO with the tempo turned: the label right of the BPM and its lock; GARDEN: the breadcrumb / a message from x 6, "
+                 "the track's pebble, the play state and the BPM by the load)", place);
     ui_power_on();
     return bad;
 }
@@ -10810,9 +10849,9 @@ static int test_lz_mod(void)
     {
         static uint16_t a[240 * 140];
         frames(1600);                                               /* (any toast gone) */
-        memcpy(a, host_screen + LZ_GRAPH_Y * 240, sizeof a);
+        memcpy(a, host_screen + graph_y() * 240, sizeof a);
         frames(160);
-        ok &= memcmp(a, host_screen + LZ_GRAPH_Y * 240, sizeof a) != 0;   /* (the pulse along slot 1's curve) */
+        ok &= memcmp(a, host_screen + graph_y() * 240, sizeof a) != 0;   /* (the pulse along slot 1's curve; GARDEN: the panel from row 42) */
     }
     bad += check("0.9.2 LFO > MOD: KNOB 1 the slot (PRESETS a sound, was the slot); the net's pulse runs", ok);
     ui_power_on();
