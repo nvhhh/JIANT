@@ -478,12 +478,17 @@ static void gd_plants(uint32_t sc)
         h = (16 + lvl * 40 / 1000) * 3 / 2;
         gd_tulip(120, gd_gy(120) / 16 + 1, h, (gd_s(gd_pl.t * 20u) * (16 + e / 8)) >> 8, st == 1 ? 1 : st == 2 ? 3 : 4,
                  lvl * 256 / 1000, 1, st >= 4 ? 300 : 384, GD_BURNT);
-    } else if (sc == GS_LFO) {                          /* the wind: the LFO's value bends every tulip */
-        int32_t w = t->lfo_val * 160 >> 15;
+    } else if (sc == GS_LFO) {                          /* the wind: the LFO's wave bends every tulip, at half its rate
+                                                         * (the owner: half as fast, the LFO's shape kept) */
+        static uint32_t lp, hp;
+        int32_t w;
+        hp += (t->lfo_ph - lp) / 2u;
+        lp = t->lfo_ph;
+        w = mulq15(lfo_wave((track_t *)t, hp), t->lfo_fade) * 160 >> 15;
         for (i = 0; i < 6; i++) {
             int32_t x = 20 + i * 40;
-            uint32_t ph = (gd_pl.b / 16u + (uint32_t)i * 8978u) & 65535u;   /* (16 beats a life, each its own start) */
-            gd_tulip(x, gd_gy(x) / 16 + 1, 16 + (int32_t)(ph * 40u >> 16), w + (gd_s(gd_pl.t * 20u + (uint32_t)i * 9000u) * 8 >> 8),
+            uint32_t ph = (gd_pl.b / 32u + (uint32_t)i * 8978u) & 65535u;   /* (32 beats a life, each its own start) */
+            gd_tulip(x, gd_gy(x) / 16 + 1, 16 + (int32_t)(ph * 40u >> 16), w + (gd_s(gd_pl.t * 10u + (uint32_t)i * 9000u) * 8 >> 8),
                      1 + (int32_t)(ph >> 14), (int32_t)(ph >> 8), (uint32_t)x, 230, i & 1 ? GD_BLUE : GD_BURNT);
         }
     } else if (sc == GS_FX) {                           /* the stream: its ripples run with the sends and the level */

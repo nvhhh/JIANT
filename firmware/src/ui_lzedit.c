@@ -5,7 +5,7 @@
  * lens's panel (240 x 140, x 4..236).
  *   SOUND   (EDIT 1 / EDIT 2 of a synth) the engine's being on the left (graph_being's, alive with the sound), the
  *           engine's page name over it and the sound's name under it; on the right the scope in a well and the eight
- *           E parameters as chips, the page's four lit. DRUM's KIT keeps its colony (graph_colony)
+ *           E parameters as chips, the page's four lit. DRUM's KIT draws its kit (ui_graph.c)
  *   FILTER  the response of TYPE at CUT with RES (LP HP BP COMB), CUT a line, DRIVE a row of cells
  *   VOICE   the track's voices one a row, each as full as its envelope now; VOICE and PRIO (VOICE 2: ALLOC); GLIDE's
  *           curve

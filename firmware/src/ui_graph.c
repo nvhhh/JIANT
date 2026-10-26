@@ -123,12 +123,12 @@ static void graph_adsr(const track_t *t, uint16_t c)
 #undef EGY
 }
 
-/* LFO: the wave as it runs (JIANT 0.5): the phase now at the playhead (a quarter in), two cycles across, scrolling
- * at the LFO's own rate; behind the playhead dimmer (what it played), the level now a dot, its depth after FADE */
+/* LFO: the wave as it runs (JIANT 0.5): the phase now at the playhead (a quarter in), four cycles across (GARDEN, the
+ * owner: two scrolled too fast to follow; a cycle half as wide moves half as fast, still on the LFO's time); behind the playhead dimmer (what it played), the level now a dot, its depth after FADE */
 static void graph_lfo(const track_t *t, uint16_t c)
 {
     int32_t x, cy = graph_ht / 2, a = 38 * graph_ht / 100, py = cy, xp = PANEL_W / 4;
-    uint32_t span = 0xFFFFFFFFu / (PANEL_W / 2u), ph = t->lfo_ph - (uint32_t)xp * span;
+    uint32_t span = 0xFFFFFFFFu / (PANEL_W / 4u), ph = t->lfo_ph - (uint32_t)xp * span;
     int32_t now = cy - mulq15(t->lfo_val, t->lfo_fade) * a / 32768;
     cv_rect(PANEL_X0, cy, PANEL_W, 1, T_RAISE);
     for (x = 0; x < PANEL_W; x++) {                  /* (lfo_wave only reads the track) */
@@ -1221,7 +1221,7 @@ static uint32_t graph_signature(void)
     }
     if (pg->graph == GR_DXIMG)                       /* (0.6.48) IMAGE and how wide it plays */
         h = (h ^ ((uint32_t)t->p[P_DXIMG] << 16 | (uint32_t)dx_img_k(t))) * 16777619u;
-    if (DX_KIT3(pg))                                 /* (0.8.8) KIT 3's colony lives every frame, as KIT's (was still) */
+    if (DX_KIT3(pg))                                 /* (0.8.8) KIT 3's kit lives every frame, as KIT's (was still) */
         h ^= ui.frame * 2654435761u;
     if (pg->graph >= GR_FMOP && pg->graph <= GR_FMENV)   /* (0.9.6) FM6's operators: the colony lives, as the beings */
         h ^= ui.frame / 2u * 2246822519u;
@@ -1798,9 +1798,10 @@ static void scope_at(int32_t x0, int32_t pw, int32_t cy, int32_t a, uint16_t c)
 {
     static int16_t snap[SCOPE_N];
     uint32_t w = scope_w, i, trig = 0;
-    int32_t py = cy, x, peak = 750;                   /* (GARDEN: the floor halved, quiet music twice as tall) */
+    int32_t py = cy, x, peak = 750, k = scope_k();    /* (GARDEN: the floor halved, quiet music twice as tall; MASTER
+                                                         * taken out: scope_k) */
     for (i = 0; i < SCOPE_N; i++) {
-        snap[i] = scope_buf[(w + i) & (SCOPE_N - 1u)];
+        snap[i] = (int16_t)scope_s(scope_buf[(w + i) & (SCOPE_N - 1u)], k);
         if (snap[i] > peak)
             peak = snap[i];
         else if (-snap[i] > peak)
@@ -2081,10 +2082,10 @@ static void draw_graph(void)
         case GR_MORPH:
             graph_morph(t);
             break;
-        case GR_DXIMG:                               /* (0.6.58) KIT 3: the colony; STEREO: IMAGE */
+        case GR_DXIMG:                               /* (0.6.58) KIT 3: the kit's pieces; STEREO: IMAGE */
             if (DX_KIT3(pg)) {
                 cv_oy = 0;
-                graph_colony(t, -1);
+                vx_kit_page(t, -1);
             } else
                 graph_dximg(t);
             break;
@@ -2110,10 +2111,7 @@ static void draw_graph(void)
             break;
         case GR_DXSND:                               /* EDIT > SOUND: the kit's lanes, the sound edited singled out */
             cv_oy = 0;
-            if (pg->title[0] == 'S')                 /* (0.9.4) SOUND 1..4: the drum kit, the sound edited lit (ui_engvis.c) */
-                vx_kit_page(t, (int32_t)(dx_ui_lane & 7u));
-            else
-                graph_colony(t, dx_ui_lane);
+            vx_kit_page(t, (int32_t)(dx_ui_lane & 7u));   /* (GARDEN) the kit's pieces, the sound edited lit (ui_engvis.c) */
             break;
         case GR_LYRIC:                               /* (0.8.5) EDIT > WORDS: what VOICE sings */
             graph_sing(t);
@@ -2126,10 +2124,10 @@ static void draw_graph(void)
             if (pg->scope == SC_ENGINE && trk_eng(t) == ENGI_DRUM) {   /* (0.8.5: WHEEL's and FM6's EDIT 1
                                                       * and 2 their beings, as every synth's: EDIT's lens, SOUND) */
                 cv_oy = 0;
-                if (pg->id[0] == P_E0)               /* (0.9.4) KIT: the kit's beings (ui_engvis.c); KIT 2 the colony */
-                    vx_kit_page(t, -1);
+                if (pg->id[0] == P_E0)               /* (GARDEN) KIT: the BEING's kit; KIT 2 its pieces (ui_engvis.c) */
+                    vx_draw(t, 4, 2, 232, (int32_t)cv_h - 4, -1);
                 else
-                    graph_colony(t, -1);
+                    vx_kit_page(t, -1);
             }
 #if FELUCCA_FM4
             else if ((pg->scope == SC_ENGINE || pg->id[0] == P_FM1_LEVEL) && trk_eng(t) == ENGI_DIGITAL)

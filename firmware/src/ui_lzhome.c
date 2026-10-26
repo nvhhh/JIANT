@@ -257,10 +257,22 @@ static void eco_garden(void)
 {
     int32_t e = gd_pl.e, k = 256 + e * 3 / 8, i;
     uint32_t t = gd_pl.t;
+    static uint8_t at;                                  /* (the owner: the track's tulip, a new one each hit) */
+    static uint16_t hm;
+    {
+        uint32_t s = song.sel % trk_live, n = trk_live < 3u ? trk_live : 3u;
+        if (trk[s].peak && meter_px(trk[s].peak) > ts.meter[s] + 2 && (uint16_t)((uint16_t)fm1_ms - hm) > 120u && n > 1u) {
+            at = (uint8_t)((at + 1u + (gd_h((int32_t)fm1_ms, 29) >> 15 & 1u) % (n - 1u)) % n);   /* (another of the three, at random) */
+            hm = (uint16_t)fm1_ms;
+        }
+        if (at >= n)
+            at = 0;
+    }
     for (i = 0; i < 3 && i < (int32_t)trk_live; i++) {   /* (the mockup's HOME) a tulip for the track and the next two:
                                                          * as tall as its LEVEL, its cup open with its meter, a leaf
-                                                         * more each 4 beats of its 16 */
-        uint32_t c = (song.sel + (uint32_t)i) % trk_live, ph = (gd_pl.b / 16u + (uint32_t)i * 21845u) & 65535u;
+                                                         * more each 4 beats of its 16; the track's own tulip moves */
+        uint32_t n = trk_live < 3u ? trk_live : 3u, c = (song.sel + ((uint32_t)i + n - at) % n) % trk_live,
+                 ph = (gd_pl.b / 16u + (uint32_t)i * 21845u) & 65535u;
         int32_t x = 52 + i * 68, m = trk[c].p[P_MUTE] ? 0 : meter_px(trk[c].peak);
         trk[c].peak = 0;
         if (m < ts.meter[c] - 1)
@@ -269,7 +281,7 @@ static void eco_garden(void)
         m = ts.meter[c];
         gd_tulip(x, gd_gy(x) / 16 + 1, 18 + (int32_t)trk_level(c) * 26 / 127 + m * 12 / (TS_MH - 2),
                  (gd_s(t * 20u + (uint32_t)i * 9000u) * (8 + m / 2)) >> 8, 1 + (int32_t)(ph >> 14), 64 + m * 192 / (TS_MH - 2),
-                 c, 280, trk[c].p[P_MUTE] ? GD_MID : i == 0 ? GD_ORANGE : i == 1 ? GD_BLUE : GD_BURNT);
+                 c, 280, trk[c].p[P_MUTE] ? GD_MID : c == song.sel % trk_live ? GD_ORANGE : (c + trk_live - song.sel % trk_live) % trk_live == 1u ? GD_BLUE : GD_BURNT);
     }
     {                                                   /* the mushroom: a pale stem, a burnt cap with spots */
         int32_t x = 72 * 16, y = gd_gy(72), r = 160 * k / 256, q[8] = {x - 40, y, x - 32, y - 160, x + 32, y - 160, x + 40, y};
@@ -325,6 +337,7 @@ static void draw_xy(void)
 {
     static uint32_t xy_ms;
     uint32_t pass, k, w = scope_w;
+    int32_t sk = scope_k();
     uint16_t bg = T_TEXT, ax = ux_mix(T_TEXT, T_SURF, 45);
     if (!ui.force && fm1_ms - xy_ms < 66u)              /* (15 a second) */
         return;
@@ -353,7 +366,7 @@ static void draw_xy(void)
         cv_text(22, 226, &AF_X, "X-Y \xB7 L / R", ax);
         for (k = 0; k < SCOPE_N; k++) {                 /* the trace, oldest first */
             uint32_t i = (w + k) & (SCOPE_N - 1u);
-            int32_t L = scope_buf[i], R = scope_r[i], px, py, s = k + 1u == SCOPE_N ? 4 : 2;
+            int32_t L = scope_s(scope_buf[i], sk), R = scope_s(scope_r[i], sk), px, py, s = k + 1u == SCOPE_N ? 4 : 2;
             px = 120 + ((R - L) * 170 >> 14);           /* (twice the first gain: quiet music filled too little) */
             py = 120 - ((L + R) * 170 >> 14);
             px = clamp(px, 2, 236);

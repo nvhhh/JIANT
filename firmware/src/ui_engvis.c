@@ -7,7 +7,7 @@
  * piece moves with its lane); VOICE a singing flower; ANIMAL a ladybird; LOFI an apple orbiting its dotted path; ANALOG an
  * orange being with a face; FM6 five fuzzy flowers; PHASE a black hole and its rings; WHEEL a barn wheel rolling; NOISE
  * a galaxy, its sun and planets; SHRUB pixel bushes. Engines without their own (DIGITAL): ANIMAL's ladybird.
- * The pages: DRUM-X's KIT / SOUND a ring of eight mushroom caps, each jumping on its lane's hit (vx_kit_page); FM6's
+ * The pages: DRUM-X's KIT 2 / KIT 3 / SOUND the kit's eight pieces, each moving with its lane (vx_kit_page); FM6's
  * operator pages the fern, a frond pair an operator, its length the operator's level (vx_fm6_page, vx_fm6env).
  * (Retired with Phase 5: the 0.9.4 .. 0.9.12 creatures, the tract, the kit's beings, the colony's FM6, MOTION's
  * jellyfish.) */
@@ -408,29 +408,88 @@ static int vx_draw(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t h,
     gd.y1 = y1;
     return 1;
 }
-/* DRUM-X's KIT (lane -1) and SOUND 1..4 (lane): a ring of eight mushroom caps on stems, each jumping on its lane's hit,
- * the sound edited blue, a muted lane's cap pale; KIT over it on the left, the sound (struck last / edited) on the right */
+/* (GARDEN, the owner: the kit's pieces as its beings, the colony's blobs and the mushrooms retired) one lane's piece of
+ * the BEING's kit (vx_drum) about the cell's centre, its level e: the kick, the snare, the clap's hands, the hi-hats
+ * (shut, open), the tom, the rim, the bell; a muted lane's in GD_MID */
+static void vx_piece(uint32_t l, int32_t e, int mute)
+{
+    int32_t i;
+#define PC(c) (mute ? GD_MID : (c))
+    switch (l) {
+    case VK_KICK: {
+        int32_t ky = 1728 - e * 128 / 256, q[8] = {1536, ky, 2304, ky, 2304, ky + 544, 1536, ky + 544};
+        cr_quad(q, PC(GD_ORANGE));
+        cr_blob(1920, ky + 272, 352 + e * 96 / 256, 9, PC(GD_SURF), 7, 230, 230);
+        cr_blob(1920, ky + 272, 128 + e * 64 / 256, 7, PC(GD_BURNT), 8, 256, 256);
+        break;
+    }
+    case VK_SNARE:
+        cr_shell(1920 + vx_s((uint32_t)fm1_ms * 90u, e * 32 / 256), 1904 - e * 64 / 256, 640 + e / 3, 288, PC(GD_SURF), e);
+        cr_line(1600, 1760, 1792, 1888 - e * 64 / 256, 32, PC(GD_INK));   /* its stick */
+        break;
+    case VK_CLAP:                                        /* two hands meeting on the hit */
+        i = 224 - e * 160 / 256;
+        cr_leaf(1920 - i, 2048, 12000u, 352, 176, PC(GD_ORANGE));
+        cr_leaf(1920 + i, 2048, 20768u, 352, 176, PC(GD_BURNT));
+        break;
+    case VK_HATC:
+    case VK_HATO: {
+        int32_t up = l == VK_HATO ? 96 + e * 64 / 256 : 0, sh = l == VK_HATC ? e * 48 / 256 : 0;
+        vx_stem(1920, 1872, 2336, 64, 0, l);
+        cr_blob(1920, 1808 - up + sh, 256 + e / 4, 8, PC(GD_ORANGE), 1, 256, 77);
+        cr_blob(1920, 1872, 256, 8, PC(GD_PBLUE), 2, 256, 77);
+        break;
+    }
+    case VK_TOM:
+        cr_shell(1920, 1856 - e * 64 / 256, 704 + e / 4, 352, PC(GD_BLUE), e);
+        break;
+    case VK_RIM:
+        cr_shell(1920, 1952, 640, 224, PC(GD_BURNT), e);
+        cr_line(1504, 1856 - e * 96 / 256, 2336, 2016, 32, PC(GD_INK));   /* the stick across the rim */
+        break;
+    default:                                             /* the bell: a cymbal swinging and ringing */
+        vx_stem(1920, 1760, 2336, 64, 0, 3u);
+        cr_blob(1920 + vx_s((uint32_t)fm1_ms * 60u, e * 64 / 256), 1712 - e * 96 / 256, 304 + e / 3, 8, PC(GD_PBLUE), 3, 256,
+                77 + e / 8);
+        break;
+    }
+#undef PC
+}
+/* DRUM-X's KIT 2 / KIT 3 (lane -1: MORPH's bar over it) and SOUND 1..4 (lane, lit): the eight pieces, 4 x 2, each moving
+ * with its lane's hit, its name under it; the kit swelling on the beat */
 static void vx_kit_page(const track_t *t, int32_t lane)
 {
     char b[16];
-    int32_t e[8], i;
+    int32_t e[8], i, sw;
     uint32_t l;
     vx_lanes(t, e);
-    cr.cx = 120 * 16; cr.cy = 74 * 16; cr.s = 256;
     gd.x0 = 0; gd.y0 = -cv_oy; gd.y1 = (int32_t)cv_h - cv_oy;
+    sw = vx_sw(1u, 1u, 0u, 16, 0, 0);
     for (i = 0; i < 8; i++) {
-        uint32_t a = (uint32_t)i * 8192u + 49152u;
-        int32_t hit = e[i], x = 1920 + vx_s(a + 16384u, 992), y = 2000 + vx_s(a, 560) - hit * 96 / 256;
-        cr_line(x, y + 160, x, y + 352, 32, GD_INK);
-        cr_blob(x, y, 112 + hit * 48 / 256, 7, i == lane ? GD_BLUE : dx_lane_muted((uint32_t)i) ? GD_SURF : i & 1 ? GD_ORANGE : GD_BURNT,
-                (uint32_t)i, 333, 205);
+        int32_t x = 33 + (i & 3) * 58, y = 48 + (i >> 2) * 50, mute = dx_lane_muted((uint32_t)i);
+        cr.s = 165 * sw / 256;
+        cr.cx = x * 16;
+        cr.cy = (y - 2) * 16 + (2336 - 2000) * (165 - cr.s) / 256;   /* (swelling from its foot) */
+        vx_piece((uint32_t)i, e[i], mute);
+        cv_text_in(x - 18, y + 16, 36, &AF_X, drum_lane_abbr(t, (uint32_t)i),
+                   i == lane ? T_THEME : mute ? T_DIM : T_MID, T_SURF);
+        if (i == lane)
+            cv_rect(x - 8, y + 25, 16, 2, T_THEME);
     }
-    l = lane < 0 ? vxs.last & 7u : (uint32_t)lane & 7u;
+    if (lane < 0) {                                      /* MORPH: A .. B (0.5.1: X-MOD live) */
+        int32_t morph = clamp(t->p[P_E0] + dx_mot_v, 0, 127), mx = 30 + morph * 180 / 127;
+        cv_rect(30, 10, 180, 1, T_LINE);
+        cv_rect(30, 9, mx - 30, 3, GD_ORANGE);
+        cv_text(12, 6 - AF_X_CAP_Y, &AF_X, "A", morph < 64 ? T_THEME : T_DIM);
+        cv_text_r(226, 6 - AF_X_CAP_Y, &AF_X, "B", morph >= 64 ? T_THEME : T_DIM, T_SURF);
+        return;
+    }
+    l = (uint32_t)lane & 7u;
     str_cpy(b, drum_lane_abbr(t, l), sizeof b);
     str_cpy(b + str_len(b), " \xB7 ", sizeof b - str_len(b));
     str_cpy(b + str_len(b), drum_lane_name(t, l), sizeof b - str_len(b));
     cv_text(8, 6 - AF_X_CAP_Y, &AF_X, "KIT", T_THEME);
-    cv_text_r(232, 6 - AF_X_CAP_Y, &AF_X, b, lane < 0 ? T_TEXT : T_THEME, T_BG);
+    cv_text_r(232, 6 - AF_X_CAP_Y, &AF_X, b, T_THEME, T_BG);
 }
 /* FM6's OPERATOR / OPERATOR 2 / OP ENV: the fern, a frond pair an operator (OP 1 at the foot), its length the
  * operator's level (with its envelope while it sounds), the operator shown orange; the small tulip on top */
