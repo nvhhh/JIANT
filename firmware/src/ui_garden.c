@@ -40,7 +40,7 @@ static int32_t bg_energy(void);                        /* (ui_being.c: the outpu
  * own seconds: the old paces, 18 .. 120 times that with the level, ran faster than the frames and strobed), times
  * BPM / 120; stopped, all stands still but a slow breath (gd_pulse). gd_bt: the beats themselves (Q16), the pulses'
  * clock; gd_br: the breath's (Q16, a turn in ~6 s, MOTION's rate) */
-static uint32_t gd_bt, gd_br;
+static uint32_t gd_bt, gd_br, gd_mill;                /* (gd_mill: the sails' turn, 65536 a turn) */
 static uint8_t gd_run;                                 /* the music on (gd_tick): the clocks running */
 static int32_t gd_s(uint32_t ph);
 static int32_t gd_pulse(uint32_t num, uint32_t den, uint32_t off);
@@ -48,6 +48,7 @@ static int32_t gd_gp;                                  /* (HOME) the beat's puls
 /* the hops' share of the beats (a right shift: a hop every 2 or 8 beats): HOME (ECO) every 8; BEING, an engine's EDIT
  * pages (its creature) and FX every 2; the rest every beat */
 static uint32_t home_level(void);
+static uint32_t gd_page(void);
 static uint32_t gd_page_bs(void)
 {
     const page_t *pg = cur_page();
@@ -79,6 +80,10 @@ static void gd_tick(void)
     gd_pl.fq = d & 255u;
     gd_pl.t += d >> 8;
     gd_pl.b += bt >> bs;
+    if ((ui.home && !ui.menu && !ui.layer) || gd_page())   /* (the owner: the sails never still, on HOME and the scenes' pages,
+                                                         * that redraw them; in silence a turn a minute. Behind a card they
+                                                         * keep still, as the rest of the garden) */
+        gd_mill += gd_run ? (bt >> bs) >> 3 : dt * 65536u / 60000u * MOTION_Q8[ui_motion & 3u] >> 8;
     if (!hud_home())                                    /* (Phase 3) still behind the other pages: their strips agree */
         return;
     gd_edged = 0;
@@ -243,7 +248,7 @@ static int32_t gd_prims(const gd_prim_t *s, uint32_t n, int32_t X, int32_t Y)
 static int32_t gd_sails(int32_t X, int32_t Y)
 {
     int32_t k, hx = X, hy = Y + 60 * 16, r = 64 + 32 * gd.e / 256;
-    uint32_t rot = gd.b >> 3;                          /* (a quarter turn every two beats) */
+    uint32_t rot = gd_mill;                            /* (a quarter turn every two beats; slowly in silence) */
     if (hx * hx + hy * hy <= r * r)
         return -2;
     if (hx * hx + hy * hy > 840 * 840)                 /* (past the longest sail and the vane) */
@@ -376,7 +381,7 @@ static void gd_edges(int32_t gy, int32_t gh, int paste)
  * beat, its flow the sends; SEQ > PATTERN the bed: a mound a step, a tulip on a note, a seed on a rest, the playhead's
  * mound orange. The sky stays still behind them (the strips round it agree); the plants run on their own clock */
 enum { GS_NONE, GS_ENV, GS_LFO, GS_FX, GS_SEQ };
-static const uint8_t GS_TOP[5] = {0, 84, 110, 104, 84};   /* the rows the plants can reach: redrawn each frame */
+static const uint8_t GS_TOP[5] = {0, 60, 60, 60, 60};   /* the rows the plants and the sails reach: redrawn each frame */
 static uint32_t gd_page(void)
 {
     const page_t *pg = cur_page();

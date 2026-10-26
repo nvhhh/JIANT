@@ -2004,7 +2004,7 @@ static void draw_graph(void)
     if (gd_page()) {                                 /* (GARDEN, Phase 4) the page's scene in the panel's place: whole when
                                                       * the page comes, then only the rows its plants reach */
         static uint8_t drawn;
-        uint32_t sc = gd_page(), b0 = ui.force || drawn != sc || toast_on() ? 0u : GS_TOP[sc] - graph_y();
+        uint32_t sc = gd_page(), b0 = ui.force || drawn != sc || toast_on() || GS_TOP[sc] < graph_y() ? 0u : GS_TOP[sc] - graph_y();
         drawn = (uint8_t)sc;
         cv_begin(240, graph_h() - b0, T_BG);
         gd_scene(0, (int32_t)(graph_y() + b0));
