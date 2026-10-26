@@ -4,7 +4,7 @@
 /* MENU's rows and their settings: what ui_menu.c draws and steps, and what the editor reads and sets (editor_menu.c
  * MENU_DESC / MENU_SET). One apply path for both: menu_put. A row is a setting (its MI_* is its place in the menu's
  * tables, not stored: the editor's ids are editor_menu.c ED_MENU's). (0.9.18) On nine pages of up to four knobs in five
- * tabs (MPAGE): SCREEN (LARGE; SCOPE ANIMATION SCREEN SLEEP; LEDS: LED GLOW SCALE LEDS), AUDIO
+ * tabs (MPAGE): SCREEN (GARDEN: SCREEN: SCOPE LARGE ANIMATION MOTION; LIGHTS: SCREEN SLEEP LED GLOW SCALE LEDS), AUDIO
  * (SPEAKER EQ TRACKS LOAD BPM LOCK; CLICK CLICK LEVEL COUNT-IN), MIDI (MIDI OUT LEARN LEARN CLEAR), USB (USB AUDIO USB
  * LEVEL), SYSTEM (CONTROLS: HOLD TIME KNOB SPEEDUP FX LATCH CALIBRATION; SYSTEM: RESTORE LAST CPU CORES CPU CLOCK, what
  * a power-on does, and ABOUT). Until 0.9.17 one list in the
@@ -36,13 +36,12 @@ static const char *const MI_NAME[MI_COUNT] = {"SCOPE", "LARGE", "ANIMATION", "LE
  * OCT+ does it */
 enum { MTAB_SCREEN, MTAB_AUDIO, MTAB_MIDI, MTAB_USB, MTAB_SYSTEM, MTAB_COUNT };
 static const char *const MTAB_NAME[MTAB_COUNT] = {"SCREEN", "AUDIO", "MIDI", "USB", "SYSTEM"};
-#define MP_COUNT 10u
+#define MP_COUNT 8u
 typedef struct { char name[9]; uint8_t tab, row[4]; } menu_page_t;
 static const menu_page_t MPAGE[MP_COUNT] = {   /* (a page opens on its first setting: a value, never an action) */
-    {"SCREEN", MTAB_SCREEN, {MI_LARGE, MI_NONE, MI_NONE, MI_NONE}},   /* (GARDEN: COLOR, SKIN and STYLE are gone) */
-    {"SCREEN 2", MTAB_SCREEN, {MI_SCOPE, MI_ANIM, MI_SCROFF, MI_NONE}}   /* (GARDEN: ECO STYLE retired) */,
-    {"LEDS", MTAB_SCREEN, {MI_LEDS, MI_SCLLED, MI_NONE, MI_NONE}},
-    {"MOTION", MTAB_SCREEN, {MI_MOTION, MI_NONE, MI_NONE, MI_NONE}},   /* (GARDEN) how fast the animations run */
+    {"SCREEN", MTAB_SCREEN, {MI_SCOPE, MI_LARGE, MI_ANIM, MI_MOTION}},   /* (GARDEN: COLOR, SKIN, STYLE and ECO STYLE gone;
+                                                         * the owner: no page of one row, so SCREEN's four pages two) */
+    {"LIGHTS", MTAB_SCREEN, {MI_SCROFF, MI_LEDS, MI_SCLLED, MI_NONE}},
     {"AUDIO", MTAB_AUDIO, {MI_LOWCUT, MI_TRACKS, MI_LOAD, MI_BPMLOCK}},
     {"CLICK", MTAB_AUDIO, {MI_CLICK, MI_CLKLVL, MI_COUNTIN, MI_NONE}},
     {"MIDI", MTAB_MIDI, {MI_MIDIOUT, MI_LEARN, MI_LCLEAR, MI_NONE}},

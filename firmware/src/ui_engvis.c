@@ -4,9 +4,9 @@
 /* (GARDEN, Phase 5) the engines' creatures (docs/garden-handoff mockups/creatures.html): each engine's EDIT / BEING
  * picture and its HOME / ECO one, drawn by code on the garden's primitives (ui_garden.c: 2 px blocky polygons, leaves,
  * blobs), on the plants' clock (MOTION x the music's level). DRUM a kit (hi-hat, crash, two toms, snare, kick; each
- * piece moves with its lane); VOICE a singing flower; ANIMAL a beetle; LOFI an apple orbiting its dotted path; ANALOG an
+ * piece moves with its lane); VOICE a singing flower; ANIMAL a ladybird; LOFI an apple orbiting its dotted path; ANALOG an
  * orange being with a face; FM6 five fuzzy flowers; PHASE a black hole and its rings; WHEEL a barn wheel rolling; NOISE
- * a galaxy, its sun and planets; SHRUB pixel bushes. Engines without their own (DIGITAL): ANIMAL's beetle.
+ * a galaxy, its sun and planets; SHRUB pixel bushes. Engines without their own (DIGITAL): ANIMAL's ladybird.
  * The pages: DRUM-X's KIT / SOUND a ring of eight mushroom caps, each jumping on its lane's hit (vx_kit_page); FM6's
  * operator pages the fern, a frond pair an operator, its length the operator's level (vx_fm6_page, vx_fm6env).
  * (Retired with Phase 5: the 0.9.4 .. 0.9.12 creatures, the tract, the kit's beings, the colony's FM6, MOTION's
@@ -69,6 +69,25 @@ static void cr_quad(const int32_t *q, uint16_t c)       /* 4 points (the mockup'
     gd_poly(pt, 4, 2, c);
 }
 static int32_t vx_beat(void) { return (int32_t)((gd_pl.b >> 8) & 255u); }   /* the beat's fraction (Q8) */
+/* (the owner on the device) a part's size, Q8: swelling on the pulse (gd_pulse: every den / num beats, off along; the
+ * slow breath when stopped) by a0 + a1 x the level (both Q8 of the size) */
+static int32_t vx_sw(uint32_t num, uint32_t den, uint32_t off, int32_t a0, int32_t a1, int32_t e)
+{
+    int32_t a = a0 + a1 * e / 256;
+    if (gd_run)                                          /* (the owner: quiet music a quarter less, loud as it was) */
+        a = a * (192 + clamp(e, 0, 256) / 4) / 256;
+    return 256 + gd_pulse(num, den, off) * a / 256;
+}
+/* a stem of pixel blocks from v0 down to v1 at u, a little uneven (seed sd), w wide, its top swayed sw (all Q4) */
+static void vx_stem(int32_t u, int32_t v0, int32_t v1, int32_t w, int32_t sw, uint32_t sd)
+{
+    int32_t v, i;
+    for (v = v0, i = 0; v < v1; v += 64, i++) {
+        int32_t h = (int32_t)gd_h(i / 2 + (int32_t)sd * 64, 31), x = u + ((h >> 13 & 3) == 3 ? w / 2 : (h >> 13 & 3) == 0 ? -w / 2 : 0) +
+                                                                   sw * (v1 - v) / (v1 - v0 + 1), x0 = CX(x - w / 2) >> 4, y0 = CY(v) >> 4;
+        cv_rect(x0, y0, (CX(x + w / 2 + ((h & 1) ? w / 2 : 0)) >> 4) - x0, (CY(v + 64) >> 4) - y0, GD_INK);   /* (each to the next's edge) */
+    }
+}
 static int32_t vx_fall4(int32_t p) { p = 256 - p; p = p * p >> 8; return p * p >> 8; }   /* (1 - p)^4 */
 /* each drum lane's level now (0..256), the kit's (a new hit: hitm, last) */
 static void vx_lanes(const track_t *t, int32_t *e)
@@ -95,96 +114,133 @@ static void cr_shell(int32_t u, int32_t v, int32_t w, int32_t h, uint16_t c, int
 }
 static void vx_drum(const track_t *t)
 {
-    int32_t e[8], hh, tm, ky, i;
+    int32_t e[8], hh, tm, ky, i, s0 = cr.s, cy0 = cr.cy;
     vx_lanes(t, e);
+    cr.s = cr.s * vx_sw(1u, 1u, 0u, 16, 0, 0) / 256;    /* (the owner) the whole kit swelling on the beat, from its foot */
+    cr.cy = cy0 + (2848 - 2000) * (s0 - cr.s) / 256;
     hh = e[VK_HATC] > e[VK_HATO] ? e[VK_HATC] : e[VK_HATO];
     tm = e[VK_TOM];
-    cr_line(640, 1600, 640, 2848, 24, GD_INK);           /* the hi-hat, closing on its hits */
-    cr_blob(640, 1536 + hh / 4, 240, 8, GD_ORANGE, 1, 256, 77);
-    cr_blob(640, 1664 - hh / 8, 240, 8, GD_PBLUE, 2, 256, 77);
-    cr_line(3264, 1184, 3264, 2816, 24, GD_INK);         /* the crash, shaking with the bell */
-    cr_blob(3264, 1120 - e[VK_BELL] / 8, 272, 8, GD_PBLUE, 3, 256, 77);
-    cr_shell(1440, 1888 + tm / 8, 640, 320, GD_BLUE, tm);   /* the toms, the snare */
-    cr_shell(2400, 1888 + tm / 8, 640, 320, GD_BURNT, tm);
+    vx_stem(640, 1952, 2848, 64, 0, 1u);                /* (the owner: the stands pixel stems, shorter) the hi-hat, clapping
+                                                         * shut on its hits, the open one lifting */
+    cr_blob(640, 1888 + hh * 96 / 256 - e[VK_HATO] * 64 / 256, 240 + e[VK_HATO] / 4, 8, GD_ORANGE, 1, 256, 77);
+    cr_blob(640, 2016 - hh / 8, 240, 8, GD_PBLUE, 2, 256, 77);
+    vx_stem(3264, 1600, 2816, 64, 0, 2u);               /* the crash, swinging and ringing with the bell (and the rim) */
+    i = e[VK_BELL] > e[VK_RIM] ? e[VK_BELL] : e[VK_RIM];
+    cr_blob(3264 + vx_s((uint32_t)fm1_ms * 60u, i * 64 / 256), 1536 - i * 96 / 256, 272 + i / 3, 8, GD_PBLUE, 3, 256, 77 + i / 8);
+    cr_shell(1440, 1888 - tm * 64 / 256, 640 + tm / 4, 320, GD_BLUE, tm);   /* the toms jumping, the snare */
+    cr_shell(2400, 1888 - tm * 40 / 256, 640 + tm / 4, 320, GD_BURNT, tm);
     i = e[VK_SNARE] > e[VK_CLAP] ? e[VK_SNARE] : e[VK_CLAP];
-    cr_shell(1056, 2400 + i / 8, 480, 224, GD_SURF, i);
-    ky = 2272 - e[VK_KICK] * 48 / 256;                   /* the kick, jumping */
+    cr_shell(1056 + vx_s((uint32_t)fm1_ms * 90u, i * 32 / 256), 2400 - i * 64 / 256, 480 + i / 3, 224, GD_SURF, i);
+    ky = 2272 - e[VK_KICK] * 128 / 256;                  /* the kick, jumping and booming */
     {
         int32_t q[8] = {1536, ky, 2304, ky, 2304, ky + 544, 1536, ky + 544};
         cr_quad(q, GD_ORANGE);
     }
-    cr_blob(1920, ky + 272, 352, 9, GD_SURF, 7, 230, 230);
-    cr_blob(1920, ky + 272, 128, 7, GD_BURNT, 8, 256, 256);
+    cr_blob(1920, ky + 272, 352 + e[VK_KICK] * 96 / 256, 9, GD_SURF, 7, 230, 230);
+    cr_blob(1920, ky + 272, 128 + e[VK_KICK] * 64 / 256, 7, GD_BURNT, 8, 256, 256);
+    cr.s = s0;
+    cr.cy = cy0;
 }
 static void vx_voice(int32_t e)
 {
-    int32_t i, gate = clamp((e - 13) * 5, 0, 256);
-    for (i = 0; i < 7; i++)
-        cr_leaf(1920, 1600, (uint32_t)i * 9362u + vx_t(20), 416 + e * 48 / 256, 160, i & 1 ? GD_ORANGE : GD_SURF);
-    cr_line(1920, 1952, 1920, 2848, 32, GD_INK);
+    int32_t i, gate = clamp((e - 13) * 5, 0, 256), y = 1600 - gd_pulse(1u, 1u, 0u) * 112 / 256;   /* (the head bobbing on the beat) */
+    vx_stem(1920, y + 256, 2848, 96, vx_s(vx_t(90), 32), 0u);   /* the stem: pixel blocks, swaying at the head */
     cr_leaf(1920, 2400, 65536u - 8344u, 320, 96, GD_BLUE);
-    cr_blob(1920, 1600, 288, 9, GD_BURNT, 3, 256, 256);
-    cr_rect(1792, 1504, 48, 64, GD_INK);
-    cr_rect(1984, 1504, 48, 64, GD_INK);
-    cr_blob(2080, 1696, 64, 6, GD_INK, 4, 256, 64 + e * 230 / 256);   /* the mouth, open with the level */
+    for (i = 0; i < 7; i++)                              /* the petals, breathing in and out with the level, turning at the tempo */
+        cr_leaf(1920, y, (uint32_t)i * 9362u + vx_t(40), 352 + e * 192 / 256, 160, i & 1 ? GD_ORANGE : GD_SURF);
+    cr_blob(1920, y, 288, 9, GD_BURNT, 3, 256, 256);
+    cr_rect(1792, y - 96, 48, 64, GD_INK);
+    cr_rect(1984, y - 96, 48, 64, GD_INK);
+    cr_blob(2080, y + 96, 64, 6, GD_INK, 4, 256, 64 + e * 230 / 256);   /* the mouth, open with the level */
     for (i = 0; gate && i < 6; i++) {                    /* the notes leaving it, only with music */
         uint32_t age = (vx_t(70) / 6u + (uint32_t)i * 10923u) & 65535u;   /* (0 .. 1 a turn) */
-        int32_t x = 2160 + (int32_t)(age * (uint32_t)(800 + e * 640 / 256) >> 16), y = 1600 - vx_s(age * 5u / 6u + (uint32_t)i * 10430u, 96) -
+        int32_t x = 2160 + (int32_t)(age * (uint32_t)(800 + e * 640 / 256) >> 16), ny = y - vx_s(age * 5u / 6u + (uint32_t)i * 10430u, 96) -
                     (int32_t)(age * 224u >> 16);
         if ((int32_t)(age >> 8) < gate) {
-            cr_rect(x, y, 32 + e / 8, 32 + e / 8, GD_PBLUE);
-            cr_rect(x + 32 + e / 8, y - 64, 16, 64, GD_PBLUE);
+            cr_rect(x, ny, 32 + e / 8, 32 + e / 8, GD_PBLUE);
+            cr_rect(x + 32 + e / 8, ny - 64, 16, 64, GD_PBLUE);
         }
     }
 }
+/* a filled ellipse in 2 px blocks about u, v (the mockup's px x 16), rx ry (Q4): the creatures' clean round shapes */
+static void cr_ell(int32_t u, int32_t v, int32_t rx, int32_t ry, uint16_t c)
+{
+    int32_t cx = CX(u) >> 4, cy = CY(v) >> 4, ax = CR(rx) >> 4, ay = CR(ry) >> 4, y;
+    if (ax < 1 || ay < 1)
+        return;
+    for (y = -ay & ~1; y <= ay; y += 2) {
+        int32_t yy = y + 1, q = (ay * ay - yy * yy) * ax * ax, w = 0;
+        if (q <= 0)
+            continue;
+        while ((w + 1) * (w + 1) * ay * ay <= q)        /* (w = ax sqrt(1 - yy^2 / ay^2)) */
+            w++;
+        if (w > 0)
+            cv_rect((cx - w) & ~1, cy + y, ((cx + w + 1) & ~1) - ((cx - w) & ~1), 2, c);
+    }
+}
+
+#define SH_SD 8u                                         /* (the shell's wobble: the seed whose back is round) */
+#define VX_RED 0xE187u                                   /* #E0303A ANIMAL's ladybird: its shell */
+/* ANIMAL: a ladybird (the owner's picture): a round red shell with black spots, a black head with two white eyes,
+ * stubby legs stepping, little antennae; it hops on the beat and swells with the level */
 static void vx_beetle(int32_t e)
 {
-    int32_t s0 = gd_s((uint32_t)vx_beat() << 7), hop = s0 * s0 / 256 * (32 + 64 * e / 256) / 256, y = 2336 - hop, i;
-    int32_t sw = vx_s(vx_t(900), 64);
-    for (i = -1; i <= 1; i++) {                          /* the legs, stepping */
-        int32_t s = i & 1 ? sw : -sw;
-        cr_line(1920 + i * 256, y + 192, 1920 + i * 256 + s, 2816, 24, GD_INK);
-        cr_line(1920 + i * 256, y - 192, 1920 + i * 256 - s, 2816 - 2 * hop, 24, GD_INK);
+    int32_t s0 = gd_s((uint32_t)vx_beat() << 7), hop = s0 * s0 / 256 * (32 + 64 * e / 256) / 256, y = 2080 - hop, i;
+    int32_t sw = vx_s(vx_t(400), 48), sz = vx_sw(1u, 2u, 0u, 12, 0, 0) + e / 8, rx = 640 * sz / 256, ry = 512 * sz / 256;
+    for (i = 0; i < 3; i += 2) {                         /* the legs (two: the owner), stepping in turn */
+        int32_t lx = 1696 + i * 352, s = i & 1 ? sw : -sw;
+        cr_line(lx, y + 384, lx + s / 2, 2736, 96, GD_INK);
+        cr_rect(lx + s / 2 - 48, 2704, 112, 48, GD_INK);
     }
-    cr_line(1280, y - 416, 1024, y - 672 - vx_s(vx_t(600), 48), 20, GD_INK);   /* the antennae */
-    cr_line(1280, y - 416, 1088, y - 640 + vx_s(vx_t(600) + 16384u, 48), 20, GD_INK);
-    cr_blob(1920, y, 576, 10, GD_BURNT, 5, 346, 256);
-    cr_line(1248, y, 2592, y, 24, GD_SURF);
-    cr_blob(1696, y - 192, 80, 6, GD_INK, 2, 256, 256);
-    cr_blob(2144, y + 192, 64, 6, GD_INK, 4, 256, 256);
-    cr_blob(1152, y, 176, 8, GD_INK, 7, 256, 256);
-    cr_rect(1632, y - 256, 32, 32, GD_PBLUE);
+    cr_line(1312, y - 160, 1152 + vx_s(vx_t(300), 40), y - 448, 24, GD_INK);   /* the antennae, a dot at each tip */
+    cr_line(1408, y - 192, 1376 + vx_s(vx_t(300) + 16384u, 40), y - 496, 24, GD_INK);
+    cr_ell(1152 + vx_s(vx_t(300), 40), y - 464, 40, 40, GD_INK);
+    cr_ell(1376 + vx_s(vx_t(300) + 16384u, 40), y - 512, 40, 40, GD_INK);
+    cr_blob(2080, y, rx + 40, 12, GD_INK, SH_SD, 256, 256 * (ry + 40) / (rx + 40));   /* the shell (wobbly, as the beetle's,
+                                                         * its back round): outlined, flat red */
+    cr_blob(2080, y, rx, 12, VX_RED, SH_SD, 256, 256 * ry / rx);
+    cr_line(2080, y - ry + 96, 2080, y + ry - 96, 32, GD_INK);   /* the wings' seam */
+    cr_blob(1792, y - 64, 112, 7, GD_INK, 21, 256, 256);   /* the spots: wobbly as the shell (round ones looked stamped on) */
+    cr_blob(2336, y - 224, 96, 6, GD_INK, 22, 256, 256);
+    cr_blob(2400, y + 160, 112, 7, GD_INK, 23, 256, 256);
+    cr_blob(1888, y + 256, 80, 6, GD_INK, 24, 256, 256);
+    cr_blob(1440, y + 64, 288, 8, GD_INK, 7, 256, 228);   /* the head (wobbly too), its eyes */
+    cr_ell(1344, y + 16, 64, 72, GD_SURF);
+    cr_ell(1504, y + 16, 64, 72, GD_SURF);
+    cr_ell(1328, y + 32, 32, 40, GD_INK);
+    cr_ell(1488, y + 32, 32, 40, GD_INK);
 }
 static void vx_lofi(int32_t e)
 {
-    uint32_t a = vx_t(80), i;
-    int32_t cx = 1920 + vx_s(a + 16384u, 896), cy = 1984 + vx_s(a, 448), sc = 256 + vx_s(a, 26);
+    uint32_t a = vx_t(40), i;                            /* (the owner: half p11's pace, at the tempo) */
+    int32_t cx = 1920 + vx_s(a + 16384u, 896), cy = 1984 + vx_s(a, 448), sc = vx_sw(1u, 1u, 0u, 26, 38, e);   /* (swelling on the beat) */
     for (i = 0; i < 40u; i++)                            /* its path, dotted */
         if (i & 1u)
             cr_rect(1920 + vx_s(i * 1638u + 16384u, 896), 1984 + vx_s(i * 1638u, 448), 16, 16, GD_MID);
     cr_line(cx, cy - 480 * sc / 256, cx + 80, cy - 672 * sc / 256, 32, GD_INK);
     cr_leaf(cx + 80, cy - 640 * sc / 256, a + 65536u - 6258u, 448, 160, GD_BLUE);
-    cr_blob(cx, cy, 480 * sc / 256 + e / 8, 10, GD_BURNT, 7, 256 + vx_s(a * 2u, 20), 256 - vx_s(a * 2u + 10430u, 31));
-    cr_rect(cx - 288, cy - 224, 80, 64, GD_PBLUE);
+    cr_blob(cx, cy, 480 * sc / 256, 10, GD_BURNT, 7, 256 + vx_s(a * 2u, 20), 256 - vx_s(a * 2u + 10430u, 31));
+    cr_rect(cx - 288 * sc / 256, cy - 224 * sc / 256, 80, 64, GD_PBLUE);
 }
 static void vx_analog(int32_t e)
 {
-    int32_t wob = vx_s(vx_t(130), 48), j, px = 0, py = 0;
-    cr_blob(1920, 2016, 704 + e / 4, 9, GD_ORANGE, 4, 256, 256);
+    int32_t wob = vx_s(vx_t(130), 48), j, px = 0, py = 0, r = 704 * vx_sw(1u, 1u, 0u, 20, 0, 0) / 256 + e * 160 / 256;   /* (the head
+                                                         * swelling with the level, a breath on the beat) */
+    cr_blob(1920, 2016, r, 9, GD_ORANGE, 4, 256, 256);
     cr_blob(2208, 1696, 256, 7, GD_ORANGE, 9, 256, 256);
-    for (j = 0; j < 22; j++) {                           /* the swirl */
-        uint32_t a = (uint32_t)j * 3129u + vx_t(60);
-        int32_t r = 160 + j * 14, X = 1792 + vx_s(a + 16384u, r * 7 / 10), Y = 2176 + vx_s(a, r / 2);
-        if (j)
-            cr_line(px, py, X, Y, 24, GD_SURF);
-        px = X;
-        py = Y;
-    }
     cr_blob(1696, 1888 + wob, 80, 6, GD_INK, 2, 256, 256);
     cr_blob(2112, 1824 + wob, 64, 6, GD_INK, 3, 256, 256);
     cr_arc(1952, 2112, 112 + e * 48 / 256, 112 + e * 48 / 256, 0, 2086u, 30190u, 24, GD_INK);   /* the smile */
     cr_blob(1536, 2112, 64, 6, GD_PBLUE, 5, 256, 256);
     cr_blob(2336, 2080, 48, 6, GD_PBLUE, 6, 256, 256);
+    for (j = 0; j < 22; j++) {                           /* the swirl on top of the head (the owner), turning at the tempo */
+        uint32_t a = (uint32_t)j * 3129u + vx_t(160);   /* (a turn every 8 beats) */
+        int32_t rr = 192 + j * 22, X = 1920 + vx_s(a + 16384u, rr * 7 / 10), Y = 2016 - r + 96 + vx_s(a, rr / 2);
+        if (j)
+            cr_line(px, py, X, Y, 64, GD_BURNT);
+        px = X;
+        py = Y;
+    }
     for (j = 0; j < 3; j++) {                            /* the dots round it */
         uint32_t a = vx_t((uint32_t)(110 - j * 30)) + (uint32_t)j * 21903u;
         int32_t rr = 1056 + j * 144;
@@ -209,26 +265,29 @@ static void vx_fm6(int32_t e)
 }
 static void vx_phase(int32_t e)
 {
-    int32_t p = (256 - vx_beat()) * (256 - vx_beat()) >> 8, grow = 256 + e * 13 / 256 + e * p / 3200, i, h;
+    int32_t i, h, hole = vx_sw(1u, 1u, 0u, 32, 64, e);   /* (the owner) the hole pulsing on the beat, each ring on its own,
+                                                         * a ripple outward; their turns at the tempo */
     for (h = 0; h < 2; h++) {                            /* the rings' far halves, the hole, their near halves */
         if (h)
-            cr_blob(1536 + 384, 1536, 448 + e * 48 / 256 + e * p / 2048, 12, GD_ORANGE, 2, 256, 256),
-            cr_blob(1920, 1536, 352 + e * p / 2048, 12, GD_INK, 1, 256, 256);
+            cr_blob(1536 + 384, 1536, (448 + e * 48 / 256) * hole / 256, 12, GD_ORANGE, 2, 256, 256),
+            cr_blob(1920, 1536, 352 * hole / 256, 12, GD_INK, 1, 256, 256);
         for (i = 0; i < 4; i++) {
             uint32_t rot = 2608u + (uint32_t)i * 1252u + (i & 1 ? vx_t((uint32_t)(25 + 20 * i)) : 0u - vx_t((uint32_t)(25 + 20 * i)));
-            cr_arc(1920, 1536, (576 + i * 176) * grow / 256, (224 + i * 64) * 141 / 256 * (256 + e * p / 2560) / 256, rot,
+            int32_t g = vx_sw(1u, 1u, 0u - (uint32_t)(i + 1) * 9000u, 16, 28, e);
+            cr_arc(1920, 1536, (576 + i * 176) * g / 256, (224 + i * 64) * 141 / 256 * g / 256, rot,
                    h ? 0u : 32768u, h ? 32768u : 65536u, 36, i & 1 ? GD_ORANGE : GD_BLUE);
         }
     }
 }
 static void vx_wheel(int32_t e)
 {
-    uint32_t tr = gd_pl.t * 28u / 64u, rot = tr * 65536u / (16u * 50u) * 16u / 100u;   /* (travel Q4 px; turns: travel / R) */
-    int32_t cx = (int32_t)((tr + 640u) % 5120u) - 640, cy = 2112, k, px = 0, py = 0;
-    (void)e;
+    uint32_t tr = gd_pl.t * 28u / 192u, rot = tr * 65536u / (16u * 50u) * 16u / 100u;   /* (travel Q4 px, a third of p11's
+                                                         * (the owner), at the tempo; turns: travel / R) */
+    int32_t cx = (int32_t)((tr + 640u) % 5120u) - 640, cy = 2112, k, px = 0, py = 0, rim = vx_sw(1u, 1u, 0u, 14, 24, e),
+            hub = vx_sw(1u, 1u, 32768u, 40, 64, e);    /* (the rim on the beat, the hub between: each its own pulse) */
     for (k = 0; k <= 26; k++) {                          /* the rim, irregular, turning */
         uint32_t a = (uint32_t)k * 2521u;
-        int32_t r = 800 + vx_s(4u * (a + rot), 40) + vx_s(7u * (a + rot) + 10430u, 24), X = cx + vx_s(a + 16384u, r), Y = cy + vx_s(a, r);
+        int32_t r = (800 + vx_s(4u * (a + rot), 40) + vx_s(7u * (a + rot) + 10430u, 24)) * rim / 256, X = cx + vx_s(a + 16384u, r), Y = cy + vx_s(a, r);
         if (k)
             cr_line(px, py, X, Y, 112, GD_BURNT);
         px = X;
@@ -236,22 +295,22 @@ static void vx_wheel(int32_t e)
     }
     for (k = 0; k < 11; k++) {                           /* the spokes, tapered and uneven */
         uint32_t a = rot + (uint32_t)k * 5958u + (gd_h((uint32_t)k, 5) >> 11) - 16u;
-        int32_t dx = gd_s(a + 16384u), dy = gd_s(a), tip = 704 - (int32_t)(gd_h((uint32_t)k, 9) >> 10), wb = 64 + (int32_t)(gd_h((uint32_t)k, 3) >> 12),
+        int32_t dx = gd_s(a + 16384u), dy = gd_s(a), tip = (704 - (int32_t)(gd_h((uint32_t)k, 9) >> 10)) * rim / 256, wb = 64 + (int32_t)(gd_h((uint32_t)k, 3) >> 12),
                 wt = 32 + (int32_t)(gd_h((uint32_t)k, 7) >> 12);
         int32_t q[8] = {cx + (dx * 192 - dy * wb) / 256, cy + (dy * 192 + dx * wb) / 256, cx + (dx * tip - dy * wt) / 256,
                         cy + (dy * tip + dx * wt) / 256, cx + (dx * tip + dy * wt) / 256, cy + (dy * tip - dx * wt) / 256,
                         cx + (dx * 192 + dy * wb) / 256, cy + (dy * 192 - dx * wb) / 256};
         cr_quad(q, k & 1 ? GD_DIRTDK : GD_BURNT);
     }
-    cr_blob(cx, cy, 240, 10, GD_INK, 9, 256, 230);
-    cr_blob(cx, cy, 176, 10, GD_BURNT, 10, 256, 230);
-    cr_blob(cx, cy, 56, 6, GD_DIRTDK, 11, 256, 256);
+    cr_blob(cx, cy, 240 * hub / 256, 10, GD_INK, 9, 256, 230);
+    cr_blob(cx, cy, 176 * hub / 256, 10, GD_BURNT, 10, 256, 230);
+    cr_blob(cx, cy, 56 * hub / 256, 6, GD_DIRTDK, 11, 256, 256);
 }
 static void vx_noise(int32_t e)
 {
     int32_t i, sr = 176 + e * 48 / 256, pt[32];
     for (i = 0; i < 70; i++) {                           /* the galaxy's arm */
-        uint32_t a = (uint32_t)i * 2712u + vx_t(25);
+        uint32_t a = (uint32_t)i * 2712u + gd_pl.t * 25u / 30u;   /* (a third of p11's pace: the owner) */
         int32_t r = 96 + i * 10;
         cr_rect(1920 + vx_s(a + 16384u, r), 1952 + vx_s(a, r * 55 / 100), 32, 32, i % 3 ? GD_PBLUE : GD_BLUE);
     }
@@ -264,26 +323,37 @@ static void vx_noise(int32_t e)
     cr_blob(1920, 1952, sr * 55 / 100, 7, GD_BURNT, 6, 256, 256);
     for (i = 0; i < 3; i++) {                            /* three planets, the middle one ringed */
         static const int16_t RP[3] = {800, 1184, 1536}, SZ[3] = {80, 112, 64};
-        static const uint8_t SP[3] = {80, 50, 30};
-        uint32_t a = vx_t(SP[i]) + (uint32_t)i * 20860u;
+        static const uint8_t SP[3] = {80, 50, 30}, PN[3] = {2, 1, 1}, PD[3] = {1, 1, 2};   /* (each its own pulse: 2, 1, 1/2 a beat) */
+        uint32_t a = gd_pl.t * SP[i] / 30u + (uint32_t)i * 20860u;
+        int32_t g = vx_sw(PN[i], PD[i], (uint32_t)i * 21845u, 40, 64, e);
         int32_t x = 1920 + vx_s(a + 16384u, RP[i]), y = 1952 + vx_s(a, RP[i] * 2 / 5);
         if (i == 1)
-            cr_arc(x, y, 224, 56, 3129u, 0u, 65536u, 20, GD_BURNT);
-        cr_blob(x, y, SZ[i], 7, i == 1 ? GD_BLUE : i ? 0xC50Fu : GD_BURNT, (uint32_t)i + 2u, 256, 256);
+            cr_arc(x, y, 224 * g / 256, 56 * g / 256, 3129u, 0u, 65536u, 20, GD_BURNT);
+        cr_blob(x, y, SZ[i] * g / 256, 7, i == 1 ? GD_BLUE : i ? 0xC50Fu : GD_BURNT, (uint32_t)i + 2u, 256, 256);
     }
 }
 static void vx_bush(int32_t bx, int32_t by, int32_t W0, int32_t H0, uint32_t sd, int32_t e)
 {
-    int32_t p = (256 - vx_beat()) * (256 - vx_beat()) >> 8, s = 256 + e * 36 / 256 * (102 + p * 154 / 256) / 256;
-    int32_t W = W0 * s / 256, H = H0 * s / 256, sw = vx_s(vx_t(200) + sd * 10430u, 24) * e / 256, px, py, k;
-    for (py = by - H; py < by; py += 48)
-        for (px = bx - W / 2; px < bx + W / 2; px += 48) {
-            int32_t u = (px - bx) * 512 / W, v = (by - py) * 256 / H, n = (int32_t)(gd_h((uint32_t)(px + sd * 997u), py) >> 8);
+    int32_t s = vx_sw(3u, 8u, sd * 9000u, 14, 36, e);    /* (the owner) swelling every 2 2/3 beats (25 % slower than a hop every 2) */
+    int32_t W = W0 * s / 256, H = H0 * s / 256, sw = vx_s(vx_t(200) + sd * 10430u, 24) * e / 256, px, py, k, o;
+    int32_t ol = 48 + (24 + 72 * e / 256) * gd_pulse(3u, 8u, sd * 9000u + 16384u) / 256;   /* (the owner) an outline round it,
+                                                         * thicker on the pulse as the music is louder */
+    for (o = 0; o < 2; o++)                              /* the outline, the leaves on it */
+    for (py = by - H - (o ? 0 : (ol + 47) / 48 * 48); py < by; py += 48)   /* (on the leaves' grid) */
+        for (px = bx - W / 2 - (o ? 0 : (ol + 47) / 48 * 48); px < bx + W / 2 + (o ? 0 : ol); px += 48) {
+            int32_t u = (px - bx) * 512 / (W + (o ? 0 : 2 * ol)), v = (by - py) * 256 / (H + (o ? 0 : ol)),
+                    n = (int32_t)(gd_h((uint32_t)(px + sd * 997u), py) >> 8);
+            int32_t x0 = CX(px + sw) >> 4, y0 = CY(py) >> 4;
             uint16_t c;
-            if (u * u + v * v * 230 / 256 > 65536 + 77 * (n - 128))
+            if (u * u + v * v * 230 / 256 > 65536 + (o ? 77 : 20) * (n - 128))   /* (the outline smoother than the leaves) */
                 continue;
+            if (!o) {
+                cv_rect(x0, y0, (CX(px + sw + 48) >> 4) - x0, (CY(py + 48) >> 4) - y0, GD_INK);
+                continue;
+            }
             c = v > 184 ? GD_PBLUE : v < 77 ? 0x3290u : GD_BLUE;
-            cr_rect(px + sw, py, 48, 48, n > 218 && v > 102 ? GD_PBLUE : c);
+            cv_rect(x0, y0, (CX(px + sw + 48) >> 4) - x0, (CY(py + 48) >> 4) - y0, n > 218 && v > 102 ? GD_PBLUE : c);   /* (each cell
+                                                         * to the next one's edge: no seams between them) */
         }
     for (k = 0; k < 3; k++)                              /* a few berries */
         if (gd_h(sd, (uint32_t)k + 11u) & 32768u)
@@ -331,7 +401,7 @@ static int vx_draw(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t h,
     case ENGI_WHEEL: vx_wheel(e); break;
     case ENGI_NOISE: vx_noise(e); break;
     case ENGI_SHRUB: vx_shrub(e); break;
-    default: vx_beetle(e); break;                        /* (ANIMAL; DIGITAL its family's) */
+    default: vx_beetle(e); break;                        /* (ANIMAL's ladybird; DIGITAL its family's) */
     }
     gd.x0 = x0;
     gd.y0 = y0;

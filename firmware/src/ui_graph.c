@@ -34,16 +34,6 @@ static void lz_blit(uint32_t x, uint32_t y)
     else
         cv_blit(x, y);
 }
-/* (0.8.9) HUD: the knob row while KNOB 1..4 rest: whole for 3 s after a turn (0.9.0: or the page, level or set shown
- * changing), then down to 22 % in 0.6 s (steps of 13 %); every other case 100 (0.9.0: every page but HUD's HOME) */
-static uint32_t hud_fade(void)
-{
-    uint32_t el = fm1_ms - ui.knob_ms;
-    if (!hud_home() || el < 3000u)                   /* (0.9.0: HUD's HOME only, over the beings) */
-        return 100u;
-    return el >= 3600u ? 22u : 100u - (el - 3000u) * 78u / 600u / 13u * 13u;
-}
-
 /* (0.8.9) a tile in a lens's panel (FX's modules, the menu's tabs, ENV's tracks, MOD's slots): COLORS a rounded RAISE box
  * (r 4), the one picked framed in fc (the mock-up's card and its stroke); BOTTOM and HUD none (the words on the background;
  * the one picked: its name underlined, lz_uline). What lies under its words: lz_tile_bg */
@@ -1808,7 +1798,7 @@ static void scope_at(int32_t x0, int32_t pw, int32_t cy, int32_t a, uint16_t c)
 {
     static int16_t snap[SCOPE_N];
     uint32_t w = scope_w, i, trig = 0;
-    int32_t py = cy, x, peak = 1500;
+    int32_t py = cy, x, peak = 750;                   /* (GARDEN: the floor halved, quiet music twice as tall) */
     for (i = 0; i < SCOPE_N; i++) {
         snap[i] = scope_buf[(w + i) & (SCOPE_N - 1u)];
         if (snap[i] > peak)
@@ -2026,7 +2016,7 @@ static void draw_graph(void)
         return;
     }
     if (gd_back()) {                                 /* (GARDEN) the garden round it, the panel a BG card, its edge burnt */
-        int bare = ui.home && home_level() == 1u && !home_set();   /* (Phase 6: BEING stands in the garden, no card) */
+        int bare = ui.home && home_level() == 1u;   /* (Phase 6: BEING stands in the garden, no card; ROUTES too) */
         if (!bare && gd_edged == (int32_t)(graph_y() * 256u + graph_h()))
             gd_edges((int32_t)graph_y(), (int32_t)graph_h(), 1);
         else

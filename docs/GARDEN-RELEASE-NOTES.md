@@ -32,6 +32,22 @@ projects are unchanged.
   beings and colony, FM6's colony, the cell, worms, swarm and snail), ECO's swimming beings and GOOBERS.
 - **LARGE** is kept (an accessibility option).
 
+## After the device review (p12)
+
+- **Motion follows the music**: the tempo sets how fast things move (the mockups' own seconds at 120 BPM; the old
+  pace ran 18 to 120 times faster and strobed), the beat makes them pulse, the volume sets how much (quiet a quarter
+  less). With the music off everything stands still, breathing slowly.
+- HOME: the ground's waves rise on the beat; the rain falls at the tempo, as much of it as the volume.
+- The creatures as the owner asked: the ladybird (two legs), ANALOG's swirl on its head, VOICE's pixel stem and bobbing
+  head, DRUM-X's kit pulsing with each drum moving its own way and pixel stands, PHASE's hole and rings pulsing apart,
+  WHEEL and NOISE at a third of the pace, SHRUB solid (no seams) with an outline, LOFI's apple at half the pace.
+- FX: SENDS' stream slower and still when the music is; CHORUS's lines pulse; AUTO PAN's dot is the part's real pan
+  (DEPTH 0 says OFF).
+- The knob pods' values: no fading while the knobs rest, and a 13 px face (AF_V, 15 % smaller than M).
+- MENU > SCREEN on two pages: SCREEN (SCOPE LARGE ANIMATION MOTION) and LIGHTS (SCREEN SLEEP LED GLOW SCALE LEDS).
+- **COMB at full quality again**: each pair of parts shares a 1024-sample line (down to ~43 Hz); a part has all of
+  it unless its neighbour is on COMB too (then half, ~86 Hz, as stems-10). No more RAM.
+
 ## Not done yet
 
 - The MENU's dimmed garden behind the card, and knob pods with arcs (the acorn pods are used everywhere).
@@ -42,4 +58,4 @@ projects are unchanged.
 
 ## Size
 
-555,600 B of the 584,336 B slot (28,736 B free); RAM .data+.bss 95,524 of 98,304 B; pool spare 11,008 B.
+565,756 B of the 584,336 B slot (18,580 B free); RAM .data+.bss 95,332 of 98,304 B; pool spare 11,008 B.

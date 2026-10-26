@@ -253,6 +253,8 @@ static void press(uint32_t label)                 /* a tap: down, a frame, up, a
     frame();
 }
 static void frames(uint32_t ms) { uint32_t i; for (i = 0; i < ms / 16u; i++) frame(); }
+static void scope_sound(void);
+static void ap_frames(uint32_t ms);
 static void hold(uint32_t label)                  /* held 0.8 s, then let go */
 {
     uint32_t k;
@@ -2399,7 +2401,7 @@ static int test_display_preferences(void)
     return bad;
 }
 
-/* 0.9.18: the MENU as the system's pages (ui_menu.c, menu_items.c MPAGE): every setting on one page, nine pages of up to four
+/* 0.9.18: the MENU as the system's pages (ui_menu.c, menu_items.c MPAGE): every setting on one page, (GARDEN) eight pages of up to four
  * knobs in five tabs (SCREEN AUDIO MIDI USB SYSTEM), a tab's pages in a run; SELECT walks the pages (no wrap), ALGORITHM
  * the tabs' first pages (no wrap), PRESETS nothing, KNOB n the page's setting n, OCT+ / OCT- the setting turned last; an
  * action armed by its knob, OCT+ does it; HOME closes (OCT- not); reopened at the same page */
@@ -2438,9 +2440,9 @@ static int test_menu_tabs(void)
               str_eq(menu_short(MI_PANEL), "CALIB") && str_eq(menu_short(MI_CLOCK), "CPU MHZ") &&
               str_eq(menu_short(MI_SERIAL), "USB AUD");
     }
-    bad += check("0.9.18 MENU: every setting on one page (10 pages of up to 4 knobs, no two cards alike), tabs SCREEN AUDIO MIDI USB SYSTEM (3 2 1 1 2 pages)",
+    bad += check("0.9.18 MENU: every setting on one page (8 pages of up to 4 knobs, no two cards alike), tabs SCREEN AUDIO MIDI USB SYSTEM (2 2 1 1 2 pages)",
                  ok && n == MP_COUNT && MTAB_COUNT == 5u && str_eq(MTAB_NAME[0], "SCREEN") && str_eq(MTAB_NAME[MTAB_SYSTEM], "SYSTEM") &&
-                 mtab_pages(MTAB_SCREEN) == 4u && mtab_pages(MTAB_AUDIO) == 2u && mtab_pages(MTAB_MIDI) == 1u &&
+                 mtab_pages(MTAB_SCREEN) == 2u && mtab_pages(MTAB_AUDIO) == 2u && mtab_pages(MTAB_MIDI) == 1u &&
                  mtab_pages(MTAB_USB) == 1u && mtab_pages(MTAB_SYSTEM) == 2u && mi_tab(MI_MIDIOUT) == MTAB_MIDI &&
                  mi_tab(MI_LEARN) == MTAB_MIDI && mi_tab(MI_LCLEAR) == MTAB_MIDI && mi_tab(MI_SERIAL) == MTAB_USB &&
                  mi_tab(MI_USB) == MTAB_USB && mi_tab(MI_CPU) == MTAB_SYSTEM && mi_tab(MI_CLOCK) == MTAB_SYSTEM &&
@@ -2464,26 +2466,25 @@ static int test_menu_tabs(void)
     ui_power_on();
     hold(B_HOME);
     turn(EN_SELECT, -40);
-    ok = ui.menu == 1 && ui.menu_sel == MI_LARGE && menu_page() == 0u && menu_tab() == MTAB_SCREEN;
-    turn(EN_SELECT, 1); ok &= menu_page() == 1u && ui.menu_sel == MI_SCOPE;   /* (SELECT: a page a detent, its first) */
-    turn(EN_SELECT, 1); ok &= menu_page() == 2u && ui.menu_sel == MI_LEDS && menu_tab() == MTAB_SCREEN;
-    turn(EN_SELECT, 1); ok &= menu_page() == 3u && ui.menu_sel == MI_MOTION && menu_tab() == MTAB_SCREEN;
-    turn(EN_SELECT, 1); ok &= menu_page() == 4u && ui.menu_sel == MI_LOWCUT && menu_tab() == MTAB_AUDIO;
-    turn(EN_SELECT, -3); ok &= menu_page() == 1u;
-    turn(EN_SELECT, -40); ok &= menu_page() == 0u && ui.menu_sel == MI_LARGE;   /* (no wrap) */
-    turn(EN_PRESET, 1); ok &= ui.menu_sel == MI_LARGE;   /* (PRESETS: nothing, rule 3) */
+    ok = ui.menu == 1 && ui.menu_sel == MI_SCOPE && menu_page() == 0u && menu_tab() == MTAB_SCREEN;   /* (GARDEN: SCOPE first) */
+    turn(EN_SELECT, 1); ok &= menu_page() == 1u && ui.menu_sel == MI_SCROFF && menu_tab() == MTAB_SCREEN;   /* (SELECT: a page a
+                                                         * detent, its first; GARDEN: SCREEN's pages two, SCREEN and LIGHTS) */
+    turn(EN_SELECT, 1); ok &= menu_page() == 2u && ui.menu_sel == MI_LOWCUT && menu_tab() == MTAB_AUDIO;
+    turn(EN_SELECT, -1); ok &= menu_page() == 1u;
+    turn(EN_SELECT, -40); ok &= menu_page() == 0u && ui.menu_sel == MI_SCOPE;   /* (no wrap) */
+    turn(EN_PRESET, 1); ok &= ui.menu_sel == MI_SCOPE;   /* (PRESETS: nothing, rule 3) */
     turn(EN_SELECT, 40); ok &= menu_page() == MP_COUNT - 1u && ui.menu_sel == MI_RESTORE;
     turn(EN_SELECT, -40);
     bad += check("0.9.18 MENU: SELECT walks the pages (SCREEN .. SYSTEM, no wrap), each opened on its first setting; PRESETS does nothing", ok);
-    turn(EN_ALGO, 1); ok = menu_tab() == MTAB_AUDIO && menu_page() == 4u;
-    turn(EN_SELECT, 1); ok &= menu_page() == 5u && ui.menu_sel == MI_CLICK;
+    turn(EN_ALGO, 1); ok = menu_tab() == MTAB_AUDIO && menu_page() == 2u;
+    turn(EN_SELECT, 1); ok &= menu_page() == 3u && ui.menu_sel == MI_CLICK;
     turn(EN_ALGO, 1); ok &= menu_tab() == MTAB_MIDI && ui.menu_sel == MI_MIDIOUT;
-    turn(EN_ALGO, -1); ok &= menu_page() == 4u;        /* (its first page) */
+    turn(EN_ALGO, -1); ok &= menu_page() == 2u;        /* (its first page) */
     turn(EN_ALGO, -1); ok &= menu_page() == 0u;
     turn(EN_ALGO, -1); ok &= menu_page() == 0u && menu_tab() == MTAB_SCREEN;   /* (no wrap) */
     turn(EN_ALGO, 3); ok &= menu_tab() == MTAB_USB && ui.menu_sel == MI_SERIAL;
     turn(EN_ALGO, 1); ok &= menu_tab() == MTAB_SYSTEM && ui.menu_sel == MI_HOLD;
-    turn(EN_ALGO, 1); ok &= menu_page() == 8u;
+    turn(EN_ALGO, 1); ok &= menu_page() == 6u;
     bad += check("0.9.18 MENU: ALGORITHM jumps to the next / previous tab's first page, no wrap", ok && ui.menu == 1);
     ok = 1;                                            /* SYSTEM > CONTROLS: HOLD TIME, KNOB SPEEDUP, FX LATCH, CALIBRATION */
     turn(EN_K2, 1); ok &= !(ui_prefs & PREF_ACCEL_OFF) && ui.menu_sel == MI_ACCEL;
@@ -2610,30 +2611,28 @@ static int test_menu_tabs(void)
     bad += check("MENU: HOME closes ABOUT too; reopened at its page, the action let go; the setting turned last breathes OCT- / OCT+ where they can go", ok);
 
     /* (0.9.18) the tabs and the breadcrumb (rule 6): five tabs (the page's lit, a dot a page), "MENU . TAB . page" and the
-     * page's place among the nine; a page named as its tab ("SCREEN", "SCREEN 2", "AUDIO") not repeated: MENU . page */
+     * page's place among the eight; a page named as its tab ("SCREEN", "AUDIO") not repeated: MENU . page */
     ui_power_on();
     hold(B_HOME);
     turn(EN_SELECT, -40);                           /* (the menu opens on its first page) */
     frame();
     ok = ui.menu == 1 && lz_on() && lz_fam() == LZ_MENU && lz_tabs() == 5u && lz_tab_lit(0) &&
-         lz_crumb_is("MENU \xB7 SCREEN") && lz_count_is("1/10");
+         lz_crumb_is("MENU \xB7 SCREEN") && lz_count_is("1/8");
     turn(EN_SELECT, 1); frame();
-    ok &= lz_tab_lit(0) && lz_crumb_is("MENU \xB7 SCREEN 2") && lz_count_is("2/10");
-    turn(EN_SELECT, 1); frame();
-    ok &= lz_tab_lit(0) && lz_crumb_is("MENU \xB7 SCREEN \xB7 LEDS") && lz_count_is("3/10");
+    ok &= lz_tab_lit(0) && lz_crumb_is("MENU \xB7 SCREEN \xB7 LIGHTS") && lz_count_is("2/8");
     turn(EN_ALGO, 1); frame();
-    ok &= menu_tab() == MTAB_AUDIO && lz_tab_lit(1) && lz_crumb_is("MENU \xB7 AUDIO") && lz_count_is("5/10");
+    ok &= menu_tab() == MTAB_AUDIO && lz_tab_lit(1) && lz_crumb_is("MENU \xB7 AUDIO") && lz_count_is("3/8");
     turn(EN_SELECT, 1); frame();
-    ok &= lz_crumb_is("MENU \xB7 AUDIO \xB7 CLICK") && lz_count_is("6/10");
+    ok &= lz_crumb_is("MENU \xB7 AUDIO \xB7 CLICK") && lz_count_is("4/8");
     turn(EN_ALGO, 3); frame();
-    ok &= lz_tab_lit(4) && lz_crumb_is("MENU \xB7 SYSTEM \xB7 CONTROLS") && lz_count_is("9/10");
+    ok &= lz_tab_lit(4) && lz_crumb_is("MENU \xB7 SYSTEM \xB7 CONTROLS") && lz_count_is("7/8");
     turn(EN_K3, 1); frame();
     ok &= (fx_latch & 1u) != 0u && ui.menu_sel == MI_LATCH;
     turn(EN_K3, -1); frame();
     turn(EN_SELECT, 1); frame();
-    ok &= lz_crumb_is("MENU \xB7 SYSTEM") && lz_count_is("10/10");
+    ok &= lz_crumb_is("MENU \xB7 SYSTEM") && lz_count_is("8/8");
     menu_close();
-    bad += check("0.9.18 MENU: five tabs (the page's lit), MENU . TAB . page (MENU . page when named as its tab) and n/10; ALGORITHM the tab, KNOB n the value", ok && MI_COUNT == 27u);   /* (COLOR, SKIN, STYLE, ECO STYLE gone; MOTION added) */
+    bad += check("0.9.18 MENU: five tabs (the page's lit), MENU . TAB . page (MENU . page when named as its tab) and n/8; ALGORITHM the tab, KNOB n the value", ok && MI_COUNT == 27u);   /* (COLOR, SKIN, STYLE, ECO STYLE gone; MOTION added) */
     return bad;
 }
 
@@ -3029,14 +3028,14 @@ static int test_roll(void)
                                                          * 2 px outline reaches into the 2's box) */
         ok &= x0 < g.bx && x1 <= HEAD_LOAD_X && x1 - x0 <= 40;   /* (GARDEN: the BPM at the right, by the load) */
     }
-    ok &= roll_diff(CARD_X(0), (int32_t)card_y() + ROLL_Y, CARD_X(0) + 5 + text_w(&AF_M, "12"), (int32_t)card_y() + ROLL_Y + ROLL_H, 1) == 0;
-    /* TUNE 10 -> 11 on a card: the 1 stays */
+    ok &= roll_diff(CARD_X(0), (int32_t)card_y() + ROLL_Y, CARD_X(0) + 5 + text_w(lz_low() ? &AF_V : &AF_M, "12"), (int32_t)card_y() + ROLL_Y + ROLL_H, 1) == 0;
+    /* TUNE 10 -> 11 on a card: the 1 stays (GARDEN: the pods' values in V) */
     ui_power_on(); song.g[G_TUNE] = 10; roll_settle();
     turn(EN_K4, 1); frame(); frame();
     memcpy(roll_shot, host_screen, sizeof roll_shot);
     ui.force = 1; ui_draw();
     ok &= song.g[G_TUNE] == 11 && roll_diff(STRIP(3), 1) > 20u && roll_diff(STRIP(3), 0) == 0;
-    ok &= roll_diff(CARD_X(3), (int32_t)card_y() + ROLL_Y, CARD_X(3) + 5 + text_w(&AF_M, "1"), (int32_t)card_y() + ROLL_Y + ROLL_H, 1) == 0;
+    ok &= roll_diff(CARD_X(3), (int32_t)card_y() + ROLL_Y, CARD_X(3) + 5 + text_w(lz_low() ? &AF_V : &AF_M, "1"), (int32_t)card_y() + ROLL_Y + ROLL_H, 1) == 0;
     bad += check("roll: header BPM 120 -> 121 and a card 10 -> 11: only the strip changes, unchanged digits stay put", ok);
 
     /* the direction: 5 -> 6 and -5 -> -6 at frame 4: the new digit comes from below (up) / above (down) */
@@ -6416,16 +6415,16 @@ static int test_screen_off(void)
     menu_put(MI_SCROFF, 3u);
     hold(B_HOME);
     turn(EN_SELECT, -40);                             /* (the menu opens on its first page) */
-    turn(EN_SELECT, 1);                               /* (0.9.18: SCREEN 2, KNOB 3) */
-    ok = ui.menu == 1 && ui.menu_sel == MI_SCOPE && menu_page_of(MI_SCROFF) == 1u;
-    turn(EN_K3, 1); ok &= scr_get() == 4u && ui.menu_sel == MI_SCROFF;
+    turn(EN_SELECT, 1);                               /* (GARDEN: LIGHTS, KNOB 1) */
+    ok = ui.menu == 1 && ui.menu_sel == MI_SCROFF && menu_page_of(MI_SCROFF) == 1u;
+    turn(EN_K1, 1); ok &= scr_get() == 4u && ui.menu_sel == MI_SCROFF;
     press(B_OCTUP); ok &= scr_get() == 4u;           /* (stops at the end) */
-    for (i = 0; i < 4u; i++) turn(EN_K3, -1);
+    for (i = 0; i < 4u; i++) turn(EN_K1, -1);
     ok &= scr_get() == 0u;
     press(B_OCTDN); ok &= scr_get() == 0u && ui.menu == 1;
     press(B_OCTUP); press(B_OCTUP); press(B_OCTUP); ok &= scr_get() == 3u;
     press(B_HOME); ok &= ui.menu == 0;
-    bad += check("SCREEN SLEEP: SCREEN 2 KNOB 3 / OCT-+ step NEVER .. 60 MIN, stops at the ends", ok);
+    bad += check("SCREEN SLEEP: LIGHTS KNOB 1 / OCT-+ step NEVER .. 60 MIN, stops at the ends", ok);
 
     {
         uint32_t f0 = 0, f1 = 0;
@@ -10110,7 +10109,7 @@ static int test_scope(void)
     ok = ui_scope == 0u && str_eq(MI_NAME[MI_SCOPE], "SCOPE") && mi_tab(MI_SCOPE) == MTAB_SCREEN &&
          menu_n(MI_SCOPE) == 4u && str_eq(menu_vname(MI_SCOPE, 0), "OFF") && str_eq(menu_vname(MI_SCOPE, 1), "ON") &&
          str_eq(menu_vname(MI_SCOPE, 2), "BUBBLES") && str_eq(menu_vname(MI_SCOPE, 3), "ORBIT") && menu_get(MI_SCOPE) == 0u;
-    hold(B_HOME); ui.menu_sel = MI_SCOPE;
+    hold(B_HOME); ui.menu_sel = MI_SCOPE;                         /* (GARDEN: SCREEN, KNOB 1) */
     turn(EN_K1, 1); ok &= ui_scope == 1u && menu_get(MI_SCOPE) == 1u;
     turn(EN_K1, 1); ok &= ui_scope == 2u;                         /* BUBBLES */
     turn(EN_K1, 1); ok &= ui_scope == 3u;                         /* ORBIT (the last value) */
@@ -10119,7 +10118,7 @@ static int test_scope(void)
     press(B_OCTUP); ok &= ui_scope == 3u;
     press(B_OCTDN); press(B_OCTDN); press(B_OCTDN); ok &= ui_scope == 0u;
     press(B_HOME); ok &= !ui.menu;
-    bad += check("SCOPE: OFF by default, a row of DISPLAY under SKIN; KNOB 1 / OCT+- OFF ON, stopping at the ends", ok);
+    bad += check("SCOPE: OFF by default, SCREEN's KNOB 1; KNOB 1 / OCT+- OFF ON, stopping at the ends", ok);
     {   /* saved with the settings (byte 19 of engine 15); older settings (0) and unknown values: OFF; new settings: OFF */
         persist_t p, q;
         ui_scope = 1u;
@@ -10195,12 +10194,11 @@ static int test_menu_prefs(void)
     turn(EN_SELECT, -40);
     ok &= ui.menu_sel == MPAGE[0].row[0];
     bad += check("0.9.18 MENU: SELECT reaches every page (every tab), each a screen of its own", ok);
-    /* ANIM (SCREEN 2, KNOB 2) */
-    turn(EN_SELECT, 1);
-    ok = str_eq(MI_NAME[MI_ANIM], "ANIMATION") && !(ui_prefs & PREF_ANIM_OFF) && MPAGE[menu_page()].row[1] == MI_ANIM;
-    turn(EN_K2, 1); ok &= !(ui_prefs & PREF_ANIM_OFF) && ui.menu_sel == MI_ANIM;   /* right: ON (stays: the default) */
-    turn(EN_K2, -1); ok &= (ui_prefs & PREF_ANIM_OFF) != 0;       /* left: OFF */
-    turn(EN_K2, 1); ok &= !(ui_prefs & PREF_ANIM_OFF);            /* right: ON (the switch's knob right) */
+    /* ANIM (GARDEN: SCREEN, KNOB 3) */
+    ok = str_eq(MI_NAME[MI_ANIM], "ANIMATION") && !(ui_prefs & PREF_ANIM_OFF) && MPAGE[menu_page()].row[2] == MI_ANIM;
+    turn(EN_K3, 1); ok &= !(ui_prefs & PREF_ANIM_OFF) && ui.menu_sel == MI_ANIM;   /* right: ON (stays: the default) */
+    turn(EN_K3, -1); ok &= (ui_prefs & PREF_ANIM_OFF) != 0;       /* left: OFF */
+    turn(EN_K3, 1); ok &= !(ui_prefs & PREF_ANIM_OFF);            /* right: ON (the switch's knob right) */
     press(B_OCTDN); ok &= (ui_prefs & PREF_ANIM_OFF) && ui.menu;  /* OCT-: OFF */
     ok &= !(ui_prefs & ~(uint32_t)PREF_ANIM_OFF);                 /* (no other setting moved) */
     press(B_HOME);
@@ -10678,6 +10676,7 @@ static int test_lz_home(void)
     {   /* the beings drawn: the ECO panel differs from frame to frame while the tracks sound (their life, their faces) */
         static uint16_t a[240 * 140];
         turn(EN_SELECT, -2); frame();
+        scope_sound();                                  /* (GARDEN: the output sounding too, as it would) */
         for (c = 0; c < NTRK; c++) trk[c].peak = 9000;
         frames(64);
         memcpy(a, host_screen + LZ_GRAPH_Y * 240, sizeof a);
@@ -11083,12 +11082,13 @@ static int test_toasts(void)
     bad += check("  gone with the message: the page whole again", gone);
     for (sk = 0; sk < 1u; sk++) {                   /* playing: the page moves on behind it */
         ui_power_on();  settings.palette = 0; palette_set(0);
-        TSEL->p[P_APDEP] = 100; song.playing = 1;      /* (as test_fx_live: AUTO PAN's dot runs while it plays) */
-        go_title("AUTO PAN"); frames(800);
+        TSEL->p[P_APDEP] = 100; song.playing = 1;      /* (as test_fx_live: AUTO PAN's dot runs while it sounds) */
+        scope_sound();
+        go_title("AUTO PAN"); ap_frames(800);
         ui_message("SAVED A LONG MESSAGE"); frame();
         toast_box(ui.msg, b);
         memcpy(toast_snap, host_screen, sizeof toast_snap);
-        frames(320);
+        ap_frames(320);
         for (n = 0, y = graph_y(); y < graph_y() + graph_h(); y++)
             for (x = 0; x < 240u; x++)
                 if (!((int32_t)x >= b[0] && (int32_t)x < b[2] && (int32_t)y >= b[1] && (int32_t)y < b[3]))
@@ -11194,14 +11194,32 @@ static int test_toasts(void)
     return bad;
 }
 
-/* FX live (ui_lzfx.c): while the song plays the EFFECT and TRACK pictures move (the echoes' pulse, the tail's sweep,
- * the chorus running, DIST's level, AUTO PAN's dot); stopped and silent they hold still */
+/* FX live (ui_lzfx.c): while the music sounds the EFFECT and TRACK pictures move (the echoes' pulse, the tail's sweep,
+ * the chorus running, DIST's level, AUTO PAN's dot); silent they hold still (GARDEN: the transport alone no longer
+ * moves them, the owner on the device: silence must look silent) */
+static void scope_sound(void)                      /* the output's last moments a loud sine, as if it played */
+{
+    uint32_t i;
+    for (i = 0; i < SCOPE_N; i++)
+        scope_buf[i] = (int16_t)(sine_i(i * 7u << 22) >> 2);
+}
+/* frames(ms) with AUTO PAN's LFO running as the audio runs it (playing: the transport's grid), the dot drawn from it */
+static void ap_frames(uint32_t ms)
+{
+    uint32_t i;
+    for (i = 0; i < ms / 16u; i++) {
+        if (song.playing)
+            ms_clock += FS * 16u / 1000u;
+        autopan(TSEL, (uint32_t)(TSEL - trk) % NTRK, FS * 16u / 1000u);
+        frame();
+    }
+}
 static int fx_panel_moves(const char *title)
 {
     static uint16_t a[240 * 140];
-    go_title(title); frame(); frames(1600);
+    go_title(title); frame(); ap_frames(1600);
     memcpy(a, host_screen + LZ_GRAPH_Y * 240, sizeof a);
-    frames(96);
+    ap_frames(96);
     return memcmp(a, host_screen + LZ_GRAPH_Y * 240, sizeof a) != 0;
 }
 static int test_fx_live(void)
@@ -11212,6 +11230,7 @@ static int test_fx_live(void)
     ui_power_on();
     TSEL->p[P_APDEP] = 100; song.g[G_CDEPTH] = 90;
     song.playing = 1;
+    scope_sound();
     for (i = 0; i < NELEM(LIVE); i++) {
         int m = fx_panel_moves(LIVE[i]);
         if (!m) printf("  FX live: %s still\n", LIVE[i]);
@@ -11221,7 +11240,11 @@ static int test_fx_live(void)
     for (i = 0; i < NTRK; i++) trk[i].peak = 0;
     memset(scope_buf, 0, sizeof scope_buf);
     ok &= !fx_panel_moves("DLY");
-    bad += check("0.8.5 FX live: DLY, REVERB, CHORUS, AUTO PAN move while it plays; stopped and silent they hold still", ok);
+    bad += check("0.8.5 FX live: DLY, REVERB, CHORUS, AUTO PAN move while it sounds; stopped and silent they hold still", ok);
+    song.playing = 1;                               /* (GARDEN) playing but silent: still too */
+    ok = !fx_panel_moves("DLY");
+    song.playing = 0;
+    bad += check("GARDEN FX live: the transport running in silence holds them still", ok);
     ui_power_on();
     return bad;
 }
@@ -11277,7 +11300,7 @@ static void vxt_case(uint32_t e, const char *pre, const char *page, uint32_t k, 
     transport_req = 1;
     vxt_run(1500, 1);
     vxt_snap();
-    vxt_run(160, 1);
+    vxt_run(600, 1);                                    /* (GARDEN: the creatures at the tempo's own pace, a beat and more) */
     *mv = !vxt_same() && (page || vxs.en[song.sel] > 0);   /* (GARDEN: HOME's sky moves anyway: its level too; k unused) */
     (void)k; (void)j;
     seq_stop();

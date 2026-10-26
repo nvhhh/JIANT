@@ -64,9 +64,11 @@ static int32_t bg_energy(void)
         if (v < 0) v = -v;
         if (v > pk) pk = v;
     }
-    v = pk * 256 / 12000;
+    v = pk * 256 / 6000;                                /* (GARDEN: twice the gain, the owner on the device: quiet
+                                                         * music barely moved it) */
     if (v > 256) v = 256;
-    e += v > e ? (v - e) * 3 / 4 : (v - e) / 6;
+    e += v > e ? (v - e) * 3 / 4 : -((e - v + 5) / 6);   /* (falling: rounded up, so it reaches 0: it stuck at 1..5 in
+                                                         * silence, and the FX pictures moved on as if it sounded) */
     return e;
 }
 #define BG_N 96                                         /* vertices of an outline */

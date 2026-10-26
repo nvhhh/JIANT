@@ -1089,8 +1089,8 @@ static void setup(int s)
     case S_MENU_MIDI:                                   /* (0.9.12) MENU > MIDI: LEARN ON, LEARN CLEAR with three learned */
         ml_learn(24, 0, P_PAN); ml_learn(25, 1, P_E0); ml_learn(26, 2, P_LEVEL); ml_set(1);
         ui.menu = 1; ui.menu_sel = MI_LCLEAR; break;
-    case S_MENU_SCREEN2:                                /* (0.9.18) MENU > SCREEN 2: SCREEN SLEEP 15 MIN just turned */
-        scr_put(2u); ui.menu = 1; ui.menu_sel = MI_SCROFF; ui.hot_col = 2u; ui.hot_t = 30; break;
+    case S_MENU_SCREEN2:                                /* (0.9.18) MENU > LIGHTS (GARDEN; was SCREEN 2): SCREEN SLEEP 15 MIN just turned */
+        scr_put(2u); ui.menu = 1; ui.menu_sel = MI_SCROFF; ui.hot_col = 0u; ui.hot_t = 30; break;
     case S_USER: song.playing = 0; up_store(3, "MY LONG BASS NAME"); up_store(4, "PAD"); ui.uslot = 3; go_page(GR_USER); break;
     case S_PHRASES: go_page(GR_PATS); break;
     case S_PROJECT: song.playing = 0; project_save(1); song.g[G_SLOT] = 2; go_page(GR_SLOTS); ui.act = 4; break;
@@ -1272,9 +1272,9 @@ static void setup(int s)
         perf_m[0] = 6; perf_m[1] = 7; perf_m[2] = 40; perf_m[3] = 30; pf.sw[0] = 1u << 23;   /* (0.9.14: the macros) */
         break;
     case S_LY_GLO_STATE: go_home(); ui.layer = LAYER_GLO; ui.lylv = 2; break;
-    case S_MENU_ROW: case S_MENU_ROW_LEDS:             /* (0.9.18) the knob just turned: LARGE's card lit (SCREEN; GARDEN: COLOR retired), LED GLOW's
-                                                         * (LEDS, KNOB 1) */
-        ui.menu = 1; ui.menu_sel = s == S_MENU_ROW ? MI_LARGE : MI_LEDS; ui.hot_col = 0u; ui.hot_t = 30;
+    case S_MENU_ROW: case S_MENU_ROW_LEDS:             /* (0.9.18) the knob just turned: LARGE's card lit (SCREEN, KNOB 2; GARDEN: COLOR
+                                                         * retired), LED GLOW's (LIGHTS, KNOB 2) */
+        ui.menu = 1; ui.menu_sel = s == S_MENU_ROW ? MI_LARGE : MI_LEDS; ui.hot_col = 1u; ui.hot_t = 30;
         break;
     case S_GLO_SENDS:                                  /* (0.8.5) GLO's lens: MIX > SENDS */
         trk[0].p[P_DIST] = 30; trk[1].p[P_CHOR] = 90; trk[2].p[P_DLY] = 60; trk[3].p[P_REV] = 127; trk[4].p[P_MUTE] = 1;

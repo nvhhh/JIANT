@@ -33,31 +33,72 @@ static struct {
 
 static uint8_t gd_plain;                               /* (host tests: a strip on BG, to measure its words) */
 static int32_t gd_edged;
-static struct { uint32_t t, b; int32_t e; } gd_pl;      /* (Phase 4) the plants' clock: their time (1/1024 s), beats (Q16), the level */                               /* (gd_edges: the panel's edges kept for that strip) */
+static struct { uint32_t t, b, fq; int32_t e; } gd_pl;      /* (Phase 4) the plants' clock: their time (1/1024 s), beats (Q16), the level */                               /* (gd_edges: the panel's edges kept for that strip) */
 static int32_t bg_energy(void);                        /* (ui_being.c: the output's level, 0..256, slewed) */
-/* the motion clock: once a draw (ui_draw.c ui_draw) */
+/* the motion clock: once a draw (ui_draw.c ui_draw). (The owner on the device) the tempo sets the pace, the level only
+ * the amounts: both clocks run only while the music is on (playing, or sounding), 1024 ticks a second at 120 BPM and MOTION 100% (the mockups'
+ * own seconds: the old paces, 18 .. 120 times that with the level, ran faster than the frames and strobed), times
+ * BPM / 120; stopped, all stands still but a slow breath (gd_pulse). gd_bt: the beats themselves (Q16), the pulses'
+ * clock; gd_br: the breath's (Q16, a turn in ~6 s, MOTION's rate) */
+static uint32_t gd_bt, gd_br;
+static uint8_t gd_run;                                 /* the music on (gd_tick): the clocks running */
+static int32_t gd_s(uint32_t ph);
+static int32_t gd_pulse(uint32_t num, uint32_t den, uint32_t off);
+static int32_t gd_gp;                                  /* (HOME) the beat's pulse this draw: the ground's waves, the sun, the tufts */
+/* the hops' share of the beats (a right shift: a hop every 2 or 8 beats): HOME (ECO) every 8; BEING, an engine's EDIT
+ * pages (its creature) and FX every 2; the rest every beat */
+static uint32_t home_level(void);
+static uint32_t gd_page_bs(void)
+{
+    const page_t *pg = cur_page();
+    if (ui.home && home_level() == 0u)
+        return 3u;
+    if ((ui.home && home_level() == 1u) || fx_on() || (!ui.home && pg->scope == SC_ENGINE))
+        return 1u;
+    return 0u;
+}
+/* the ticks (Q8) dt ms brings at the tempo */
+static uint32_t gd_adv(uint32_t dt)
+{
+    return (uint32_t)((uint64_t)dt * (uint32_t)song.g[G_BPM] * MOTION_Q8[ui_motion & 3u] * 16u / 1875u);
+}
 static void gd_tick(void)
 {
-    uint32_t dt = fm1_ms - gd.ms, d;
+    uint32_t dt = fm1_ms - gd.ms, d, bs = gd_page_bs(), run, bt;
     gd.ms = fm1_ms;
-    if (!(ui_prefs & PREF_ANIM_OFF) && dt <= 250u) {   /* (Phase 4) the plants' clock: always, at MOTION's rate */
-        if (dt)
-            gd_pl.e = bg_energy();
-        d = dt * 1024u * (51u + 461u * (uint32_t)gd_pl.e / 256u) / 1000u * MOTION_Q8[ui_motion & 3u] >> 8;
-        gd_pl.t += d;
-        gd_pl.b += d * (uint32_t)song.g[G_BPM] * 16u / 15u;
-    }
+    if (dt > 250u || (ui_prefs & PREF_ANIM_OFF))
+        dt = 0;
+    if (dt)                                             /* (Phase 4) the plants' clock */
+        gd_pl.e = bg_energy();
+    gd_run = song.playing || gd_pl.e > 2;               /* (the music on: the transport, or a sound played by hand) */
+    run = gd_run ? dt : 0u;
+    bt = run * 1024u * (uint32_t)song.g[G_BPM] * 16u / 15000u;   /* (beats: bpm / 60 a second, 65536 a beat) */
+    gd_bt += bt;
+    gd_br += dt * 65536u / 6000u * MOTION_Q8[ui_motion & 3u] >> 8;
+    d = gd_pl.fq + gd_adv(run);
+    gd_pl.fq = d & 255u;
+    gd_pl.t += d >> 8;
+    gd_pl.b += bt >> bs;
     if (!hud_home())                                    /* (Phase 3) still behind the other pages: their strips agree */
         return;
     gd_edged = 0;
-    if (dt > 250u || (ui_prefs & PREF_ANIM_OFF))
-        dt = 0;
     if (dt)                                             /* (the level with the clock: a redraw at the same time, the same) */
         gd.e = bg_energy();
-    d = gd.fq + (dt * 1024u * (51u + 461u * (uint32_t)gd.e / 256u) / 1000u * MOTION_Q8[ui_motion & 3u] >> 8);
+    d = gd.fq + gd_adv(run);
     gd.fq = (uint16_t)(d & 255u);
     gd.t += d >> 8;
-    gd.b += (d >> 8) * (uint32_t)song.g[G_BPM] * 16u / 15u;   /* (beats: bpm / 60 a second, 1024 ticks a second) */
+    gd.b += bt >> bs;                                   /* (the mill and the rain as slow as the page) */
+    gd_gp = gd_pulse(1u, 1u, 0u);
+}
+/* a pulse 0..256 on the beat, smooth (cos^2, its top on the beat): playing, every den / num beats, off (Q16) along;
+ * stopped, the slow breath instead, half as deep */
+static int32_t gd_pulse(uint32_t num, uint32_t den, uint32_t off)
+{
+    int32_t c;
+    if (ui_prefs & PREF_ANIM_OFF)
+        return 0;
+    c = gd_s(((((gd_run ? gd_bt : gd_br) / den * num + off) & 65535u) >> 1) + 16384u);
+    return gd_run ? c * c >> 8 : c * c >> 9;
 }
 /* an integer hash (the mockups' vnoise): 0..65535 */
 static uint32_t gd_h(int32_t a, int32_t b)
@@ -76,11 +117,11 @@ static int32_t gd_vn(int32_t x, int32_t y)
     return (top + ((bot - top) * v >> 8)) >> 8;
 }
 static int32_t gd_s(uint32_t ph) { return sine_i(ph << 16) >> 7; }   /* ph: 65536 a turn -> Q8 */
-/* the ground's top edge at x (Q4 px): it heaves with the music */
+/* the ground's top edge at x (Q4 px): a slow swell, and waves that rise on each beat, as high as the level */
 static int32_t gd_gy(int32_t x)
 {
     return 2912 + (24 * gd_s((uint32_t)x * 522u + gd.t * 12u) >> 8) +
-           (80 * gd.e >> 8) * gd_s((uint32_t)x * 417u - gd.t * 41u) / 256;
+           (16 + 72 * gd.e / 256) * gd_gp / 256 * gd_s((uint32_t)x * 417u - gd.t * 6u) / 256;
 }
 /* the sky's colour at row y: BG at the horizon (186) to pblue at the top, (1 - y / 186) ^ 1.4 */
 static uint16_t gd_sky(int32_t y)
@@ -280,8 +321,8 @@ static uint16_t gd_pod(int32_t x, int32_t h, int hot)
     uint16_t pc = hot ? GD_ORANGE : 0xDE14u;            /* (dirt-lt: the soil's lightest, matte) */
     GFX_HOOK_CELL(x, cv_oy, x + CARD_W, h + cv_oy);     /* (the lint: the acorn whole is the card's cell, cap and body) */
     cv_nocell = 1;
-    cv_rrect(x + 3, 5, CARD_W - 6, h - 5, 12, GD_BURNT, 0xC50Fu);
-    cv_rrect(x + 4, 6, CARD_W - 8, h - 7, 11, pc, GD_BURNT);
+    cv_rrect(x + 3, 5, CARD_W - 6, h - 5, 6, GD_BURNT, 0xC50Fu);   /* (the owner: a smaller radius, its corner soft) */
+    cv_rrect(x + 4, 6, CARD_W - 8, h - 7, 5, pc, GD_BURNT);
     cv_rrect(x, 0, CARD_W, 11, 5, GD_BURNT, 0xC50Fu);   /* (rows 0..10: the value's strip, from row 11, the body's) */
     cv_rect(x + 3, 9, CARD_W - 6, 2, GD_BURNT);         /* (the cap's lip: square under, round over) */
     cv_nocell = 0;
@@ -449,7 +490,7 @@ static void gd_plants(uint32_t sc)
         int32_t amp = 16 + (t->p[P_DIST] + t->p[P_CHOR] + t->p[P_DLY] + t->p[P_REV]) / 8 + e / 5, r, x;
         for (r = 0; r < 2; r++)
             for (x = 0; x < 240; x += 2)
-                cv_rect(x - gd.x0, 146 + r * 8 + (gd_s((uint32_t)x * 626u - gd_pl.t * (uint32_t)(30 + 10 * r)) * amp >> 12), 2, 2,
+                cv_rect(x - gd.x0, 146 + r * 8 + (gd_s((uint32_t)x * 626u - gd_pl.t / 4u * (uint32_t)(30 + 30 * r)) * amp >> 12), 2, 2,
                         r ? GD_BLUE : GD_PBLUE);
         gd_blob(50 * 16, (140 - gd_hop(102)) * 16, 128, 7, GD_BURNT, 1, 256, 282);   /* the apple, */
         gd_leaf(52 * 16, (133 - gd_hop(102)) * 16, 49152u - 6000u, 128, 48, GD_BLUE);
@@ -505,7 +546,7 @@ static void gd_scene(int32_t x0, int32_t y0)
         int32_t sr = 192 + 32 * e / 256;
         for (i = 0; i < 16; i++) {
             uint32_t a = (uint32_t)i * 4096u + t * 2u;
-            int32_t r = (i & 1) ? sr * 7 / 10 : sr * 5 / 4 + (48 * e >> 8) * gd_s(t * 83u + (uint32_t)i * 10430u) / 256;
+            int32_t r = (i & 1) ? sr * 7 / 10 : sr * 5 / 4 + (16 + 48 * e / 256) * gd_gp / 256 * (256 + gd_s(t * 8u + (uint32_t)i * 10430u)) / 512;
             pt[2 * i] = 3136 + r * gd_s(a + 16384u) / 256;
             pt[2 * i + 1] = 544 + r * gd_s(a) / 256;
         }
@@ -554,8 +595,8 @@ static void gd_scene(int32_t x0, int32_t y0)
             }
         }
     }
-    if (gd.y0 < 192) {                                 /* 4. the rain: the level sets how many (23 of 130 .. all), the tempo how fast */
-        uint32_t thr = 11598u + 53938u * (uint32_t)e / 256u;
+    if (gd.y0 < 192) {                                 /* 4. the rain: the level sets how many (none .. all), the tempo how fast */
+        uint32_t thr = 65535u * (uint32_t)e / 256u;
         for (i = 0; i < 130; i++) {
             uint32_t r = gd_h(i, 13);
             int32_t len, ry, rx;
@@ -598,8 +639,8 @@ static void gd_scene(int32_t x0, int32_t y0)
         }
     }
     for (x = 6; x < 240; x += 18) {                    /* the tufts, bouncing with the level */
-        int32_t top = gd_fl(gd_gy(x) >> 4, 3), s = gd_s(t * 61u + (uint32_t)x * 3129u), hg;
-        hg = 1 + (2 * e * (s < 0 ? -s : s) / 256 + 128) / 256;
+        int32_t top = gd_fl(gd_gy(x) >> 4, 3), s = gd_s(t * 8u + (uint32_t)x * 3129u), hg;
+        hg = 1 + (2 * e * gd_gp / 256 * (128 + (s < 0 ? -s : s) / 2) / 256 + 128) / 256;   /* (on the beat) */
         if (gd_h(x, 23) & 1u) {                        /* a dirt-dk stem with a blue head */
             cv_rect(x + 3 - x0, top - 3 * (hg + 2), 3, 3 * (hg + 2), GD_C[GC_DIRTDK]);
             cv_rect(x - x0, top - 3 * (hg + 2), 9, 3, GD_BLUE);

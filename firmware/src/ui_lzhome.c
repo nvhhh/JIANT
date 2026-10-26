@@ -354,8 +354,8 @@ static void draw_xy(void)
         for (k = 0; k < SCOPE_N; k++) {                 /* the trace, oldest first */
             uint32_t i = (w + k) & (SCOPE_N - 1u);
             int32_t L = scope_buf[i], R = scope_r[i], px, py, s = k + 1u == SCOPE_N ? 4 : 2;
-            px = 120 + ((R - L) * 85 >> 14);
-            py = 120 - ((L + R) * 85 >> 14);
+            px = 120 + ((R - L) * 170 >> 14);           /* (twice the first gain: quiet music filled too little) */
+            py = 120 - ((L + R) * 170 >> 14);
             px = clamp(px, 2, 236);
             py = clamp(py, 2, 236);
             if (py + s <= y0 || py >= y0 + 120)
@@ -401,28 +401,32 @@ static void eco_backdrop(int32_t x0, int32_t y0, int words)   /* (GARDEN: the be
 /* (GARDEN, Phase 6: the mockup's BEING, INSTRUCTIONS §7.1) each HOME knob a pod at a corner: "K1 PITCH" over it, a wobbly
  * body (K1 K3 orange, K2 K4 blue), a blue gauge and the value under it, a dotted vein to the creature */
 static const int16_t ORG_X[4] = {34, 206, 34, 206}, ORG_Y[4] = {28, 28, 90, 90};
+/* a pod at corner k: its name over it, the body (hot: larger), the gauge f (0..1000), v under it; the vein to cx, cy */
+static void org_pod(uint32_t k, int32_t cx, int32_t cy, const char *nm, int32_t f, const char *v, int hot, uint16_t vc)
+{
+    int32_t gx = ORG_X[k], gy = ORG_Y[k], i, n;
+    n = (cx - gx < 0 ? gx - cx : cx - gx) / 5;
+    for (i = 3; i < n; i++)                             /* the vein: a dot every 5 px, from the pod most of the way in */
+        cv_rect(gx + (cx - gx) * i / (n + 4), gy + (cy - gy) * i / (n + 4), 1, 1, hot ? T_ACCENT : T_MID);
+    gd_blob(gx * 16, gy * 16, 160 + (hot ? 24 : 0), 7, (k & 1u) ? GD_BLUE : GD_ORANGE, k + 3u, 256, 240);
+    cv_rect(gx - 11, gy + 13, 22, 3, T_LINE);           /* the gauge */
+    cv_rect(gx - 11, gy + 13, (22 * f + 500) / 1000, 3, GD_BLUE);
+    GFX_HOOK_ALIGN(gx - 34, 0, gx + 34, 0, AL_H, "BEING organ value centred");
+    cv_text_in(gx - 34, gy + 19, 68, &AF_X, v, vc, T_BG);
+    GFX_HOOK_ALIGN(gx - 34, 0, gx + 34, 0, AL_H, "BEING organ name centred");
+    cv_text_in(gx - 34, gy - 24, 68, &AF_X, nm, hot ? T_ACCENT : T_TEXT, T_BG);
+}
 static void organ(uint32_t k, int32_t cx, int32_t cy)
 {
     int16_t *vp;
     const param_desc_t *d = home_param(k, &vp);
     char v[12], nm[16] = {'K', (char)('1' + k), ' ', 0};
     const char *u;
-    int32_t gx = ORG_X[k], gy = ORG_Y[k], hot = ui.hot_t && ui.hot_col == k, i, n, f;
-    f = clamp(RATIO(d, enum_rank(d, *vp)), 0, 1000);
-    n = (cx - gx < 0 ? gx - cx : cx - gx) / 5;
-    for (i = 3; i < n; i++)                             /* the vein: a dot every 5 px, from the pod most of the way in */
-        cv_rect(gx + (cx - gx) * i / (n + 4), gy + (cy - gy) * i / (n + 4), 1, 1, T_MID);
-    gd_blob(gx * 16, gy * 16, 160 + (hot ? 24 : 0), 7, (k & 1u) ? GD_BLUE : GD_ORANGE, k + 3u, 256, 240);
-    cv_rect(gx - 11, gy + 13, 22, 3, T_LINE);           /* the gauge */
-    cv_rect(gx - 11, gy + 13, (22 * f + 500) / 1000, 3, GD_BLUE);
     param_format(d, *vp, v, &u);
     if (u && u[0] && str_len(v) + str_len(u) <= 5u)     /* ("901Hz": its unit when it fits) */
         str_cpy(v + str_len(v), u, sizeof v - str_len(v));
-    GFX_HOOK_ALIGN(gx - 30, 0, gx + 30, 0, AL_H, "BEING organ value centred");
-    cv_text_in(gx - 30, gy + 19, 60, &AF_X, v, T_TEXT, T_BG);
     str_cpy(nm + 3, d->label, sizeof nm - 3);
-    GFX_HOOK_ALIGN(gx - 34, 0, gx + 34, 0, AL_H, "BEING organ name centred");
-    cv_text_in(gx - 34, gy - 24, 68, &AF_X, nm, hot ? T_ACCENT : T_TEXT, T_BG);
+    org_pod(k, cx, cy, nm, clamp(RATIO(d, enum_rank(d, *vp)), 0, 1000), v, ui.hot_t && ui.hot_col == k, T_TEXT);
 }
 static void graph_home_being(void)
 {
@@ -431,51 +435,39 @@ static void graph_home_being(void)
     (void)eco_step();
     (void)bg_energy();
     char b[16];
-    if (home_set()) {                                   /* ROUTES: the being small, the macros and their routes */
-        uint32_t m, i, j, row = 0;
-        int32_t ry[12];
-        cx = 128;
-        cy = 66;
-        bx = cx * 16;
-        by = cy * 16;
-        eco_being(c, bx, by, (13 * 16) * (256 + eco.en[c] * 5 / 4 + (bg_sin(eco.tm[c] / 3u) >> 11)) / 256);
-        for (m = 0; m < 4u; m++) {
-            int32_t y = 16 + (int32_t)m * 34, n = 0;
-            char mn[3] = {'M', (char)('1' + m), 0};
-            uint16_t col = ui.hot_t && ui.hot_col == m ? T_ACCENT : T_THEME;
-            for (i = 0; i < NTRK; i++)
-                for (j = 0; j < 4u && row < 12u; j++) {
-                    const int16_t *p = &trk[i].p[P_M1SRC + 3u * j];
-                    char e[20] = {'T', (char)('1' + i), ' ', 0};
-                    int32_t ty;
-                    if (p[0] != (int16_t)(MS_M1 + m) || !p[1] || !p[2] || n >= 3)
-                        continue;
-                    ty = 6 + (int32_t)row * 11;
-                    ry[row++] = ty;
-                    n++;
-                    str_cpy(e + 3, mod_dst_name(&trk[i], p[1]), sizeof e - 3);
-                    str_cpy(e + str_len(e), p[2] > 0 ? "+" : "", sizeof e - str_len(e));
-                    fmt_int(e + str_len(e), p[2] * 100 / 64);
-                    og_quad_a(34 * 16, y * 16, 120 * 16, y * 16, 168 * 16, (ty + 4) * 16, heat_col(70 + macro_v[m] * 150 / 127),
-                              14u, 200);
-                    cv_clip_text(171, ty, &AF_X, e, T_MID, T_SURF, 66);
-                }
-            og_node(22 * 16, y * 16, 12, T_RAISE);
-            lz_arc(22, y, 10, 2, macro_v[m] * 1000 / 127, T_LINE, col);
-            GFX_HOOK_ALIGN(12, y - 5, 32, y + 5, AL_HV, "ROUTES macro name in its knob");
-            cv_text_in(12, y - 4, 20, &AF_X, mn, T_TEXT, T_RAISE);
-            if (!n)
-                cv_text(40, y - 4 - AF_X_CAP_Y + 1, &AF_X, "NO ROUTE", T_DIM);
-        }
-        (void)ry;
-        return;
-    }
     gd.x0 = 0;                                          /* (the pods' bodies: gd_poly in the panel's own rows) */
     gd.y0 = 0;
     gd.y1 = (int32_t)cv_h;
     cv_halo = 1;                                        /* (their words outlined over the garden) */
-    for (k = 0; k < 4u; k++)
-        organ(k, cx, cy);
+    if (home_set()) {                                   /* (GARDEN) ROUTES: as BEING, the macros M1..M4 the pods, each
+                                                         * its value on the gauge and its first route under it ("T2 CUT+62",
+                                                         * "+2" more), the vein lit while it is turned */
+        uint32_t m, i, j;
+        for (m = 0; m < 4u; m++) {
+            char mn[12] = {'M', (char)('1' + m), 0}, e[24] = "NO ROUTE";
+            uint32_t n = 0;
+            for (i = 0; i < NTRK; i++)
+                for (j = 0; j < 4u; j++) {
+                    const int16_t *p = &trk[i].p[P_M1SRC + 3u * j];
+                    if (p[0] != (int16_t)(MS_M1 + m) || !p[1] || !p[2])
+                        continue;
+                    if (!n++) {
+                        e[0] = 'T'; e[1] = (char)('1' + i); e[2] = ' ';
+                        str_cpy(e + 3, mod_dst_name(&trk[i], p[1]), 9);
+                        str_cpy(e + str_len(e), p[2] > 0 ? "+" : "", sizeof e - str_len(e));
+                        fmt_int(e + str_len(e), p[2] * 100 / 64);
+                    }
+                }
+            if (n > 1u) {                               /* (the others counted after the name) */
+                str_cpy(mn + 2, " +", 3);
+                fmt_int(mn + 4, (int32_t)n - 1);
+            }
+            org_pod(m, cx, cy, mn, macro_v[m] * 1000 / 127, e, ui.hot_t && ui.hot_col == m, n ? T_TEXT : T_DIM);
+        }
+    } else {
+        for (k = 0; k < 4u; k++)
+            organ(k, cx, cy);
+    }
     {   /* the being: graph_being's size, its HOME knobs, the track's own level */
         const genome_t *g = eco_genome(c);
         bfeat_t f;

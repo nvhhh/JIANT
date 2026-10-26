@@ -1237,8 +1237,42 @@ static void test_jiant_fx(void)
     song.g[G_RTYPE] = 0;
 }
 
+/* (GARDEN) the COMB's line shared by a pair of parts (voice.c track_comb): the whole 1024 samples while the other part
+ * is not on COMB (a low note's echo ~1022 samples on), half while it is (~510, stems-10's); the other half kept */
+static uint32_t comb_echo(uint32_t ti)
+{
+    static int32_t o[256];
+    uint32_t blk, i, at = 0;
+    track_t *t = &trk[ti];
+    memset(t->v, 0, sizeof t->v);
+    t->v[0].active = 1; t->v[0].age = 1; t->v[0].pitch_cur = 0;   /* (the lowest pitch: the line's longest delay) */
+    for (blk = 0; blk < 8u && !at; blk++) {
+        for (i = 0; i < 256u; i++)
+            o[i] = blk == 0 && i == 0 ? 60000 : 0;
+        track_comb(t, o, 256u, 0, 64);
+        for (i = 0; i < 256u && !at; i++)
+            if (blk * 256u + i > 4u && (o[i] > 2000 || o[i] < -2000))
+                at = blk * 256u + i;
+    }
+    return at;
+}
+static void test_comb_pairs(void)
+{
+    uint32_t full, half;
+    memset(comb_buf, 0, sizeof comb_buf);
+    memset(tf_cmb, 0, sizeof tf_cmb);
+    comb_all[0] = comb_all[1] = 2u;
+    full = comb_echo(0);                                  /* (T2 off COMB) */
+    tf_cmb[1] = 1;
+    half = comb_echo(0);                                  /* (T2 on it too) */
+    check("COMB: a part has the pair's whole line (a low note ~1022 samples, ~43 Hz) unless its neighbour is on COMB too (half, ~510)",
+          full >= 1016u && full <= 1024u && half >= 504u && half <= 512u && sizeof comb_buf == NTRK * 512u * 2u);
+    tf_cmb[1] = 0;
+}
+
 int main(int argc, char **argv)
 {
+    test_comb_pairs();
     test_off();
     test_math();
     test_midi();

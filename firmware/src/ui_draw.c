@@ -101,6 +101,7 @@ static void draw_battery(int32_t bx)
 #define ROLL_SNAP 3u                                    /* frames (~45 ms) */
 #define ROLL_BPM 4u                                     /* ui.roll[]: the four cards, then the header BPM */
 #define ROLL_Y (lz_low() ? 11 : lz_on() ? 14 : 18)        /* a card's value strip: rows 18..34, its figures (21..31) in the middle, */
+#define CARD_VDY (AF_M_CAP_Y + AF_M_CAP_H / 2 - AF_V_CAP_Y - AF_V_CAP_H / 2)   /* (GARDEN) V's capitals centred where M's were */
 #define ROLL_H 17                                       /* the label (MONO's chip: to row 17) above it, the gauge (39) below;
                                                          * (0.8.5) a lens page's card (38 tall): rows 14..30, the figures
                                                          * 17..27, the gauge at 33; 0.8.9 SKIN BOTTOM / HUD's
@@ -145,9 +146,9 @@ static void roll_note(uint32_t k, const char *a, const char *b, int snap)
 /* s (M) at x, y with field k's roll: each character at its pen in s (the digits are tabular and never kerned,
  * so the old value has the same pens); a rolling digit has moved o of the strip's h rows (ROLL_EASE, one frame
  * later per place from the right), clipped to the strip. The roll's last frame clears it: the static text. */
-static int32_t roll_text(uint32_t k, int32_t x, int32_t y, const char *s, uint16_t fg)
-{
-    const aafont_t *f = &AF_M;                         /* (0.8.5: the header's BPM in S; 0.8.9, the skins' mock-up: in M) */
+static int32_t roll_text(uint32_t k, int32_t x, int32_t y, const char *s, uint16_t fg, const aafont_t *f)
+{                                                       /* (f: M; 0.8.5: the header's BPM in S; 0.8.9, the skins' mock-up: in
+                                                         * M; GARDEN: the pods' values V) */
     uint32_t e = (uint8_t)(ui.frame - ui.roll[k].t0) + 1u, i, p = 0;
     const char *a = ui.roll[k].from;
     int32_t cy = k < ROLL_BPM ? ROLL_Y : 0, h = k < ROLL_BPM ? ROLL_H : HEAD_RULE_Y;   /* (above the header's rule) */
@@ -331,7 +332,7 @@ static void head_garden(const head_geo_t *g, const char *bpm, int msg)
     uint8_t h = cv_halo;
     if (!ui.roll[ROLL_BPM].from[0])
         GFX_HOOK_ALIGN(0, 0, 0, HEAD_RULE_Y, AL_V, "header text on its middle");
-    roll_text(ROLL_BPM, g->bx, HEAD_BMY, bpm, ui.bpm_t ? T_ACCENT : T_THEME);
+    roll_text(ROLL_BPM, g->bx, HEAD_BMY, bpm, ui.bpm_t ? T_ACCENT : T_THEME, &AF_M);
     head_transport(g->mx0);
     if (ui_prefs & PREF_BPM_LOCK) {                    /* (the lock, 8 x 10) */
         x -= HEAD_GAP + 8;
@@ -394,7 +395,7 @@ static void draw_head(void)
                                                          * its cells (gfx.c cv_blit_cells) know the line, not a strip) */
         if (ui.roll[ROLL_BPM].from[0]) {               /* rolling: the BPM's strip only (the rule under it again) */
             cv_begin((uint32_t)(g.sx1 - g.sx0), H_HEAD, T_BG);
-            roll_text(ROLL_BPM, g.bx - g.sx0, HEAD_BMY, b, ui.bpm_t ? T_ACCENT : T_THEME);
+            roll_text(ROLL_BPM, g.bx - g.sx0, HEAD_BMY, b, ui.bpm_t ? T_ACCENT : T_THEME, &AF_M);
             if (!skin_hud())
                 cv_rect(0, HEAD_RULE_Y, g.sx1 - g.sx0, 1, T_LINE);
             cv_blit((uint32_t)g.sx0, Y_HEAD);
@@ -421,7 +422,7 @@ static void draw_head(void)
     head_transport(HEAD_TR_X);
     if (!ui.roll[ROLL_BPM].from[0])
         GFX_HOOK_ALIGN(0, 0, 0, HEAD_RULE_Y, AL_V, "header text on its middle");
-    roll_text(ROLL_BPM, g.bx, HEAD_BMY, b, ui.bpm_t ? T_ACCENT : T_THEME);
+    roll_text(ROLL_BPM, g.bx, HEAD_BMY, b, ui.bpm_t ? T_ACCENT : T_THEME, &AF_M);
     lx = g.bx + g.b[2];                                /* the right end of the BPM's ink (and what follows it) */
     if (ui_prefs & PREF_BPM_LOCK) {                    /* BPM LOCK ON (#58): the lock right of the BPM */
         int32_t x = lx + HEAD_GAP;                     /* (0.8.5: drawn) a shackle over a body, 8 x 10 */
@@ -750,10 +751,9 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
     uint8_t sig;
     uint16_t lc = hot ? T_ACCENT : arm || mot ? T_THEME : T_MID, cb = arm ? T_TINT : CARD_BG, gk = 0;
     int low = lz_low(), hud = hud_home();
-    uint32_t fd = hud_fade();                           /* (0.8.9) HUD: the row faded while the knobs rest */
     int32_t ox = hud ? CARD_X(c) - (int32_t)c * 60 : 0, cw = hud ? 60 : COL_W;   /* (HUD's HOME: the row whole, 4 x 60) */
     int32_t x, lx = 5 + ox, uw, room = COL_W - 8, ch = (int32_t)card_h(), ry = ROLL_Y;
-    const aafont_t *vf = &AF_M;
+    const aafont_t *vf = low ? &AF_V : &AF_M;          /* (GARDEN, the owner: the pods' values 15 % smaller) */
     uint32_t n, kn, hk;
     int32_t kid = kc_tag(val, &kn);
     /* (0.8.9, the skins: the 0.6 colours) a lens card's value and gauge in its knob's colour (the knob turned: its card
@@ -768,12 +768,7 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
     }
     if (!gk)
         vc = value_col(vc, ratio);
-    if (fd < 100u) {
-        vc = ux_mix(T_BG, vc, (int32_t)fd);
-        lc = ux_mix(T_BG, lc, (int32_t)fd);
-        if (gk)
-            gk = ux_mix(T_BG, gk, (int32_t)fd);
-    }
+    /* (GARDEN, the owner on the device: no fading while the knobs rest, it made the values illegible) */
     fmt_named = 0;                                      /* (params.c: a name, for this card only) */
     card_mot_next = 0;                                  /* (the same: MOTION, this card only) */
     card_arm_next = card_free_next = 0;
@@ -802,7 +797,7 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
         key[n + 9] = (char)('A' + ((gc >> 8) & 15u));
         key[n + 10] = (char)('A' + (gc >> 12));
     }
-    key[n + 11] = (char)('A' + fd / 13u + 8u * (uint32_t)low);
+    key[n + 11] = (char)('A' + 8u * (uint32_t)low);
     key[n + 12] = (char)(curve == DJF_NOCURVE ? '#' : 0x80 | ((curve + 64) & 127));   /* (0.9.1) the DJ FILTER's curve */
     key[n + 13] = 0;
     uw = unit[0] ? text_w(&AF_S, unit) + 3 : 0;
@@ -839,7 +834,7 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
         ov[i] = 0;
         ui.roll[c].sig = sig;
         if (!str_eq(ov, val))
-            roll_note(c, ov, val, snap || named || vf != &AF_M || kid >= 0 || kind == LK_TALL);
+            roll_note(c, ov, val, snap || named || vf == &AF_S || kid >= 0 || kind == LK_TALL);
         else if (snap)
             ui.roll[c].from[0] = 0;
         str_cpy(ui.col[c], key, sizeof ui.col[c]);
@@ -899,37 +894,40 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
         cv_scroll = 0;
         if (kid >= 0)                                   /* "[OCT+]": the keycap (accent: it would act; DIM: it would not) */
             x = cv_keycap(5 + ox, ry + 2, (uint32_t)kid, vc == T_ACCENT || vc == T_DIM ? vc : T_KEY, T_INK, cb);
-        else if (vf == &AF_M) {
+        else if (vf != &AF_S) {
             if (!ui.roll[c].from[0] && val[0])
                 GFX_HOOK_ALIGN(0, ry, cw, ry + ROLL_H, AL_V, "card value in its roll window");
-            x = roll_text(c, 5 + ox, ry - 1, val, vc);
+            x = roll_text(c, 5 + ox, ry - 1 + (vf == &AF_V ? CARD_VDY : 0), val, vc, vf);
         } else if (free)                                /* (a name: ellipsised where it must be) */
             x = cv_free_text(5 + ox, ry + 2, vf, val, vc, cb, room - uw);
         else
             x = cv_text_fit(5 + ox, ry + 2, vf, val, vc, cb, room - uw);
         if (unit[0]) {
-            GFX_HOOK_ALIGN(0, 0, 0, vf == &AF_M ? ry - 1 + AF_M.asc : ry + 2 + AF_S.asc, AL_B, "card unit on its value's baseline");
+            int32_t ub = vf == &AF_M ? ry - 1 + AF_M.asc : vf == &AF_V ? ry - 1 + CARD_VDY + AF_V.asc : ry + 2 + AF_S.asc;
+            GFX_HOOK_ALIGN(0, 0, 0, ub, AL_B, "card unit on its value's baseline");
             uint16_t uc = hud ? T_TEXT : T_MID;         /* (0.9.0 HUD's HOME: TEXT) */
-            cv_text_on(x + 3, ry + 2, &AF_S, unit, fd < 100u ? ux_mix(T_BG, uc, (int32_t)fd) : uc, cb);   /* on the value's
+            cv_text_on(x + 3, ub - AF_S.asc, &AF_S, unit, uc, cb);   /* on the value's
                                                          * baseline (S) */
         }
         if (!strip && curve != DJF_NOCURVE && kind != LK_TALL) {   /* (0.9.1) the DJ FILTER: its response (BOTTOM, HUD:
                                                          * 5 rows, under the value's strip) */
             uint16_t gc = hot && !lz_on() ? T_ACCENT : vc == T_DIM ? T_DIM : lz_on() ? (gk ? gk : vc) : gauge_col(ratio);
-            uint16_t tc = fd < 100u ? ux_mix(T_BG, T_LINE, (int32_t)fd) : T_LINE;
-            djf_curve(5 + ox, low ? ch - 5 : ch - 8, COL_W - 10, low ? 5 : 6, curve,
-                      curve ? gc : fd < 100u ? ux_mix(T_BG, T_MID, (int32_t)fd) : T_MID, tc);
+            djf_curve(5 + ox, low ? ch - 5 : ch - 8, COL_W - 10, low ? 5 : 6, curve, curve ? gc : T_MID, T_LINE);
         } else if (!strip && ratio >= 0) {              /* the gauge: a 2 px LINE track, the value THEME on it */
             int32_t gw = COL_W - 10, fx = ratio * gw / 1000;
             uint16_t gc = hot && !lz_on() ? T_ACCENT : vc == T_DIM ? T_DIM : lz_on() ? (gk ? gk : vc) : gauge_col(ratio);
-            uint16_t tc = fd < 100u ? ux_mix(T_BG, T_LINE, (int32_t)fd) : T_LINE;
-            if (low) {                                  /* (0.8.9) BOTTOM, HUD: a hairline, the value 2 px on it */
+            uint16_t tc = T_LINE;
+            if (low) {                                  /* (0.8.9) BOTTOM, HUD: a hairline, the value 2 px on it (GARDEN:
+                                                         * inside the acorn's body, clear of its round corners) */
+                gw = COL_W - 20;
+                fx = ratio * gw / 1000;
                 if (cv_halo) {                          /* (0.9.0) its outline 1 px round the line and the bar, not a band */
-                    cv_rect(4 + ox, ch - 5, gw + 2, 3, T_BG);
-                    cv_rect(4 + ox, ch - 6, (fx < 2 ? 2 : fx) + 2, 4, T_BG);
+                    cv_rect(9 + ox, ch - 5, gw + 2, 3, T_BG);
+                    cv_rect(9 + ox, ch - 6, (fx < 2 ? 2 : fx) + 2, 4, T_BG);
                 }
-                cv_rect(5 + ox, ch - 4, gw, 1, tc);
-                cv_rect(5 + ox, ch - 5, fx < 2 ? 2 : fx, 2, gc);
+                cv_rect(10 + ox, ch - 4, gw, 1, tc);    /* (rows 28, 29: under the value's rolling strip, 11 .. 27) */
+                if (fx)                                 /* (at 0 the line alone: no nub) */
+                    cv_rect(10 + ox, ch - 5, fx < 2 ? 2 : fx, 2, gc);
             } else if (lz_on() && kind != LK_TALL) {   /* COLORS: 3 px, rounded, as the 0.6's */
                 cv_rrect(5, ch - 6, gw, 3, 1, T_LINE, cb);
                 cv_rrect(5, ch - 6, fx < 3 ? 3 : fx, 3, 1, gc, T_LINE);
