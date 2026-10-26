@@ -19,6 +19,10 @@ projects are unchanged.
 - **X-Y view**: on ECO turn SELECT left; SELECT back. A vectorscope of the output (L, R, M, L-R / L+R).
 - **BEING**: the creature in the garden, its four knobs as pods at the corners.
 - **MENU**: rows on a card, the last turned on a blue band with an orange pebble, a value bar under each.
+- **MIXER** as garden beds: a mound and a tulip per track (as tall as its LEVEL, its cup open with the meter; the
+  selected track's mound orange), with the track's number, its sound's name, LEVEL in dB, PAN and the REV send kept over
+  each bed (the owner's choice over the bare mockup). SENDS keeps its columns.
+- **ECO** has HOME's three tulips: the selected track and the next two, each as tall as its LEVEL, open with its meter.
 
 ## Retired
 
@@ -30,8 +34,6 @@ projects are unchanged.
 
 ## Not done yet
 
-- **MIXER** as garden beds and **HOME**'s three tulips: the MIXER mockup has no names, dB or pan, so it would drop
-  information the page shows today. Waiting on the owner.
 - The MENU's dimmed garden behind the card, and knob pods with arcs (the acorn pods are used everywhere).
 - Engines not in the handoff (DIGITAL, CMOS, PULSE, WHSTL, WING, GLOTT) use the nearest family's creature.
 - **The CPU TEST on the device** (`docs/STEMS-10-BUILD.md`, `tools/glitch_watch.py`) with the UI busy. Host
@@ -40,4 +42,4 @@ projects are unchanged.
 
 ## Size
 
-553,940 B of the 584,336 B slot (30,396 B free); RAM .data+.bss 95,524 of 98,304 B; pool spare 11,008 B.
+555,600 B of the 584,336 B slot (28,736 B free); RAM .data+.bss 95,524 of 98,304 B; pool spare 11,008 B.

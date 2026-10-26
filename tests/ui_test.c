@@ -5305,17 +5305,17 @@ static int test_bughunt_ui2(void)
          * COLOR (here not JIANT FM's) */
         uint32_t k, a[4][4], ok = 1;
         for (k = 0; k < 4u; k++) {
-            int32_t X = T6_X(0), Y;
+            int32_t X = GM_X(0) - 19, Y;                              /* (GARDEN: the beds, their rows over the tulip) */
             ui_power_on();
             settings.palette = 1; palette_set(1);
             go_page(GR_TRK); frame(); frame();
-            Y = lz_on() ? (int32_t)graph_y() + 9 : Y_GRAPH;            /* (0.8.5: GLO's lens, under its cards) */
+            Y = (int32_t)graph_y();
             turn(EN_K1 + k, 1);                                       /* (K4 right: the DJ FILTER, a high-pass) */
             ui.force = 1; frame();
-            a[k][0] = accent_in(X + 17, Y + 44, X + 37, Y + 57);      /* LEVEL's dB */
-            a[k][1] = accent_in(X + 4, Y + 100, X + 37, Y + 110);     /* PAN */
-            a[k][2] = accent_in(X + 4, Y + 112, X + 37, Y + 117);     /* REV */
-            a[k][3] = accent_in(X + 4, Y + 22, X + 37, Y + 37);       /* the name (in the accent: muted) */
+            a[k][0] = accent_in(X, Y + GM_DY - 2, X + 38, Y + GM_PY - 4);   /* LEVEL's dB */
+            a[k][1] = accent_in(X, Y + GM_PY - 2, X + 38, Y + GM_PY + 4);   /* PAN */
+            a[k][2] = accent_in(X, Y + GM_RY, X + 38, Y + GM_RY + 2);       /* REV */
+            a[k][3] = accent_in(X, Y + GM_NY - 2, X + 38, Y + GM_DY - 2);   /* the name (in the accent: muted) */
             if (k == 3u)
                 ok &= song.g[G_DJF] == 1 && !trk[0].p[P_MUTE];
         }
@@ -5324,7 +5324,7 @@ static int test_bughunt_ui2(void)
             for (j = 0; j < 4u; j++)
                 ok &= j == k && k < 3u ? a[k][j] > 0u : a[k][j] == 0u;
         }
-        bad += check("MIXER (six columns, any COLOR): K1..K3 light LEVEL / PAN / REV, K4 (the DJ FILTER) none of them", ok);
+        bad += check("MIXER (six beds, any COLOR): K1..K3 light LEVEL / PAN / REV, K4 (the DJ FILTER) none of them", ok);
     }
     {   /* 4. renaming the slot the music came from renames the music: the next SAVE prefills the new name */
         char pn[16];

@@ -1380,6 +1380,7 @@ static struct {
     uint32_t col[NTRK];                              /* (the cards: JIANT's six columns, else the four from trk_base4) */
     uint8_t meter[NTRK];
     uint32_t frame;                                  /* (0.9.0) ui.frame of the meters' last step */
+    uint32_t bed;                                    /* (GARDEN) the beds' signature */
 } ts;
 
 static int32_t meter_px(int32_t a)                   /* |sample| (Q15) -> px: 60 dB over the slot */
@@ -1549,13 +1550,90 @@ static void track_col6(uint32_t c, uint32_t sel, uint32_t st, uint32_t mute, uin
         cv_rect(4, 113, rv * pw / 127 + 1, 3, mute ? T_DIM : hot == 3u ? T_ACCENT : heat_col(40 + rv * 3 / 2));
     cv_blit((uint32_t)T6_X(col), lz_on() ? graph_y() + 9u : Y_GRAPH);   /* (0.8.5: GLO's lens, the panel under the cards) */
 }
+/* (GARDEN) MIXER's beds (mockups/pages.html sMix) with what the columns showed kept (the owner's choice): the six
+ * tracks shown, each a dirt mound (the selected track's orange) with a tulip as tall as its LEVEL, its cup opening with
+ * the output meter (no tulip at OFF: a seed); over it, on the sky, the track's pebble (armed: a dot, red recording), the
+ * sound's name (muted: in the accent; asleep: OFF), LEVEL in dB, PAN from the middle and the REV send as two thin bars.
+ * The knob just turned in the accent, as the columns. One canvas, the whole strip */
+#define GM_X(k) (20 + 40 * (int32_t)(k))            /* a bed's middle */
+#define GM_NY 24                                     /* the rows (from the strip's top): the name, */
+#define GM_DY 38                                     /* the dB, */
+#define GM_PY 54                                     /* PAN, */
+#define GM_RY 60                                     /* the REV send */
+static void mix_beds(uint32_t b4)
+{
+    const int32_t gy = (int32_t)graph_y();
+    uint32_t k;
+    cv_begin(240, graph_h(), T_BG);
+    gd_scene(0, gy);
+    for (k = 0; k < 6u; k++) {
+        uint32_t c = b4 + k, sel = c == song.sel, lvl = trk_level(c), mute = trk[c].p[P_MUTE] != 0, n;
+        uint32_t arm = (song.rec >> c) & 1u, hot = sel && ui.hot_t ? ui.hot_col + 1u : 0u, asleep = c >= trk_live;
+        int32_t x = GM_X(k), pan = clamp(trk[c].p[P_PAN], -64, 63), rv = clamp(trk[c].p[P_REV], 0, 127), m = ts.meter[c];
+        uint16_t vc = mute || asleep ? T_DIM : T_THEME;
+        char b[16], v[12];
+        cv_oy = 0;
+        cv_trk(x - 8, 4, 16, c, sel ? T_ACCENT : mute || asleep ? T_DIM : T_MID, gd_sky(gy + 12));
+        if (arm && !asleep)
+            cv_rect(x + 10, 9, 6, 6, song.playing ? T_REC : T_ACCENT);
+        if (asleep) {
+            str_cpy(b, "OFF", sizeof b);
+        } else {                                     /* the sound's first word, cut to the bed */
+            trk_short_name(c, v);
+            for (n = 0; v[n] && v[n] != ' ' && n < 12u; n++)
+                b[n] = v[n];
+            b[n] = 0;
+            while (n > 1u && text_w(&AF_S, b) > 37)
+                b[--n] = 0;
+        }
+        cv_halo = 1;                                 /* (the words outlined in BG: over the rain and the mill) */
+        cv_text_in(x - 19, GM_NY, 38, &AF_S, b, asleep ? T_DIM : mute ? T_ACCENT : sel ? T_TEXT : T_MID, T_BG);
+        cv_halo = 0;
+        if (asleep) {
+            cv_oy = -gy;
+            gd_mound(x, gd_gy(x) / 16 + 3, 16, GD_DIRTDK);
+            continue;
+        }
+        if (lvl) {
+            int32_t d = LEVEL_DB_X10[lvl];
+            fmt_int(v, (d + (d < 0 ? -5 : 5)) / 10);
+            str_cpy(v + str_len(v), " dB", 4);
+        } else {
+            str_cpy(v, "OFF", sizeof v);
+        }
+        cv_halo = 1;
+        cv_text_in(x - 19, GM_DY, 38, &AF_S, v, hot == 1u ? T_ACCENT : lvl && !mute ? T_TEXT : T_DIM, T_BG);
+        cv_halo = 0;
+        cv_rect(x - 15, GM_PY, 30, 2, GD_SURF);      /* PAN, from the middle */
+        if (pan)
+            cv_rect(pan > 0 ? x : x + pan * 15 / 64, GM_PY, (pan > 0 ? pan : -pan) * 15 / 64 + 1, 2, hot == 2u ? T_ACCENT : vc);
+        cv_rect(x, GM_PY - 2, 1, 6, hot == 2u ? T_ACCENT : T_MID);
+        cv_rect(x - 15, GM_RY, 30, 2, GD_SURF);      /* the REV send */
+        if (rv)
+            cv_rect(x - 15, GM_RY, rv * 30 / 127 + 1, 2, hot == 3u ? T_ACCENT : vc);
+        cv_oy = -gy;
+        gd_mound(x, gd_gy(x) / 16 + 3, 16, sel ? GD_ORANGE : 0xDE14u);
+        if (lvl)
+            gd_tulip(x, gd_gy(x) / 16 + 2, 10 + (int32_t)lvl * 40 / 127,
+                     (gd_s(gd_pl.t * 20u + k * 9000u) * (6 + m / 2)) >> 8, 1 + (int32_t)lvl / 48,
+                     64 + m * 192 / (TS_MH - 2), k, 200, mute ? GD_MID : k & 1u ? GD_ORANGE : GD_BURNT);
+        else
+            cv_rect(x - 1, gd_gy(x) / 16 - 2, 2, 2, GD_SURF);
+    }
+    cv_oy = 0;
+    if (toast_on())
+        toast_pill();
+    cv_blit(0, (uint32_t)gy);
+}
 static void draw_tracks(void)
 {
     uint32_t c, sk = strip_kind() == SK_TRK, six = !sk;   /* (0.6.80: the six columns with every COLOR and STYLE;
                                                          * MENU > LARGE: four, bigger) */
     uint32_t b4 = six ? trk_base6() : trk_base4(), n = six ? 6u : 4u;
+    uint32_t bed = six && gd_back() && cur_page()->id[0] != P_DIST, bsig = 0;   /* (GARDEN: MIX as beds; SENDS columns) */
     if (ui.force) {
-        lcd_fill(0, graph_y(), 240, graph_h(), T_BG);
+        if (!bed)
+            lcd_fill(0, graph_y(), 240, graph_h(), T_BG);
         if (UX_STYLE && !six)                        /* LINE: the strips divided as the cards above (four) */
             draw_rules(graph_y(), graph_h());
         if (ui.frame - ts.frame > 1u)                /* (0.9.0) a redraw while they fall (a toast, a knob's page)
@@ -1586,6 +1664,10 @@ static void draw_tracks(void)
               ts.meter[c] * 131u + (uint32_t)(pan + 128) * 104729u + (uint32_t)rv * 1299709u + mute * 3u + sk * 0x9E37u + c * 0x51u +
               six * 0x3C6Fu + (cur_page()->id[0] == P_DIST ? 0x7F4Au + (uint32_t)t->p[P_DIST] * 3u + (uint32_t)t->p[P_CHOR] * 389u +
                                 (uint32_t)t->p[P_DLY] * 6151u + (uint32_t)t->p[P_REV] * 98317u : 0u);   /* (SENDS) */
+        if (bed) {
+            bsig = (bsig ^ sig) * 16777619u;
+            continue;
+        }
         if (!ui.force && sig == ts.col[c - b4])
             continue;
         ts.col[c - b4] = sig;
@@ -1651,6 +1733,12 @@ static void draw_tracks(void)
         }
         }
         cv_blit((uint32_t)CARD_X(c - b4), Y_GRAPH);
+    }
+    if (bed) {                                       /* (the tulips sway on the plants' clock: 15 a second) */
+        bsig ^= (ui_prefs & PREF_ANIM_OFF ? 0u : fm1_ms / 66u * 2654435761u) ^ b4 * 0x51u;
+        if (ui.force || bsig != ts.bed)
+            mix_beds(b4);
+        ts.bed = bsig;
     }
 }
 /* oscilloscope of the output, triggered on a rising zero crossing: a RAISE centre line, the trace 2 px (in silence

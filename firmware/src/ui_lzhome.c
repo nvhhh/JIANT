@@ -257,6 +257,20 @@ static void eco_garden(void)
 {
     int32_t e = gd_pl.e, k = 256 + e * 3 / 8, i;
     uint32_t t = gd_pl.t;
+    for (i = 0; i < 3 && i < (int32_t)trk_live; i++) {   /* (the mockup's HOME) a tulip for the track and the next two:
+                                                         * as tall as its LEVEL, its cup open with its meter, a leaf
+                                                         * more each 4 beats of its 16 */
+        uint32_t c = (song.sel + (uint32_t)i) % trk_live, ph = (gd_pl.b / 16u + (uint32_t)i * 21845u) & 65535u;
+        int32_t x = 52 + i * 68, m = trk[c].p[P_MUTE] ? 0 : meter_px(trk[c].peak);
+        trk[c].peak = 0;
+        if (m < ts.meter[c] - 1)
+            m = ts.meter[c] - 1;                        /* (falling as the MIXER's) */
+        ts.meter[c] = (uint8_t)(m < 0 ? 0 : m);
+        m = ts.meter[c];
+        gd_tulip(x, gd_gy(x) / 16 + 1, 18 + (int32_t)trk_level(c) * 26 / 127 + m * 12 / (TS_MH - 2),
+                 (gd_s(t * 20u + (uint32_t)i * 9000u) * (8 + m / 2)) >> 8, 1 + (int32_t)(ph >> 14), 64 + m * 192 / (TS_MH - 2),
+                 c, 280, trk[c].p[P_MUTE] ? GD_MID : i == 0 ? GD_ORANGE : i == 1 ? GD_BLUE : GD_BURNT);
+    }
     {                                                   /* the mushroom: a pale stem, a burnt cap with spots */
         int32_t x = 72 * 16, y = gd_gy(72), r = 160 * k / 256, q[8] = {x - 40, y, x - 32, y - 160, x + 32, y - 160, x + 40, y};
         gd_poly(q, 4, 2, GD_SURF);
