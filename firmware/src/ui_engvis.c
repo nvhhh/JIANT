@@ -470,9 +470,9 @@ static void vx_kit_page(const track_t *t, int32_t lane)
         cr.s = 165 * sw / 256;
         cr.cx = x * 16;
         cr.cy = (y - 2) * 16 + (2336 - 2000) * (165 - cr.s) / 256;   /* (swelling from its foot) */
-        vx_piece((uint32_t)i, e[i], mute);
+        vx_piece((uint32_t)i, clamp(e[i] * 3 / 2, 0, 256), mute);   /* (the played piece reacts more: a hit reads at a glance) */
         cv_text_in(x - 18, y + 16, 36, &AF_X, drum_lane_abbr(t, (uint32_t)i),
-                   i == lane ? T_THEME : mute ? T_DIM : T_MID, T_SURF);
+                   i == lane || e[i] > 96 ? T_THEME : mute ? T_DIM : T_MID, T_SURF);   /* (lit while it sounds) */
         if (i == lane)
             cv_rect(x - 8, y + 25, 16, 2, T_THEME);
     }

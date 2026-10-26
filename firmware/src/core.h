@@ -94,6 +94,12 @@ enum {                          /* per-track parameters */
     P_E0, P_E1, P_E2, P_E3, P_E4, P_E5, P_E6, P_E7,
     P_COUNT
 };
+enum {                          /* (JIANT, DYN) past P_COUNT: the compressor settings. Not in the project block, a user preset,
+                                 * the motion or the MIDI learn: the comp table (project.c comp_*) keeps them per project slot and
+                                 * song section; the tracks hold them (track_t.p has P_NALL) */
+    P_CTYPE = P_COUNT, P_CTHR, P_CRAT,         /* the dynamics model (fx.c track_dyn; makeup per model), THRESH, RATIO */
+    P_NALL
+};
 #define P_LRTRG P_FM1_ATK              /* (JIANT 0.6.12) LOFI BYTE / FLOAT's RTRG: a note restarts the formula's time (voice.c
                                          * voice_start), in a slot of the retired DIGITAL's (0: OFF, its default) */
 #define P_TCHAN P_FM1_DEC              /* (JIANT 0.6.37) SHIFT > CHANCE: how much of the track's steps it skips, 0 none (100 %,
@@ -588,7 +594,7 @@ typedef struct {
 } chain_config_t;
 
 typedef struct track {
-    int16_t p[P_COUNT];
+    int16_t p[P_NALL];
     uint8_t engine, preset;      /* engine: what the audio ISR renders */
     uint8_t eng_req;             /* engine the UI asked for (the ISR switches at a block start) */
     uint8_t user;                /* user preset slot + 1 the sound came from (UI), 0 = none */
