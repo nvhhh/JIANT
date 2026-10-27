@@ -1264,7 +1264,7 @@ static void draw_foot(void)
         foot_hint(ha, hb);
         sig += str_hash(str_hash(act_ready() ? 7u : 3u, ha), hb);
     }
-    sig += (uint32_t)accw * 977u;
+    sig += (uint32_t)accw * 977u + (uint32_t)t->p[P_CTYPE] * 2654435761u;   /* (COMP: its TYPE changes the front panel's labels) */
     if (lz) {                                           /* (GARDEN: the track and its sound) */
         char tt[40];
         sig += str_hash(head_title(tt), tt) + (uint32_t)gd_back() * 31u + (uint32_t)hud_home() * 7u;

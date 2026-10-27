@@ -338,10 +338,16 @@ static void sb_put(int32_t dx, int32_t dy, int32_t size, uint16_t c)   /* a poin
 }
 static void vx_serum(int32_t e)
 {
-    int32_t sw = vx_sw(1u, 1u, 0u, 256, 64, e), cell = SB_CELL * sw / 256, sz = CR(cell) >> 4, r, c, m, k;
+    int32_t sw = vx_sw(1u, 1u, 0u, 256, 21, e), cell = SB_CELL * sw / 256, sz = (CR(cell) >> 4) + 1, r, c, m, k, n;
     uint64_t t256 = (uint64_t)fm1_ms * (uint32_t)song.g[G_BPM] * 256u / 60000u;   /* beats so far (Q8) */
-    if (sz < 1)
-        sz = 1;
+    uint32_t bpm = (uint32_t)song.g[G_BPM];
+    if (sz < 2)                                          /* (a 1 px cell leaves holes: the bottle looked see-through) */
+        sz = 2;
+    /* the spray: its amount per beat grows with the sound's level (e) and the tempo, 6 dots at full level and 120 BPM
+     * (the baseline), 12 at most; no sound, no spray */
+    n = (int32_t)((uint32_t)clamp(e, 0, 256) * bpm * 6u / (256u * 120u));
+    if (n > 12)
+        n = 12;
     for (r = 0; r < SB_N; r++)
         for (c = 0; c < SB_N; c++) {
             uint32_t i = (uint32_t)(r * SB_N + c);
@@ -354,8 +360,8 @@ static void vx_serum(int32_t e)
         int32_t age = (int32_t)((t256 & 255u) + (uint64_t)m * 256u);
         if (age > SB_LIFE)
             continue;
-        for (k = 0; k < 6; k++) {
-            uint32_t hh = (bi * 6u + (uint32_t)k) * 2654435761u;
+        for (k = 0; k < n; k++) {
+            uint32_t hh = (bi * 12u + (uint32_t)k) * 2654435761u;
             int32_t dx = (4 - 20) * cell - (120 + (int32_t)((hh >> 8) & 127u)) * age / 256,
                     dy = (6 - 20) * cell + (((int32_t)(hh >> 16) & 255) - 128) * age / 256;
             if (hh >> 31)
