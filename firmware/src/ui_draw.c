@@ -787,7 +787,8 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
     key[n + 1] = (char)('A' + ((vc >> 4) & 15u));
     key[n + 2] = (char)('A' + ((vc >> 8) & 15u));
     key[n + 3] = (char)('A' + (vc >> 12));
-    key[n + 4] = (char)(' ' + (ratio < 0 ? 0 : 1 + clamp(ratio, 0, 1000) * (COL_W - 10) / 1000));   /* (the gauge's px) */
+    key[n + 4] = (char)(' ' + (ratio < 0 ? 0 : 1 + clamp(ratio, 0, 1000) * (low ? COL_W - 20 : COL_W - 10) / 1000));   /* (the
+                                                         * gauge's px, on its own width: the pods' is 10 px narrower) */
     key[n + 5] = (char)('!' + arm + 2 * (int)lz_on());
     key[n + 6] = (char)('0' + hot + 2 * mot + 4 * (int)kind);
     {   /* (0.6.10) the gauge's colour too */
