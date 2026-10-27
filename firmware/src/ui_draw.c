@@ -2367,12 +2367,6 @@ static void ui_draw(void)
     }
     if (!scr_frame())                                   /* MENU > SCREEN OFF: dark (or waking), nothing drawn */
         return;
-    {   /* (COMP) a change of TYPE redraws the whole page: the front panel's labels and the knob cells change with it */
-        static uint8_t ctype_seen __attribute__((section(".pool")));
-        uint8_t ct = (uint8_t)TSEL->p[P_CTYPE];
-        if (ct != ctype_seen)
-            ui.force = 1, ctype_seen = ct;
-    }
     ui_draw_page(counting);
     scr_shown();
 }
