@@ -88,7 +88,7 @@ The names below are the ones the firmware uses (the HARDWARE CALIBRATION screen 
 | Control | What it does |
 | --- | --- |
 | **SELECT** (encoder) | Alone (0.9.2): **walks the section's pages**, one page a detent, as one chain, stopping at its first and last page (no levels, no zoom; see [How navigation works](#how-navigation-works-six-rules-092)). In the MENU: its pages. With a button held: **HOME** + SELECT **GEN**, **EDIT / SEQ / LFO / FX** + SELECT that part's **dice**, **GLO** + SELECT the **tempo**, **ENV / SCL / ARP / SAVE** + SELECT walk that section's chain from wherever you are. |
-| **ALGORITHM** (encoder) | Selects the track from any page: T1–T6 (T1–T4 with TRACKS 4). The track is always ALGORITHM's (0.9.2: PRESETS no longer picks it on ENV, LFO, CHORD, ARP). In the MENU: the next / previous tab. With a layer held: its view, MAP ↔ KNOBS ↔ STATE. |
+| **ALGORITHM** (encoder) | Selects the track from any page: T1–T8 (T1–T4 with TRACKS 4, T1–T6 with TRACKS 6). The track is always ALGORITHM's (0.9.2: PRESETS no longer picks it on ENV, LFO, CHORD, ARP). In the MENU: the next / previous tab. With a layer held: its view, MAP ↔ KNOBS ↔ STATE. |
 | **PRESETS** (encoder) | **Always presets** (0.9.2): the selected track's sounds (every engine's factory presets, then your user presets) on every page; on the **SEQ** pages the **patterns** (it opens the PHRASES loader with the next pattern picked: OCT+ loads it, OCT− back to the SEQ page); on **GEN** the GENRE. In the MENU and with a button held it does nothing. It never changes page, track, module or row. |
 | **KNOB 1–4** | The four cards (columns) on screen. A page that picks something picks it with **KNOB 1** (the step, the bar, the slot, the stage, the operator, the kit's sound, the row). With a layer held, the layer's own knobs. Turning fast sweeps the whole range, slowly fine-tunes (MENU › SYSTEM › KNOB SPEEDUP turns this off). In the MENU: KNOB n the setting on card n. |
 | **MASTER** | The output volume. |
@@ -251,7 +251,7 @@ it was in 0.9.1, with its knobs and its picture (the ones 0.8.5's lenses drew).
 | **EDIT** (FM6) | **SOUND**: EDIT 1 · EDIT 2 — **TONE**: FILTER · VOICE · VOICE 2 — **OPERATOR**: OPERATOR · OP ENV · OPERATOR 2 | 8 |
 | **EDIT** (DRUM) | **KIT**: KIT · KIT 2 · KIT 3 — **SOUND**: SOUND · SOUND 2 · SOUND 3 · SOUND 4 — **LEVELS**: LEVELS · LEVELS 2 — **TONE**: X-MOD · FILTER · STEREO · VOICE | 13 |
 | **SEQ** | **PATTERN**: PATTERN · STRETCH · PLAYHEADS — **TRACK**: TRACK · MUTATE — **BAR**: BAR · STEP · NOTE — **STEP**: COMP · COMP 2 — **AUTO**: AUTOMATION · AUTO LIST | 12 |
-| **FX** | **TRACK**: SENDS · DIST · AUTO PAN — **BUSES**: BUSES — **DELAY**: DLY · DLY 2 · DLY 3 — **REVERB**: REVERB · REVERB 2 — **CHORUS**: CHORUS — **SLICER**: SLICER · SL BUS · SL BUS 2 · SL PITCH — **MASTER**: MASTER — **PUNCH**: PUNCH | 16 |
+| **FX** | **TRACK**: SENDS · DIST · AUTO PAN — **BUSES**: BUSES — **DELAY**: DLY · DLY 2 · DLY 3 — **REVERB**: REVERB · REVERB 2 — **CHORUS**: CHORUS — **SLICER**: SLICER · SL BUS · SL BUS 2 · SL BUS 3 · SL PITCH — **MASTER**: MASTER — **PUNCH**: PUNCH | 16 |
 | **GLO** | **LIVE**: MANO · RIELES — **MIX**: MIXER · SENDS — **GLOBAL**: GLOBAL — **SYSTEM**: SYSTEM | 6 |
 | **ENV** | **TRACKS**: TRACKS · TRACKS DEST — **ENV**: ENV · ENV DEST — **STAGE**: STAGE | 5 |
 | **LFO** | **MOD**: MOD — **LFO**: LFO · LFO DEST — **MSEQ**: MSEQ · MSEQ 2 | 5 |
@@ -340,7 +340,8 @@ the bars with KNOB 1 the bar and KNOB 2 LEN.
 | BUSES (0.8.5) | MIX (the delay's) | SIZE (the reverb's) | DEPTH (the chorus') | DEPTH (the SLICER's) |
 | SLICER | MODE | PAT | RATE | DEPTH |
 | SL BUS | T1 | T2 | T3 | T4 |
-| SL BUS 2 | T5 | T6 | FX | — |
+| SL BUS 2 | T5 | T6 | T7 | T8 |
+| SL BUS 3 | FX | — | — | — |
 | SL PITCH | STEP | PITCH | LEN | QUANT |
 | DLY | TIME | FEEDBK | TONE | MIX |
 | DLY 2 | WIDE | PITCH | SPRAY | MOD |
@@ -460,7 +461,7 @@ breadcrumb, **FX · MAP**. The keys and knobs do exactly what they did.
 | E5 | ARP |
 | F5 | RANDOM |
 | G5 | erases the punch-in lane |
-| Black keys 1–6 (F#3 G#3 A#3 C#4 D#4 F#4) | mute T1–T6 while held |
+| Black keys 1–6 (F#3 G#3 A#3 C#4 D#4 F#4) | mute T1–T6 while held (T3–T8 while T7 or T8 is selected) |
 | G#4 | FREEZE (0.9.17): the eighth after the press held as grains |
 | A#4 | which tracks the note effects touch: ALL / SYN / DRM |
 | C#5 | SHUFFLE (0.9.17): the last bar's 1/16s in another order (the FILTER sweep's key until 0.9.16) |
@@ -471,9 +472,9 @@ breadcrumb, **FX · MAP**. The keys and knobs do exactly what they did.
 
 | Keys | Action |
 | --- | --- |
-| Black keys 1–6 | MUTE T1–T6 (latched: press again to unmute) |
+| Black keys 1–6 | MUTE T1–T6, or T3–T8 while T7 or T8 is selected (latched: press again to unmute) |
 | Black keys 7–10 (G#4 A#4 C#5 D#5) | DRUM-X group mutes: KICK, SNARE, HAT, PERC |
-| F3–D4 | SOLO T1–T6 while held |
+| F3–D4 | SOLO T1–T6 (T3–T8 while T7 or T8 is selected) while held |
 | E4 | unmute everything (tracks and drum groups) |
 | F4 | TAP tempo (from the third tap; internal clock only) |
 | G4 | **UNDO** (again: redo) |
@@ -1468,7 +1469,7 @@ sounds picked with PRESETS, SEQ TOOLS actions, or ordinary knob turns. It is not
 
 (0.9.2) FX is one flat chain of 16 pages in eight groups, its tabs **TRK · BUS · DLY · REV · CHO · SLC · MST · PCH**:
 **SELECT** walks every page (SENDS → DIST → AUTO PAN → BUSES → DLY → DLY 2 → DLY 3 → REVERB → REVERB 2 → CHORUS →
-SLICER → SL BUS → SL BUS 2 → SL PITCH → MASTER → PUNCH), an **FX** tap jumps to the next module (round), and there is
+SLICER → SL BUS → SL BUS 2 → SL BUS 3 → SL PITCH → MASTER → PUNCH), an **FX** tap jumps to the next module (round), and there is
 no module picker any more (until 0.9.1 SELECT zoomed TRACK ↔ BUSES ↔ EFFECT, PRESETS picked the module and the FX tap
 its page). PRESETS loads the track's sounds, as everywhere. The pages, their knobs and their pictures are the same.
 
@@ -1476,7 +1477,7 @@ its page). PRESETS loads the track's sounds, as everywhere. The pages, their kno
 | --- | --- | --- |
 | **TRACK** | SENDS (the FX page: DIST CHORUS DLY REV) · DIST · AUTO PAN | The track's set: its picture (the four sends as bars, DIST's curve with TYPE and TONE, AUTO PAN's swing with WAVE and RATE) and DIST's curve small under it. |
 | **BUSES** | BUSES | The six modules as tiles, each its picture small: **DELAY** (its echoes), **REVERB** (its decay), **CHORUS** (three waves), **SLICER** (its 16 steps, the one playing framed), **MASTER** (the output now, the duck's curve), **PUNCH** (the lane); with LOAD ECO CHORUS and SLICER are dark ("ECO"). Knobs: **DLY MIX, REV SIZE, CHORUS DEPTH, SLICER DEPTH**. |
-| **DELAY · REVERB · CHORUS · SLICER · MASTER · PUNCH** | DLY · DLY 2 · DLY 3 — REVERB · REVERB 2 — CHORUS — SLICER · SL BUS · SL BUS 2 · SL PITCH — MASTER — PUNCH | The module large: its picture, "DELAY 2/3" (its page) in the title. With LOAD ECO the chain skips CHORUS and SLICER. |
+| **DELAY · REVERB · CHORUS · SLICER · MASTER · PUNCH** | DLY · DLY 2 · DLY 3 — REVERB · REVERB 2 — CHORUS — SLICER · SL BUS · SL BUS 2 · SL BUS 3 · SL PITCH — MASTER — PUNCH | The module large: its picture, "DELAY 2/3" (its page) in the title. With LOAD ECO the chain skips CHORUS and SLICER. |
 
 - **FX from another page** comes back to the FX page you left.
 - The footer says **FX · DELAY · DLY 2  6/16**; the header shows the track, **T1**, in orange.
@@ -1499,7 +1500,7 @@ its page). PRESETS loads the track's sounds, as everywhere. The pages, their kno
 ### SLICER (one, on a bus)
 
 - **SLICER**: **MODE** OFF, GATE, STUT; **PAT** 1–16; **RATE** 1/8 … 32T; **DEPTH**.
-- **SL BUS / SL BUS 2**: ON / OFF for what goes in: **T1–T6** and **FX** (the delay, reverb and chorus returns).
+- **SL BUS / SL BUS 2 / SL BUS 3**: ON / OFF for what goes in: **T1–T8** and **FX** (the delay, reverb and chorus returns).
   Everything on chops the whole mix after the effects; with FX off the tails ring free.
 - **SL PITCH**: the repeats follow a 16-step pitch sequence (±24 semitones). KNOB 1 the step, KNOB 2 its pitch, LEN,
   QUANT (CHR or SCL: the song's scale).
@@ -1553,7 +1554,7 @@ its page). PRESETS loads the track's sounds, as everywhere. The pages, their kno
 | **ROOM** | Classic room | DAMP | PRE (pre-delay, ms) |
 | **SPRING** | Amp spring tank | DAMP | PRE |
 | **SHIMR** (shimmer) | Rises an octave on every pass | DAMP | **AIR** (±24 st: darker and lower / airier and higher) |
-| **RESO** | Four strings tuned to the song's scale | **FOLLOW** (OFF / T1–T6: the chord follows the lowest note that track plays) | **PITCH** (the chord 0–14 steps up the scale) |
+| **RESO** | Four strings tuned to the song's scale | **FOLLOW** (OFF / T1–T8: the chord follows the lowest note that track plays) | **PITCH** (the chord 0–14 steps up the scale) |
 | **CLOUD** | Granular wash; SIZE at max freezes it | DAMP | **AIR** |
 
 **REVERB 2**: **MOD** (modulation depth), **RATE**, **FILT** (input tone: darker / brighter; 0.6.86 resonant, a band at the cutoff to carve the room's place), **WIDE**.
@@ -1974,7 +1975,7 @@ device settings, not part of a project.
 
 ### ROUTE (GLO > SYSTEM, KNOB 3)
 
-**CH1-6**: MIDI channels 1–6 play tracks 1–6, channels 7–16 are ignored. **SEL**: every channel plays the selected
+**CH1-8**: MIDI channels 1–8 play tracks 1–8, channels 9–16 are ignored. **SEL**: every channel plays the selected
 track.
 
 ### GLOBAL (GLO > GLOBAL)
@@ -2111,7 +2112,7 @@ Any knob of a track's sound to any CC of your controller, on the device (from Fe
   38 / 96–101 (data entry, RPN), CC11 (expression), CC64 (sustain), CC120–127 (channel modes) and every CC of the
   standard map above (CC5 7 10 16–23 71–75 91 93 94 102–105). So a learned CC and the map never meet.
 - **Kept with the settings** (not in a project; a settings backup carries it); **MENU › MIDI › LEARN CLEAR** forgets
-  them all. ROUTE still decides which channels are heard (CH1-6 ignores channels 7–16).
+  them all. ROUTE still decides which channels are heard (CH1-8 ignores channels 9–16).
 - Bluetooth MIDI does not exist on the FM-1 with JIANT (see above), so learning works on USB and TRS.
 
 ### Stems (0.7.1)

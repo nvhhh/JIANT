@@ -1106,10 +1106,10 @@ static __attribute__((noinline)) void rev_shimmer(const int32_t *rev_in, int32_t
 #define RS_LEN 1024u                                     /* each comb's line, in rev_comb: down to ~43 Hz */
 _Static_assert(sizeof rev_comb / 2u >= 4u * RS_LEN, "RESO in ROOM's buffers");
 /* (JIANT 0.6.5) RESO's two knobs of its own, in the slots of PRE and DAMP (no pre-delay, a fixed tone on RESO):
- * PITCH (G_RPRE 0..14) the chord that many steps of the scale up; FOLW (G_RDAMP 0..6) OFF / T1..T6: the chord built on
+ * PITCH (G_RPRE 0..14) the chord that many steps of the scale up; FOLW (G_RDAMP 0..8) OFF / T1..T8: the chord built on
  * the lowest note that track sounds (held after it stops), so it moves with the sequence. The strings glide there */
 static uint32_t reso_pitch(void) { return song.g[G_RTYPE] == 3 ? (uint32_t)clamp(song.g[G_RPRE], 0, 14) : 0u; }
-static uint32_t reso_folw(void) { return GFX(GF_RDAMP) >= 1 && GFX(GF_RDAMP) <= 6 ? (uint32_t)GFX(GF_RDAMP) : 0u; }
+static uint32_t reso_folw(void) { return GFX(GF_RDAMP) >= 1 && GFX(GF_RDAMP) <= (int32_t)NTRK ? (uint32_t)GFX(GF_RDAMP) : 0u; }
 static __attribute__((noinline)) void rev_reso(const int32_t *rev_in, int32_t *out, uint32_t n)
 {
     const track_t *t = &trk[0];
@@ -2236,7 +2236,7 @@ static __attribute__((noinline)) void stem_slicer_bus(uint32_t n)
     stem_sl = 0;
     if (slicer_on())
         for (k = 0; k < NPART; k++)
-            if (song.g[G_SLT1 + k] && !((mix_skip >> k) & 1u))
+            if (song.g[sl_trk_g(k)] && !((mix_skip >> k) & 1u))
                 stem_sl |= (uint8_t)(1u << k);
     if (slicer_fx())                                    /* FX ON: the returns through it (kept for the FX return) */
         for (i = 0; i < n; i++) {
@@ -2345,12 +2345,13 @@ static volatile int8_t mc_cur = -1;                      /* the part core 1 is i
 static uint8_t mc_mask_last;                             /* the parts core 1 had the last block (MENU > ABOUT, tests) */
 static uint32_t mc_jobs;                                 /* (0.6.72) blocks core 1 rendered parts in (console status) */
 static void mix_part_m(track_t *t, uint32_t n);         /* (below) */
-#define MC_FX 0x80u                                       /* (0.6.75) mc_job: the buses too */
+#define MC_FX 0x80000000u                                 /* (0.6.75) mc_job: the buses too (0.9.20: bit 31; it was 0x80,
+                                                         * T8's bit of the parts' mask: core 1 rendered T8 again) */
 static void fx_run(uint32_t n);                          /* (below) */
-static __attribute__((noinline)) void mc_job(uint32_t a)  /* core 1: the buses (MC_FX), the parts of mask a & 0x3F, a >> 8
-                                                         * samples */
+static __attribute__((noinline)) void mc_job(uint32_t a)  /* core 1: the buses (MC_FX), the parts of mask a & 0xFF, a >> 8 &
+                                                         * 0xFFFF samples */
 {
-    uint32_t i, n = a >> 8, t0 = PRF_T();
+    uint32_t i, n = (a >> 8) & 0xFFFFu, t0 = PRF_T();
     if (a & MC_FX)
         fx_run(n);
     for (i = 0; i < n; i++)

@@ -4334,12 +4334,20 @@ static int test_quick_layers(void)
     bad += check("GLO SCL EDIT: a tap opens the page, held past HOLD the map (no page), a key: the map at once", ok);
     bad += check("  0.9.5 after a tap no \"HOLD [BTN] QUICK\" hint (the page dwelt on, the layer opened or not)", hint);
 
+    {   /* (0.9.20) the six track keys follow the selected track as the mixer's columns: T1..T6, or T3..T8 */
+        uint8_t sel0 = song.sel;
+        song.sel = 0; ok = key_trk(0) == 0u && key_trk(5) == 5u && trk_base6() == 0u;
+        song.sel = 6; ok &= key_trk(0) == 2u && key_trk(5) == 7u && trk_base6() == 2u;
+        ok &= perf_key(black(5)) == PF_M1 + 7u;          /* (F#4 with T7 selected: T8's mute) */
+        song.sel = sel0;
+        bad += check("0.9.20: the black track keys (FX, GLO, LIVE MANO) are T1..T6, or T3..T8 with T7 or T8 selected", ok);
+    }
     {   /* (JIANT 0.6) how full the music is for a section: said once, 1.5 s after the last change */
         uint32_t k2, i2, p0;
         ui_power_on(); ui.msg_t = 0;
         proj_fill_poll(autosave_sig()); fm1_ms += 2000u; proj_fill_poll(autosave_sig());
         p0 = proj_fill_pct();
-        ok = !ui.msg_t && p0 < 35u;
+        ok = !ui.msg_t && p0 < 40u;                     /* (0.9.20: 36 %, DICE ALL's macro routes on T7 T8 too) */
         for (k2 = 0; k2 < NTRK; k2++)                   /* every step a chord on every track: more than a section */
             for (i2 = 0; i2 < NSTEP; i2++) {
                 trk[k2].step[i2].time = ST_NOTE; trk[k2].step[i2].n = 4; trk[k2].step[i2].vel = 100;
@@ -7791,24 +7799,24 @@ static int test_scl_alltr(void)
     return bad;
 }
 /* (0.9.2) FX one flat chain (this replaces the "FX plano" task): TRK (SENDS DIST AUTO PAN) . BUS (BUSES) . DLY (DLY DLY 2
- * DLY 3) . REV (REVERB REVERB 2) . CHO (CHORUS) . SLC (SLICER SL BUS SL BUS 2 SL PITCH) . MST (MASTER) . PCH (PUNCH),
- * sixteen pages; SELECT a page a detent (no wrap), an FX tap the next group's first (round), the eight tabs lit by group
- * (their short names), "FX . DELAY . DLY 2  6/16"; PRESETS a sound (was the module); BUSES' four knobs the buses' DLY MIX,
+ * DLY 3) . REV (REVERB REVERB 2) . CHO (CHORUS) . SLC (SLICER SL BUS SL BUS 2 SL BUS 3 SL PITCH) . MST (MASTER) . PCH
+ * (PUNCH), seventeen pages (0.9.20: SL BUS 3, the SLICER's FX switch, T7 T8 on SL BUS 2); SELECT a page a detent (no wrap), an FX tap the next group's first (round), the eight tabs lit by group
+ * (their short names), "FX . DELAY . DLY 2  6/17"; PRESETS a sound (was the module); BUSES' four knobs the buses' DLY MIX,
  * REV SIZE, CHORUS DEPTH, SLICER DEPTH; LOAD ECO: CHORUS and SLICER out of the chain (their tabs too); FX from elsewhere
  * the page left. (Was 0.8.5's lens: SELECT TRACK <-> BUSES <-> EFFECT, PRESETS the module, the FX tap the level's next) */
 static int test_fx_sections(void)
 {
-    static const char *const CH[16] = {"SENDS", "DIST", "AUTO PAN", "BUSES", "DLY", "DLY 2", "DLY 3", "REVERB", "REVERB 2",
-                                       "CHORUS", "SLICER", "SL BUS", "SL BUS 2", "SL PITCH", "MASTER", "PUNCH"};
+    static const char *const CH[17] = {"SENDS", "DIST", "AUTO PAN", "BUSES", "DLY", "DLY 2", "DLY 3", "REVERB", "REVERB 2",
+                                       "CHORUS", "SLICER", "SL BUS", "SL BUS 2", "SL BUS 3", "SL PITCH", "MASTER", "PUNCH"};
     static const char *const TP[7] = {"BUSES", "DLY", "REVERB", "CHORUS", "SLICER", "MASTER", "PUNCH"};
     int bad = 0, ok;
     uint32_t pr;
     ui_power_on();
-    bad += check("0.9.2 FX: one chain of 16 (TRK BUS DLY REV CHO SLC MST PCH) by SELECT, no wrap; an FX tap each group's first, round",
-                 chain_walk(B_FX, CH, 16, TP, 7));
+    bad += check("0.9.2 FX: one chain of 17 (TRK BUS DLY REV CHO SLC MST PCH) by SELECT, no wrap; an FX tap each group's first, round",
+                 chain_walk(B_FX, CH, 17, TP, 7));
     ui_power_on(); go_home(); frame(); press(B_FX); frame();
     ok = fx_on() && fx_level() == FXL_TRACK && lz_on() && card_y() == LB_CARD_Y && lz_tabs() == 8u && lz_tab_lit(0) &&
-         lz_crumb_is("FX \xB7 TRACK \xB7 SENDS") && lz_count_is("1/16");
+         lz_crumb_is("FX \xB7 TRACK \xB7 SENDS") && lz_count_is("1/17");
     turn(EN_SELECT, 3); frame();
     ok &= fx_level() == FXL_BUSES && cur_page()->graph == GR_BUSES && lz_tab_lit(1) && lz_crumb_is("FX \xB7 BUSES \xB7 BUSES");
     ok &= cur_page()->id[0] == G_DMIX && cur_page()->id[1] == G_RSIZE && cur_page()->id[2] == G_CDEPTH && cur_page()->id[3] == G_SLDEP;
@@ -7816,19 +7824,19 @@ static int test_fx_sections(void)
     ok &= song.g[G_RSIZE] > 50;
     turn(EN_SELECT, 2); frame();
     ok &= fx_level() == FXL_EFFECT && str_eq(cur_page()->title, "DLY 2") && lz_tab_lit(2) &&
-          lz_crumb_is("FX \xB7 DELAY \xB7 DLY 2") && lz_count_is("6/16") && ui.fxmod == 0u;
+          lz_crumb_is("FX \xB7 DELAY \xB7 DLY 2") && lz_count_is("6/17") && ui.fxmod == 0u;
     {   /* the eight tabs: their short names (the full ones do not fit) */
         const char *nm[8], *tab[8];
         uint8_t cnt[8];
         uint32_t lv, at, n = tabs_now(nm, tab, cnt, &lv, &at);
-        ok &= n == 8u && str_eq(tab[2], "DLY") && str_eq(tab[5], "SLC") && cnt[2] == 3u && cnt[5] == 4u && lv == 2u && at == 1u;
+        ok &= n == 8u && str_eq(tab[2], "DLY") && str_eq(tab[5], "SLC") && cnt[2] == 3u && cnt[5] == 5u && lv == 2u && at == 1u;
     }
     pr = TSEL->preset;
     turn(EN_PRESET, 1); frame();
     ok &= str_eq(cur_page()->title, "DLY 2") && (TSEL->preset != pr || TSEL->eng_req != trk_def_engine(0));
     frames(320); press(B_FX); frame();
     ok &= str_eq(cur_page()->title, "REVERB") && ui.fxmod == 1u;
-    bad += check("0.9.2 FX: tabs (eight, short names, dots), crumb FX . DELAY . DLY 2 6/16; BUSES' knobs; PRESETS a sound (was the module)", ok);
+    bad += check("0.9.2 FX: tabs (eight, short names, dots), crumb FX . DELAY . DLY 2 6/17; BUSES' knobs; PRESETS a sound (was the module)", ok);
     go_home(); frame();
     press(B_FX); frame();
     ok = str_eq(cur_page()->title, "REVERB") && fx_level() == FXL_EFFECT;
@@ -7941,7 +7949,9 @@ static int test_dice_all(void)
                                                          * settings as at power-on, whatever the GEN tests left: the 40
                                                          * throws the same whatever ran before, as 0.6.92 meant) */
             for (n2 = 0; n2 < GP_N; n2++) gp.amt[n2] = GA_AUTO;
-            host_ticks = 5000000u;                      /* (0.6.92) the same 40 seeds whatever ran before (the seed mixes the ticks in) */
+            host_ticks = 5000001u;                      /* (0.6.92) the same 40 seeds whatever ran before (the seed mixes the ticks in;
+                                                         * 0.9.20: 5000000 drew seed 8059 twice once T7 T8 joined the dice, a
+                                                         * birthday chance of 40 draws from 10000) */
             for (n2 = 0; n2 < 40u; n2++) {
                 b0 = song.g[G_BPM];
                 if (n2 % 10u == 0u) rng_state = 0x1234567u;   /* (the same state again: the press time still differs) */
@@ -11454,7 +11464,7 @@ static const old_lv_t OLD_LV[] = {
     {FAM_SEQ, LV_STEP, 9, {"COMP", "COMP 2"}},   /* (NOTE's STEP view: merged into BAR's, the mock-up's "páginas repetidas") */
     {FAM_FX, FXL_TRACK, 9, {"FX", "DIST", "AUTO PAN"}}, {FAM_FX, FXL_BUSES, 9, {"BUSES"}},
     {FAM_FX, FXL_EFFECT, 9, {"DLY", "DLY 2", "DLY 3", "REVERB", "REVERB 2", "CHORUS", "SLICER", "SL BUS", "SL BUS 2",
-                             "SL PITCH", "MASTER", "PUNCH"}},
+                             "SL BUS 3", "SL PITCH", "MASTER", "PUNCH"}},
 };
 static int test_lz_reach(void)
 {

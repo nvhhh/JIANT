@@ -195,7 +195,7 @@ int main(void)
             song.g[G_SLMODE] = V[v].mode;
             song.g[G_SLFX] = V[v].fx;
             for (i = 0; i < NPART; i++)
-                song.g[G_SLT1 + i] = (V[v].mask >> i) & 1u;
+                song.g[sl_trk_g(i)] = (V[v].mask >> i) & 1u;   /* (0.9.20: T7 T8 their own switches) */
             null_tol = 2;
             bad = take(nb, 1, 0, &snd, &gave, &sums);
             null_tol = 0;

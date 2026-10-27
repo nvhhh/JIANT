@@ -5,7 +5,8 @@
  * layer (seq.c keyboard_block): it plays no note, sends no MIDI, records nothing, and holds its effect until
  * it is let go (ui_input.c opens the layer and shows the map). The 5 white keys from the left (F3 .. C4):
  *   REPEAT 1/8 1/16 1/32, (0.9.14) GLITCH, TAPE STOP; then (JIANT) the 10 punch-in MIDI effects D4 .. F5 (pfx.c); black
- *   keys 1..6 (F#3 .. F#4): tracks 1..6 muted while held (not P_MUTE, never saved); (0.9.17) G#4 FREEZE; A#4 the MIDI
+ *   keys 1..6 (F#3 .. F#4): six tracks muted while held (0.9.20: T1..T6, or T3..T8 with T7 or T8
+ *   selected: seq.c key_trk) (not P_MUTE, never saved); (0.9.17) G#4 FREEZE; A#4 the MIDI
  *   effects' tracks; (0.9.17) C#5 SHUFFLE (the FILTER sweep's key until 0.9.16); (0.9.14) D#5 F#5 the SWEEPS CRUSH, THROW.
  * TONIC keeps only the audio stutters (REPEAT): REVERSE, FREEZE and OCT UP / DN (the harmonizer) were removed; the
  * punch-in effects of TONIC act on the notes instead (FELUCCA-TONIC-SPEC.md). (0.9.17: a granular FREEZE came back.)

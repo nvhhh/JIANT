@@ -2030,11 +2030,11 @@ static void ui_input_frame(void)
     int32_t s, sel = 0, ks[4] = {0, 0, 0, 0};
     fm6_poll();                                         /* FM6: PTCH turned -> its patch */
     {   /* (JIANT 0.6.5) RESO's PITCH and FOLW live in PRE's and DAMP's slots: into RESO a ROOM's values become theirs
-         * (DAMP past FOLW's T6: OFF; PRE past 14: 14), out of it the reverb's own defaults back */
+         * (DAMP past FOLW's T8: OFF; PRE past 14: 14), out of it the reverb's own defaults back */
         static uint8_t rt0 = 0xFFu;
         uint32_t rt = (uint32_t)song.g[G_RTYPE];
         if (rt == 3u) {
-            if (song.g[G_RDAMP] > 6) song.g[G_RDAMP] = 0;
+            if (song.g[G_RDAMP] > (int16_t)NTRK) song.g[G_RDAMP] = 0;
             if (song.g[G_RPRE] > 14) song.g[G_RPRE] = 14;
             if (song.g[G_RPRE] < 0) song.g[G_RPRE] = 0;
         } else if (rt0 == 3u) {

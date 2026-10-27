@@ -362,7 +362,8 @@ static void vx_shrub(int32_t e)
 /* (0.9.20) MONK: a monk of six faces (ui_monk.h: tools/gen_monk.py from assets/ui-art/monk), drawn as they are, 112 px
  * (2 px an art pixel, the garden's blocks) in the middle of the rectangle, a smaller one (SOUND's) sampled down to fit.
  * Silent he rests; sounding he shows the vowel sung (VOWEL / VOWEL2 / TALK, or WORDS' phoneme): A ah, E I ee, O U
- * (rounded) oo, m n ng mm; a note held past 2 s the chant. His red outline (a ring 2 px out and a fainter one 4 px)
+ * (rounded) oo, m n ng mm; a note held past 2 s the chant. Each note he sings mm-vowel-mm: his lips closed its first
+ * 90 ms and as it lets go (the newest voice's release), so the mouth moves on every note. His red outline (a ring 2 px out and a fainter one 4 px)
  * pulses on the beat, as strong as the sound, and he lifts 2 px every other beat */
 #include "ui_monk.h"
 #define MK_RED 0xD8A1u
@@ -370,14 +371,16 @@ enum { MK_REST, MK_AH, MK_OO, MK_EE, MK_MM, MK_CHANT };
 static struct { uint32_t age, ms; } mk_held[NTRK] __attribute__((section(".pool")));   /* the newest note, when it came */
 static uint32_t vx_monk_face(const track_t *t, int32_t e)
 {
-    uint32_t k = (uint32_t)(t - trk) % NTRK, i, a = 0, rnd;
+    uint32_t k = (uint32_t)(t - trk) % NTRK, i, a = 0, st = 0, rnd;
     int32_t f2;
     for (i = 0; i < NVOICE; i++)
-        if (t->v[i].active && t->v[i].age > a) a = t->v[i].age;
+        if (t->v[i].active && t->v[i].age > a) { a = t->v[i].age; st = t->v[i].stage; }
     if (a > mk_held[k].age) mk_held[k].ms = fm1_ms;
     mk_held[k].age = a;
     if (!e)
         return MK_REST;
+    if (!a || st >= 3u)                                  /* (the note letting go: the lips close) */
+        return MK_MM;
     if (t->p[P_VLANG]) {                                 /* WORDS: the phoneme sounding */
         const sing_t *s = sing_view(t);
         uint32_t c = sing_phon(s);
@@ -396,6 +399,7 @@ static uint32_t vx_monk_face(const track_t *t, int32_t e)
         f2 = VOWEL_F[ii][1] + (((VOWEL_F[ii + 1][1] - VOWEL_F[ii][1]) * fr) >> 8);
         rnd = v0 > 80;
     }
+    if (!t->p[P_VLANG] && fm1_ms - mk_held[k].ms < 90u) return MK_MM;   /* (the note's onset: m-) */
     if (fm1_ms - mk_held[k].ms > 2000u) return MK_CHANT;
     if (rnd) return MK_OO;
     return f2 > 1550 ? MK_EE : MK_AH;                    /* (front: F2 over ~1.55 kHz) */

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments
  * Copyright (C) 2026 Juan Ignacio Antonucci (Juan Jiant) */
-/* SLICER (JIANT 0.6.3: one, on a bus): a tempo-synced 16-step gate / stutter on the tracks routed to it (SL BUS: T1..T6
+/* SLICER (JIANT 0.6.3: one, on a bus): a tempo-synced 16-step gate / stutter on the tracks routed to it (SL BUS: T1..T8
  * ON / OFF) and, with FX ON, on the delay, reverb and chorus returns too: everything ON, the whole mix's stutter after the
  * effects, a sampler's cut. The routed tracks reach it after their DIST, filter, LEVEL and PAN (fx.c mix_part: into
  * sl_l / sl_r, not the dry mix); their sends stay as they were (the effects get them unchopped: with FX OFF the tails
@@ -85,7 +85,10 @@ static uint32_t sl_pattern(void) { return SL_PAT[(uint32_t)(song.g[G_SLPAT] - 1)
 /* running or still fading: the routed tracks go through it */
 static int slicer_on(void) { return sys_load != LOAD_ECO && (song.g[G_SLMODE] != SL_OFF || sl.gc || sl.w); }   /* (0.6.30: LOAD ECO
                                                                                                             * none) */
-static int slicer_routes(uint32_t k) { return k < NTRK && song.g[G_SLT1 + k] && slicer_on(); }
+/* track k's switch into the bus: T1..T6 the block's (G_SLT1..), T7 T8 theirs after it (0.9.20: before, T7 read FX's
+ * switch and T8 the pitch sequence's LEN, so T8 always went in) */
+static uint32_t sl_trk_g(uint32_t k) { return k < 6u ? G_SLT1 + k : G_SLT7 + k - 6u; }
+static int slicer_routes(uint32_t k) { return k < NTRK && song.g[sl_trk_g(k)] && slicer_on(); }
 static int slicer_fx(void) { return song.g[G_SLFX] && slicer_on(); }
 
 static uint32_t scale_mask(const track_t *t);           /* seq.c */

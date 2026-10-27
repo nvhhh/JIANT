@@ -137,7 +137,7 @@ static void fxg_slicer(int32_t x, int32_t y, int32_t w, int32_t h)
     if (w > 120) {                                   /* the tracks in it, FX */
         uint32_t n = 0;
         for (i = 0; i < NTRK && n + 4u < sizeof b; i++)
-            if (song.g[G_SLT1 + i]) { b[n++] = 'T'; b[n++] = (char)('1' + i); b[n++] = ' '; }
+            if (song.g[sl_trk_g(i)]) { b[n++] = 'T'; b[n++] = (char)('1' + i); b[n++] = ' '; }
         b[n] = 0;
         if (!n) str_cpy(b, "NONE ", sizeof b);
         if (song.g[G_SLFX]) str_cpy(b + str_len(b), "+FX", 4);

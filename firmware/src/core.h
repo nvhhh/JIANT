@@ -12,7 +12,7 @@
 #define NVOICE 8                 /* voices per part, and the budget shared by all parts */
 #define NPART 8                  /* synth parts: tracks 1..8 (JIANT 0.6: was 4; 0.9.19: 6 -> 8) */
 #define NTRK NPART               /* tracks (the formats and the protocol count these): every track is a part */
-#define NROUTE_CH 6u             /* (0.9.19) MIDI IN ROUT CH1-6: channels 1..6 play tracks 1..6; 7..16 are ignored (or SEL's): the label, the manual */
+#define NROUTE_CH 8u             /* MIDI IN ROUT CH1-8 (0.9.20; 0.9.19: CH1-6): channels 1..8 play tracks 1..8; 9..16 are ignored (or SEL's) */
 #define NSTEP 64
 #define HALF_FRAMES 128          /* I2S half buffer: 2.9 ms at 44.1 kHz (a key waits 0..1 half, then plays 1 half later) */
 #ifndef FELUCCA_FM4
@@ -188,6 +188,8 @@ enum {                          /* global parameters */
     G_DTYPE, G_DPING,           /* (0.6.90) the delay's TYPE (ANALOG / DIGITAL) and PING-PONG (project.c: block 'DT') */
     G_PFXLEN, G_PFXRES,         /* (0.6.99) the punch-in lane's length (1..64 steps) and resolution (1/8 1/16 1/32)
                                  * (pfx.c; project.c: block 'PX') */
+    G_SLT7, G_SLT8,             /* (0.9.20) the SLICER's T7 and T8 switches (slicer.c sl_trk_g; G_SLT1..G_SLT6 are the
+                                 * first six's, their block's; project.c: block 'S8') */
     G_COUNT
 };
 #define G_SL_N (G_SLP15 + 1 - G_SLMODE)     /* the SLICER's globals (stored together: project.c, song_chain.c) */

@@ -163,7 +163,7 @@ L = {
 
 # pages shown only where they apply (the manual's "Some pages only appear when they apply"); drawn dashed
 COND = {('EDIT', 'MORPH'), ('EDIT', 'RETRIG'), ('EDIT', 'ROTOR'), ('EDIT', 'WORDS'), ('FX', 'CHORUS'), ('FX', 'SLICER'),
-        ('FX', 'SL BUS'), ('FX', 'SL BUS 2'), ('FX', 'SL PITCH')}
+        ('FX', 'SL BUS'), ('FX', 'SL BUS 2'), ('FX', 'SL BUS 3'), ('FX', 'SL PITCH')}
 
 # the map's rows: the sections in each (EDIT: its three chains side by side) and their accent (KNOB 1..4 colours)
 ROWS = [['HOME', 'SEQ', 'SCL'], ['EDIT'], ['FX', 'GLO'], ['ENV', 'LFO', 'ARP', 'SAVE']]
