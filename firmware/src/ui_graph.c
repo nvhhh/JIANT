@@ -1753,29 +1753,31 @@ static void graph_comp_curve(const track_t *t, uint16_t c, int32_t x0, int32_t p
         if (py > cy + a) py = cy + a;
         /* three waves, each a third of a turn apart, that cross each other along the curve */
         for (j = 0; j < 3; j++) {
-            int32_t s = sine_i(((uint32_t)i * 2048u + (uint32_t)j * 21845u + ph * 512u) << 16) * a / (6 << 15);
+            /* each wave swells on its own rhythm: its swing is 2 to 10 px, cubed so it stays quiet most of the time */
+            int32_t pk = sine_i((ph * (uint32_t)(5 + j) * 9000u) << 16), sw;
+            pk = pk > 0 ? pk : 0;
+            pk = (pk * pk >> 15) * pk >> 15;
+            sw = 2 + (8 * pk >> 15);
+            int32_t s = sine_i(((uint32_t)i * 2048u + (uint32_t)j * 21845u + ph * 512u) << 16) * sw >> 15;
             gx = px / 3 * 3;
             gy = (py + s) / 3 * 3;
             if (gy < cy - a || gy > cy + a - 3)
                 continue;
             cv_rect(gx, gy, 3, 3, CR_RAIN[(i * 11 / 48 + j * 4) % 12]);
         }
-        /* loose specks scattered about the waves at random: each a small irregular cluster (a random walk of 3 px
-         * squares), so no two come out alike */
+        /* loose specks: small dots of 1 to 3 px, about a third fewer than before, scattered in an irregular area
+         * (its reach differs by column, so the edge is ragged), reshuffled every 150 ms */
         for (j = 0; j < 2; j++) {
-            uint32_t h = (((uint32_t)i * 2654435761u) ^ (seed * 40503u + (uint32_t)j * 9176u)) >> 8;
-            uint32_t q;
-            if ((h >> 11) & 1u)
+            uint32_t h = (((uint32_t)i * 2654435761u) ^ (seed * 40503u + (uint32_t)j * 9176u)) >> 8, hs = h * 2654435761u;
+            int32_t reach = 4 + (int32_t)((i * 37u + (uint32_t)j * 11u) % 7u), sx, sy, sz;
+            if ((h >> 16) % 100u < 35u)
                 continue;
-            gx = px / 3 * 3 + ((int32_t)(h & 31u) - 16) / 3 * 3;
-            gy = (py + ((int32_t)((h >> 5) & 63u) - 32)) / 3 * 3;
-            for (q = 0; q < 4; q++) {
-                uint32_t r = h * (q + 3u) * 2654435761u >> 16;
-                if (gy >= cy - a && gy <= cy + a - 3)
-                    cv_rect(gx, gy, 3, 3, CR_RAIN[(h >> 13) % 12]);
-                gx += ((int32_t)(r & 3u) - 1) * 3 + ((q & 1u) ? 3 : 0);
-                gy += ((int32_t)((r >> 2) & 3u) - 1) * 3;
-            }
+            sx = px + (((int32_t)(hs >> 24) - 128) * 36 * reach / 88) / 128;
+            sy = py + (((int32_t)((hs >> 16) & 255u) - 128) * 18 * reach / 88) / 128;
+            sz = 1 + (int32_t)((hs >> 8) & 3u) % 3;
+            if (sx < x0 || sx + sz > x0 + pw || sy < cy - a || sy + sz > cy + a)
+                continue;
+            cv_rect(sx, sy, sz, sz, CR_RAIN[(h >> 13) % 12]);
         }
     }
 }
