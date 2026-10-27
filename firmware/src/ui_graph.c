@@ -1753,11 +1753,12 @@ static void graph_comp_curve(const track_t *t, uint16_t c, int32_t x0, int32_t p
         if (py > cy + a) py = cy + a;
         /* three waves, each a third of a turn apart, that cross each other along the curve */
         for (j = 0; j < 3; j++) {
-            /* each wave swells on its own rhythm: its swing is 2 to 10 px, cubed so it stays quiet most of the time */
+            /* each wave swells on its own rhythm: its swing is 6 to 14 px, cubed so it swells only now and then; never
+             * below 6, so the three waves never fold back onto one line */
             int32_t pk = sine_i((ph * (uint32_t)(5 + j) * 9000u) << 16), sw;
             pk = pk > 0 ? pk : 0;
             pk = (pk * pk >> 15) * pk >> 15;
-            sw = 2 + (8 * pk >> 15);
+            sw = 6 + (8 * pk >> 15);
             int32_t s = sine_i(((uint32_t)i * 2048u + (uint32_t)j * 21845u + ph * 512u) << 16) * sw >> 15;
             gx = px / 3 * 3;
             gy = (py + s) / 3 * 3;
