@@ -206,7 +206,7 @@ int main(void)
         uint32_t ls = 0, lct = 0, liv = 0, lrep = 0, lstep = 0, loct = 0, l5 = 0, l5r = 0, lend = 0, lend_ok = 0, lbars = 0, lbars_r = 0;
         uint32_t pmov = 0, pmot = 0, bch = 0, broot = 0;
         for (g = 0; g < NGENRE; g++)
-            for (s = 0; s < 12u; s++) {
+            for (s = 0; s < 40u; s++) {
                 uint32_t pd;
                 gp.genre = (uint8_t)(g + 1u); gp.seed = (uint16_t)(2000u + 41u * s + g); gp.energy = (uint8_t)(15u + (s * 23u) % 80u); gp.form = 0;
                 for (k = 0; k < GP_N; k++) gp.amt[k] = GA_AUTO;
@@ -456,15 +456,15 @@ int main(void)
         gen_with(1, 3, 50, 0);
         bad += gcheck("the kit's snare and clap into the reverb (SEND bus 3, 6..63)", DXS_BUS(dx_snd[DV_SNARE]) == 3u && DXS_AMT(dx_snd[DV_SNARE]) >= 6 &&
                       DXS_BUS(dx_snd[DV_CLAP]) == 3u);
-        for (seeds = 1; seeds <= 4u; seeds++) {         /* DARKWAVE (POST PUNK left the table): the bass high on the neck */
-            gen_with(6, seeds, 50, 0);
+        for (seeds = 1; seeds <= 4u; seeds++) {         /* SYNTH POP (HOOK's bass, high on the neck): the bass high on the neck */
+            gen_with(5, seeds, 50, 0);
             bs = gs.trk_of[RL_BASS];
             for (i2 = 0; i2 < dlen(&trk[bs]); i2++)
                 if (trk[bs].step[i2].time == ST_NOTE) { if (trk[bs].step[i2].note[0] < lo) lo = trk[bs].step[i2].note[0]; if (trk[bs].step[i2].note[0] > hi) hi = trk[bs].step[i2].note[0]; }
             if (gs.act[RL_LEAD]) { leads++; sus_lt += trk[gs.trk_of[RL_LEAD]].p[P_SUS] < 95; }
         }
-        if (lo < 40u || hi > 70u) printf("  post punk bass %u..%u\n", lo, hi);
-        bad += gcheck("DARKWAVE x 4: the bass between E2 and A#4 (Hook's neck), its tempo 124..136", lo >= 40u && hi <= 70u && song.g[G_BPM] >= 124 && song.g[G_BPM] <= 136);
+        if (lo < 36u || hi > 70u) printf("  synth pop bass %u..%u\n", lo, hi);
+        bad += gcheck("SYNTH POP x 4: the bass on Hook's neck, down to its bass_lo (36), up to A#4, its tempo 112..128", lo >= 36u && hi <= 70u && song.g[G_BPM] >= 112 && song.g[G_BPM] <= 128);
         bad += gcheck("  the leads not all at full sustain", !leads || sus_lt > 0u);
     }
     /* ---- (0.6.96) a new piece: MUTATE off on every track (a reroll kept the lanes), the anchor the piece */
@@ -875,10 +875,10 @@ int main(void)
             }
         }
         printf("gen: (0.9.17) 6 genres x 24 presses: a part near the press before's in %u of %u, the press before's sound in %u of %u;"
-               " MICRO HOUSE's lead %u sounds; the lead: steps %u %%, leaps past a fifth %u %%, off the eighths %u %%, held at the top %u of %u\n",
+               " DEEP HOUSE's lead %u sounds; the lead: steps %u %%, leaps past a fifth %u %%, off the eighths %u %%, held at the top %u of %u\n",
                near, parts, sndrep, snd, nml, liv ? lstep * 100u / liv : 0u, liv ? lleap * 100u / liv : 0u, lon ? loff * 100u / lon : 0u, lfull, nl);
         bad += gcheck("(0.9.17) DICE: a part near the press before's under 8 %, its sound the press before's under 25 %", near * 100u < parts * 8u && sndrep * 4u < snd);
-        bad += gcheck("  MICRO HOUSE's lead: 8 sounds at least in 24 presses (0.9.17: 7 in 40)", nml >= 8u);
+        bad += gcheck("  DEEP HOUSE's lead: 8 sounds at least in 24 presses (0.9.17: 7 in 40)", nml >= 8u);
         bad += gcheck("  the lead by steps (40 % at least), leaps past a fifth under 5 %, 12 % at least off the eighths", lstep * 100u >= liv * 40u && lleap * 100u < liv * 5u && loff * 100u >= lon * 12u);
         bad += gcheck("  the lead's envelope: no release at full sustain never, held at 79 % or more under 15 %", !lflat && lfull * 100u < nl * 15u);
         {   /* the power-on: the first OCT+ of two sessions */
