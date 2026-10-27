@@ -1740,8 +1740,8 @@ static const uint16_t CR_RAIN[12] = {0x013Au, 0x303Au, 0x783Au, 0xC83Au, 0xD031u
 static void graph_comp_curve(const track_t *t, uint16_t c, int32_t x0, int32_t pw, int32_t cy, int32_t a)
 {
     int32_t bx = x0 + 2, bw = pw - 4, i, j, px, py, gx, gy;
-    uint32_t ph = fm1_ms / 90u;                                /* the waves turn slowly; the specks reshuffle every 150 ms */
-    uint32_t seed = fm1_ms / 150u;
+    uint32_t ph = fm1_ms / 300u;                               /* the waves turn slowly; the specks reshuffle every 500 ms */
+    uint32_t seed = fm1_ms / 500u;
     (void)c;                                                   /* (the band takes its own colours) */
     cv_rect(x0, cy - a - 1, pw, 2 * a + 3, T_SURF);            /* (cleared: the curve's own area) */
     cv_rect(bx, cy - a, 1, 2 * a, T_RAISE);                    /* the curve's frame */
@@ -1766,7 +1766,7 @@ static void graph_comp_curve(const track_t *t, uint16_t c, int32_t x0, int32_t p
             cv_rect(gx, gy, 3, 3, CR_RAIN[(i * 11 / 48 + j * 4) % 12]);
         }
         /* loose specks: small dots of 1 to 3 px, about a third fewer than before, scattered in an irregular area
-         * (its reach differs by column, so the edge is ragged), reshuffled every 150 ms */
+         * (its reach differs by column, so the edge is ragged), reshuffled every 500 ms */
         for (j = 0; j < 2; j++) {
             uint32_t h = (((uint32_t)i * 2654435761u) ^ (seed * 40503u + (uint32_t)j * 9176u)) >> 8, hs = h * 2654435761u;
             int32_t reach = 4 + (int32_t)((i * 37u + (uint32_t)j * 11u) % 7u), sx, sy, sz;
