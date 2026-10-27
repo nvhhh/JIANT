@@ -1740,11 +1740,20 @@ static const uint16_t CR_RAIN[12] = {0x013Au, 0x303Au, 0x783Au, 0xC83Au, 0xD031u
 static void graph_comp_curve(const track_t *t, uint16_t c, int32_t x0, int32_t pw, int32_t cy, int32_t a)
 {
     int32_t bx = x0 + 2, bw = pw - 4, i, j, px, py, gx, gy;
-    uint32_t ph = fm1_ms / 300u;                               /* the waves turn slowly; the specks reshuffle every 500 ms */
+    /* the waves turn at the tempo (120 BPM is the baseline pace, 30 % of the first version); the specks reshuffle
+     * every 500 ms */
+    uint32_t ph = (fm1_ms / 300u) * (uint32_t)song.g[G_BPM] / 120u;
     uint32_t seed = fm1_ms / 500u;
     (void)c;                                                   /* (the band takes its own colours) */
     cv_rect(x0, cy - a - 1, pw, 2 * a + 3, T_SURF);            /* (cleared: the curve's own area) */
     cv_rect(bx, cy - a, 1, 2 * a, T_RAISE);                    /* the curve's frame */
+    /* the background: a gain-reduction meter, as on a compressor's front panel. Each column hangs dots down from the
+     * top by how far the curve is pulled down there (input minus output, dB x10) */
+    for (px = bx; px < bx + bw; px += 3) {
+        int32_t in10 = -480 + (px - bx) * 480 / bw, gr = in10 - dyn_curve_db10(t, in10);
+        for (py = cy - a; py < cy - a + gr * a / 240; py += 3)
+            cv_rect(px, py, 1, 1, T_RAISE);
+    }
     for (i = 0; i <= 48; i++) {
         int32_t in10 = -480 + i * 10, out = dyn_curve_db10(t, in10);   /* (fx.c: the model's own curve) */
         px = bx + (in10 + 480) * (bw - 2) / 480;
