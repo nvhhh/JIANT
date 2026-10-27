@@ -649,11 +649,12 @@ static const page_t PAGES[] = {
     {"FILTER", FAM_EDIT, SC_TRACK, GR_NONE, {P_FTYPE, P_E4, P_E5, P_E6}},   /* (JIANT 0.5) ANALOG: TYPE CUT RES DRV */
     {"FILTER", FAM_EDIT, SC_TRACK, GR_NONE, {P_FTYPE, P_FCUT, P_FRES, P_DIST}},   /* .. every other engine's (on the part;
                                                          * DRV: the part's DIST, after it) */
-    {"COMP", FAM_EDIT, SC_TRACK, GR_NONE, {P_CTYPE, 0xFF, 0xFF, 0xFF}},   /* (JIANT, DYN) the track's compressor: OFF, the */
-    {"COMP", FAM_EDIT, SC_TRACK, GR_NONE, {P_CTYPE, P_DBX_THR, P_DBX_RAT, P_DBX_OUT}},   /* model alone; each model its own */
-    {"COMP", FAM_EDIT, SC_TRACK, GR_NONE, {P_CTYPE, P_LA_PR, P_LA_GAIN, P_LA_MODE}},     /* front panel (ui.c page_visible: */
-    {"COMP 2", FAM_EDIT, SC_TRACK, GR_NONE, {P_LA_HF, P_LA_MIX, 0xFF, 0xFF}},           /* the selected model's pages) */
-    {"COMP", FAM_EDIT, SC_TRACK, GR_NONE, {P_CTYPE, P_FA_IN, P_FA_THR, P_FA_TC}},
+    {"COMP", FAM_EDIT, SC_TRACK, GR_NONE, {P_CTYPE, 0xFF, 0xFF, 0xFF}},   /* (JIANT, DYN) COMP 1: the track's compressor, its */
+                                                         /* TYPE alone: OFF, DBX 160, LA-2A, FAIRCHILD 670 */
+    {"COMP 2", FAM_EDIT, SC_TRACK, GR_NONE, {P_DBX_THR, P_DBX_RAT, P_DBX_OUT, 0xFF}},   /* COMP 2 and 3: the selected model's */
+    {"COMP 2", FAM_EDIT, SC_TRACK, GR_NONE, {P_LA_PR, P_LA_GAIN, P_LA_MODE, P_LA_HF}},  /* settings (ui.c page_visible) */
+    {"COMP 3", FAM_EDIT, SC_TRACK, GR_NONE, {P_LA_MIX, 0xFF, 0xFF, 0xFF}},
+    {"COMP 2", FAM_EDIT, SC_TRACK, GR_NONE, {P_FA_IN, P_FA_THR, P_FA_TC, 0xFF}},
     {"SOUND", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* DRUM: a sound of the kit (ui_dx.c) */
     {"SOUND 2", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"SOUND 3", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (JIANT 0.4) MODE, the pitch modulation, DRIVE */
