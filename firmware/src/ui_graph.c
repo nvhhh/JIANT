@@ -1771,7 +1771,8 @@ static void scope_pic(int32_t x0, int32_t pw, int32_t cy, int32_t a, uint16_t c)
         }
     for (n = (uint32_t)D; n < SCOPE_N; n++) {
         int32_t px = cx + scope_pic_v(w, n, k) * a / peak, py = cy - scope_pic_v(w, n - (uint32_t)D, k) * a / peak;
-        uint16_t col = n + 16u >= SCOPE_N ? c : ux_mix(T_SURF, c, 20 + (int32_t)(n - (uint32_t)D) * 80 / (SCOPE_N - D));
+        /* (GARDEN, the owner on the device: the scope barely showed) the oldest dots keep 55 % of the colour, was 20 % */
+        uint16_t col = n + 16u >= SCOPE_N ? c : ux_mix(T_SURF, c, 55 + (int32_t)(n - (uint32_t)D) * 45 / (SCOPE_N - D));
         cv_rect(px - 1, py - 1, 2, 2, col);
     }
 }
