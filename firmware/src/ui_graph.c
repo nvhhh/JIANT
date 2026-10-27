@@ -1734,13 +1734,13 @@ static void draw_tracks(void)
 /* (JIANT, DYN) the HOME picture (ui_scope OFF and ON), the track's compressor: on the left its static curve, input against
  * output in dB (THRESH, the model's ratio, MAKEUP; a straight line when it is OFF); on the right its gain reduction, a bar an
  * audio block (fx.c dyn_hist: the deepest reduction of each, the last 32), the newest at the right. dB x10 throughout */
-static void graph_comp(const track_t *t, uint16_t c, int32_t x0, int32_t pw, int32_t cy, int32_t a)
+static void graph_comp_curve(const track_t *t, uint16_t c, int32_t x0, int32_t pw, int32_t cy, int32_t a)
 {
-    uint32_t ti = (uint32_t)(t - trk) % NTRK, ty = (uint32_t)t->p[P_CTYPE], n;
+    uint32_t ty = (uint32_t)t->p[P_CTYPE];
     int32_t thr = ((int32_t)t->p[P_CTHR] - 127) * 376 / 100, mk = (int32_t)t->p[P_CMK] * 240 / 127;
-    int32_t sl = dyn_slope_q8(ty), bx = x0 + 2, bw = pw * 5 / 11, rx = x0 + bw + 8, rw = pw - bw - 10;
+    int32_t sl = dyn_slope_q8(ty), bx = x0 + 2, bw = pw - 4;
     int32_t in10, px, py;
-    cv_rect(x0, cy - a - 1, pw, 2 * a + 3, T_SURF);            /* (cleared: the bars shrink) */
+    cv_rect(x0, cy - a - 1, pw, 2 * a + 3, T_SURF);            /* (cleared: the curve's own area) */
     cv_rect(bx, cy - a, 1, 2 * a, T_RAISE);                    /* the curve's frame */
     for (in10 = -480; in10 <= 0; in10 += 16) {
         int32_t over = in10 - thr, red = over > 0 ? (over * sl) >> 8 : 0, out = in10 - red + mk;
@@ -1750,6 +1750,12 @@ static void graph_comp(const track_t *t, uint16_t c, int32_t x0, int32_t pw, int
         if (py > cy + a) py = cy + a;
         cv_rect(px - 1, py - 1, 2, 2, c);
     }
+}
+static void graph_comp(const track_t *t, uint16_t c, int32_t x0, int32_t pw, int32_t cy, int32_t a)
+{
+    uint32_t ti = (uint32_t)(t - trk) % NTRK, n;
+    int32_t bw = pw * 5 / 11, rx = x0 + bw + 8, rw = pw - bw - 10;
+    graph_comp_curve(t, c, x0, bw, cy, a);
     for (n = 0; n < 32u; n++) {                                /* the gain reduction: down from the top */
         int32_t gr = (int32_t)dyn_hist[ti][(dyn_hw[ti] + n) & 31u] * 235 / 100, h = gr > 480 ? 2 * a : gr * (2 * a) / 480;
         int32_t bxr = rx + (int32_t)n * rw / 32;
