@@ -336,7 +336,7 @@ int main(void)
         for (seeds = 1; seeds <= 6u; seeds++) {
             uint32_t bs, a0, b0;
             gen_reset();
-            gen_with(15, seeds, 50, 1);                 /* SYNTH POP, PARTS: A B A C */
+            gen_with(5, seeds, 50, 1);                  /* SYNTH POP, PARTS: A B A C */
             bs = gs.trk_of[RL_BASS];
             if (!proj_import(&pa, &proj_slot[0], sizeof(project_store_t)) || !proj_import(&pb, &proj_slot[1], sizeof(project_store_t)) ||
                 !proj_import(&pc, &proj_slot[2], sizeof(project_store_t))) continue;
@@ -364,7 +364,7 @@ int main(void)
                 rot_ok += a0 && b0 && a0 != b0;
             }
             gen_reset();
-            gen_with(6, seeds, 50, 1);                  /* TECHNO: one key, the loop kept */
+            gen_with(3, seeds, 50, 1);                  /* TECHNO: one key, the loop kept */
             if (proj_import(&pa, &proj_slot[0], sizeof(project_store_t)) && proj_import(&pc, &proj_slot[2], sizeof(project_store_t)))
                 loop_ok += pa.t[gs.trk_of[RL_BASS]].p[P_ROOT] == pc.t[gs.trk_of[RL_BASS]].p[P_ROOT];
         }
@@ -456,15 +456,15 @@ int main(void)
         gen_with(1, 3, 50, 0);
         bad += gcheck("the kit's snare and clap into the reverb (SEND bus 3, 6..63)", DXS_BUS(dx_snd[DV_SNARE]) == 3u && DXS_AMT(dx_snd[DV_SNARE]) >= 6 &&
                       DXS_BUS(dx_snd[DV_CLAP]) == 3u);
-        for (seeds = 1; seeds <= 4u; seeds++) {         /* POST PUNK: the bass high on the neck, never below E2 nor above A3 */
-            gen_with(17, seeds, 50, 0);
+        for (seeds = 1; seeds <= 4u; seeds++) {         /* DARKWAVE (POST PUNK left the table): the bass high on the neck */
+            gen_with(6, seeds, 50, 0);
             bs = gs.trk_of[RL_BASS];
             for (i2 = 0; i2 < dlen(&trk[bs]); i2++)
                 if (trk[bs].step[i2].time == ST_NOTE) { if (trk[bs].step[i2].note[0] < lo) lo = trk[bs].step[i2].note[0]; if (trk[bs].step[i2].note[0] > hi) hi = trk[bs].step[i2].note[0]; }
             if (gs.act[RL_LEAD]) { leads++; sus_lt += trk[gs.trk_of[RL_LEAD]].p[P_SUS] < 95; }
         }
         if (lo < 40u || hi > 70u) printf("  post punk bass %u..%u\n", lo, hi);
-        bad += gcheck("POST PUNK x 4: the bass between E2 and A#4 (Hook's neck), its tempo 118..148", lo >= 40u && hi <= 70u && song.g[G_BPM] >= 118 && song.g[G_BPM] <= 148);
+        bad += gcheck("DARKWAVE x 4: the bass between E2 and A#4 (Hook's neck), its tempo 124..136", lo >= 40u && hi <= 70u && song.g[G_BPM] >= 124 && song.g[G_BPM] <= 136);
         bad += gcheck("  the leads not all at full sustain", !leads || sus_lt > 0u);
     }
     /* ---- (0.6.96) a new piece: MUTATE off on every track (a reroll kept the lanes), the anchor the piece */
@@ -827,7 +827,7 @@ int main(void)
          * piece not the same every session; SEQ + SELECT on the piece's harmony, never the same twice running; EDIT +
          * SELECT never the same preset twice running; the lead in the key, by steps, few leaps, a few syncopations; its
          * envelope seldom held at the top */
-        static const uint8_t GG[6] = {3, 1, 6, 14, 27, 40};   /* (MICRO HOUSE, HOUSE, TECHNO, SYNTH POP, BOOM BAP, AMBIENT) */
+        static const uint8_t GG[6] = {2, 1, 3, 5, 7, 11};   /* (DEEP HOUSE, HOUSE, TECHNO, SYNTH POP, FUNK, AMBIENT) */
         static int16_t prev[GEN_NT][NSTEP];
         uint32_t gi, pr, near = 0, parts = 0, sndrep = 0, snd = 0, ml_pre[24], nml = 0, liv = 0, lstep = 0, lleap = 0, lon = 0,
                  loff = 0, lflat = 0, lfull = 0, nl = 0, seq_ct = 0, seq_st = 0, seq_same = 0, sd_rep = 0, po_same = 0;

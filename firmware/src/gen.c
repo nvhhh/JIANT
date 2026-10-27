@@ -33,11 +33,12 @@ static struct {
     uint16_t seed;                                      /* 0..9999 */
     uint8_t energy, form;                               /* 0..100; 0 LOOP, 1 PARTS, 2 SONG */
     uint8_t amt[GP_N];                                  /* 0 OFF .. 100, GA_AUTO the genre's */
-    uint8_t complex, swing, human;                      /* 0..100 (swing: GA_AUTO the genre's) */
+    uint8_t complex, swing, human, melodic;             /* 0..100 (swing: GA_AUTO the genre's); melodic: 0 steps and
+                                                         * repeats, 50 the lead as it was, 100 leaps and thirds */
     uint8_t page, hot;                                  /* the GEN screen's page, its last knob */
     uint32_t sig;                                       /* the settings of the last piece made (OCT+ again: a new seed) */
     char last[20];                                      /* the last piece: "HOUSE 0421" */
-} gp = {GEN_EXPLORE, 1, 50, 1, {GA_AUTO, GA_AUTO, GA_AUTO, GA_AUTO, GA_AUTO}, 50, GA_AUTO, 30, 0, 0, 0, ""};
+} gp = {GEN_EXPLORE, 1, 50, 1, {GA_AUTO, GA_AUTO, GA_AUTO, GA_AUTO, GA_AUTO}, 50, GA_AUTO, 30, 50, 0, 0, 0, ""};
 
 /* the generator's own random numbers: a stream a part, from the seed */
 static uint32_t gq = 1;
@@ -80,7 +81,7 @@ static struct {
     uint8_t pdeg[4], pq[4], pn;                         /* the progression as chosen: degrees, qualities with their colour */
     gch_t ch[GCH_N]; uint8_t nch;                       /* the plan: the chords over the loop */
     uint32_t len, cst;                                  /* the loop, a chord's steps */
-    uint32_t amt[GP_N], energy, complex, human, swing;
+    uint32_t amt[GP_N], energy, complex, human, swing, melodic;
     uint64_t kick, snare;                               /* the kick's steps, the snare's (bit i; the bass reads them) */
     int32_t vo[4]; uint32_t nvo;                        /* the chord track's last voicing */
     int32_t avo[4]; uint32_t navo;                      /* the arp's */
@@ -1233,7 +1234,9 @@ static void gen_lead(track_t *t, uint32_t len)
         for (j = 0; j < k; j++) {                       /* the contour: steps mostly, a leap turned back by a step, the
                                                          * shape (an arch, falling, rising, a wave) leaning each move */
             if (j) {
-                static const uint8_t W[4] = {8, 64, 22, 6};   /* (a repeat, a step, a third, a fourth or fifth) */
+                const uint32_t mel = gs.melodic;        /* (MELODIC 50: 8, 64, 22, 6; 100 more thirds and fourths) */
+                const uint8_t W[4] = {(uint8_t)(8u + (50u - mel) / 10u), (uint8_t)(64u + (50u - mel) / 4u),
+                                      (uint8_t)(12u + mel / 5u), (uint8_t)(2u + mel / 12u)};   /* (a repeat, a step, a third, a fourth or fifth) */
                 int32_t m = (int32_t)gpickw(W, 4), dir;
                 if (!m && !pv) m = 1;                   /* (never two repeats running) */
                 if (m == 3) m = gch(60) ? 3 : 4;
@@ -2240,6 +2243,7 @@ static void gen_pick(void)
     }
     gs.energy = dice_force_energy >= 0 ? (uint32_t)dice_force_energy * 50u : gp.energy;
     gs.complex = gp.complex;
+    gs.melodic = gp.melodic;
     if (gs.mutant) gs.complex = gs.complex + 20u > 100u ? 100u : gs.complex + 20u;   /* (a mutant: more going on) */
     if (gx.on) gs.complex = (uint32_t)clamp((int32_t)gs.complex + grr(10, 40) * (int32_t)gx.w / 100, 0, 100);   /* (EXPLORE:
                                                          * more still; 0.9.13: as much more as COMPLEX) */
@@ -2562,7 +2566,7 @@ static uint32_t gen_sig(void)                           /* the settings that mak
     uint32_t h = 2166136261u, k;
     h = (h ^ gp.genre) * 16777619u; h = (h ^ gp.seed) * 16777619u; h = (h ^ gp.energy) * 16777619u; h = (h ^ gp.form) * 16777619u;
     for (k = 0; k < GP_N; k++) h = (h ^ gp.amt[k]) * 16777619u;
-    h = (h ^ gp.complex) * 16777619u; h = (h ^ gp.swing) * 16777619u; h = (h ^ gp.human) * 16777619u;
+    h = (h ^ gp.complex) * 16777619u; h = (h ^ gp.swing) * 16777619u; h = (h ^ gp.human) * 16777619u; h = (h ^ gp.melodic) * 16777619u;
     return h ^ (trk_live << 28);
 }
 static uint16_t gseed_last[8];                          /* (0.9.17) the last seeds thrown */
