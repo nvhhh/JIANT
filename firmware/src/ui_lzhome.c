@@ -323,58 +323,22 @@ static void eco_garden(void)
         }
     }
 }
-/* (GARDEN, Phase 6) ECO's X-Y view (INSTRUCTIONS §7.2; SELECT left on ECO, SELECT back): the whole screen dark, a
- * vectorscope's crosshair (the L and R diagonals, the M axis, the L-R / L+R line dashed), the last 512 sample pairs
- * (audio.c scope_buf, scope_r) as dots fading from old to new, the newest an orange head. L along the top-left
- * diagonal, R the top-right: x = 120 + A (R - L) / sqrt 2, y = 120 - A (L + R) / sqrt 2 */
+/* (JIANT, DYN) ECO's X-Y view (SELECT left on ECO, SELECT back): the whole screen is the selected track's compressor, as
+ * graph_comp draws it on the strips (the static curve, the gain reduction per audio block). eco_xy_on: when it shows */
 static int eco_xy_on(void) { return ui.xy && ui.home && !gen_on() && home_level() == 0u && !home_set() && !ui.menu; }
-static void xy_arrow(int32_t x, int32_t y, int32_t dx, int32_t dy, uint16_t c)   /* a head at x, y pointing dx, dy */
-{
-    cv_line(x, y, x - dx * 4 + dy * 3, y - dy * 4 - dx * 3, c);
-    cv_line(x, y, x - dx * 4 - dy * 3, y - dy * 4 + dx * 3, c);
-}
 static void draw_xy(void)
 {
     static uint32_t xy_ms;
-    uint32_t pass, k, w = scope_w;
-    int32_t sk = scope_k();
-    uint16_t bg = T_TEXT, ax = ux_mix(T_TEXT, T_SURF, 45);
+    uint32_t pass;
     if (!ui.force && fm1_ms - xy_ms < 66u)              /* (15 a second) */
         return;
     xy_ms = fm1_ms;
     ui.force = 0;
     for (pass = 0; pass < 2u; pass++) {
-        int32_t y0 = (int32_t)pass * 120, x;
-        cv_begin(240, 120, bg);
+        int32_t y0 = (int32_t)pass * 120;
+        cv_begin(240, 120, T_SURF);
         cv_oy = -y0;
-        cv_line(8, 8, 232, 232, ax);                    /* the crosshair: L, R, M, L-R / L+R */
-        cv_line(232, 8, 8, 232, ax);
-        cv_rect(120, 6, 1, 228, ax);
-        for (x = 6; x < 234; x += 6)
-            cv_rect(x, 120, 3, 1, ax);
-        xy_arrow(8, 8, -1, -1, ax);
-        xy_arrow(232, 8, 1, -1, ax);
-        xy_arrow(8, 232, -1, 1, ax);
-        xy_arrow(232, 232, 1, 1, ax);
-        xy_arrow(120, 6, 0, -1, ax);
-        xy_arrow(120, 233, 0, 1, ax);
-        cv_text(18, 4, &AF_X, "L", ax);
-        cv_text_r(222, 4, &AF_X, "R", ax, bg);
-        cv_text(124, 4, &AF_X, "M", ax);
-        cv_text(4, 108, &AF_X, "L-R", ax);
-        cv_text_r(236, 108, &AF_X, "L+R", ax, bg);
-        cv_text(22, 226, &AF_X, "X-Y \xB7 L / R", ax);
-        for (k = 0; k < SCOPE_N; k++) {                 /* the trace, oldest first */
-            uint32_t i = (w + k) & (SCOPE_N - 1u);
-            int32_t L = scope_s(scope_buf[i], sk), R = scope_s(scope_r[i], sk), px, py, s = k + 1u == SCOPE_N ? 4 : 2;
-            px = 120 + ((R - L) * 170 >> 14);           /* (twice the first gain: quiet music filled too little) */
-            py = 120 - ((L + R) * 170 >> 14);
-            px = clamp(px, 2, 236);
-            py = clamp(py, 2, 236);
-            if (py + s <= y0 || py >= y0 + 120)
-                continue;
-            cv_rect(px - s / 2, py - s / 2, s, s, s == 4 ? GD_ORANGE : ux_mix(bg, GD_PBLUE, 15 + (int32_t)k * 85 / (int32_t)SCOPE_N));
-        }
+        graph_comp(TSEL, GD_ORANGE, 8, 224, 120, 110);
         cv_oy = 0;
         cv_blit(0, (uint32_t)y0);
     }

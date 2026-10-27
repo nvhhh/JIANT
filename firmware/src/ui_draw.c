@@ -2495,8 +2495,7 @@ static void ui_draw_body(uint32_t counting)
             ui.force = 1;
         }
     }
-    scope_xy = (uint8_t)eco_xy_on();                    /* (the audio's right-side tap: only while it shows) */
-    if (scope_xy) {                                     /* (GARDEN, Phase 6) ECO's X-Y view: the whole screen */
+    if (eco_xy_on()) {                                  /* (JIANT, DYN) ECO's X-Y view: the whole screen, the compressor */
         draw_xy();
         skip = 1;
     }
