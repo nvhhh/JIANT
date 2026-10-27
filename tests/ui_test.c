@@ -1623,8 +1623,11 @@ static int test_save(void)
 static void go_title(const char *title)
 {
     uint32_t i;
-    for (i = 0; i < NPAGES && !str_eq(PAGES[i].title, title); i++)
-        ;
+    for (i = 0; i < NPAGES && !(str_eq(PAGES[i].title, title) && page_visible(i)); i++)   /* (a shown page first: COMP's */
+        ;                                                                                   /* pages are the model's) */
+    if (i == NPAGES)
+        for (i = 0; i < NPAGES && !str_eq(PAGES[i].title, title); i++)
+            ;
     if (i == NPAGES) {                          /* (0.6.80: a page renamed under a script; it read past PAGES) */
         fprintf(stderr, "go_title: no page \"%s\"\n", title);
         exit(2);
@@ -4218,13 +4221,13 @@ static int test_edit_cycle(void)
 {
     /* (0.9.2: one chain, SELECT a page a detent; an EDIT tap the next group's first. Was 0.8.5's lens: SELECT a level, the
      * tap the level's next set) */
-    static const char *const CH_A[] = {"EDIT 1", "EDIT 2", "FILTER", "MORPH", "VOICE", "VOICE 2", "FOCUS", "COMP", "COMP 2"};   /* (JIANT 0.5:
+    static const char *const CH_A[] = {"EDIT 1", "EDIT 2", "FILTER", "MORPH", "VOICE", "VOICE 2", "FOCUS", "COMP"};   /* (JIANT 0.5:
                                                          * ANALOG's FILTER; 0.6.45: MORPH) */
     static const char *const TP_A[] = {"FILTER", "FOCUS", "COMP"};
-    static const char *const CH_F[] = {"EDIT 1", "EDIT 2", "FILTER", "VOICE", "VOICE 2", "OPERATOR", "OP ENV", "OPERATOR 2", "COMP", "COMP 2"};
+    static const char *const CH_F[] = {"EDIT 1", "EDIT 2", "FILTER", "VOICE", "VOICE 2", "OPERATOR", "OP ENV", "OPERATOR 2", "COMP"};
     static const char *const TP_F[] = {"FILTER", "OPERATOR", "COMP"};
     static const char *const CH_D[] = {"EDIT 1", "EDIT 2", "FILTER", "VOICE", "VOICE 2", "OP1 ENV", "OP2 ENV", "OP3 ENV",
-                                       "OP4 ENV", "OP LEVEL", "COMP", "COMP 2"};
+                                       "OP4 ENV", "OP LEVEL", "COMP"};
     static const char *const TP_D[] = {"FILTER", "OP1 ENV", "COMP"};
     int bad = 0, ok;
     uint32_t i;
@@ -4237,25 +4240,25 @@ static int test_edit_cycle(void)
         ok &= !str_eq(PAGES[i].title, "ENGINE");
     bad += check("no ENGINE page (engines are the EDIT layer's)", ok);
     set_engine_of(TSEL, 0);
-    bad += check("0.9.2 EDIT chain (ANALOG): SOUND (EDIT 1 EDIT 2) . TONE (FILTER MORPH VOICE VOICE 2) . FOCUS . COMP (COMP COMP 2); taps: groups",
+    bad += check("0.9.2 EDIT chain (ANALOG): SOUND (EDIT 1 EDIT 2) . TONE (FILTER MORPH VOICE VOICE 2) . FOCUS . COMP (the model's); taps: groups",
                  chain_walk(B_EDIT, CH_A, NELEM(CH_A), TP_A, NELEM(TP_A)));
 #if FELUCCA_FM4
     set_engine_of(TSEL, 1);
-    bad += check("0.9.2 EDIT chain (DIGITAL): SOUND . TONE (FILTER VOICE VOICE 2) . OPS (OP1..OP4 ENV, OP LEVEL) . COMP (COMP COMP 2)",
+    bad += check("0.9.2 EDIT chain (DIGITAL): SOUND . TONE (FILTER VOICE VOICE 2) . OPS (OP1..OP4 ENV, OP LEVEL) . COMP (the model's)",
                  chain_walk(B_EDIT, CH_D, NELEM(CH_D), TP_D, NELEM(TP_D)));
     (void)CH_F;
 #else
     set_engine_of(TSEL, ENGI_DIGITAL);
-    bad += check("0.9.2 EDIT chain (engine 1 asked for: FM6, DIGITAL retired): SOUND . TONE (FILTER VOICE VOICE 2) . OPERATOR (OPERATOR OP ENV OPERATOR 2) . COMP (COMP COMP 2)",
+    bad += check("0.9.2 EDIT chain (engine 1 asked for: FM6, DIGITAL retired): SOUND . TONE (FILTER VOICE VOICE 2) . OPERATOR (OPERATOR OP ENV OPERATOR 2) . COMP (the model's)",
                  TSEL->eng_req == ENGI_FM6 && chain_walk(B_EDIT, CH_F, NELEM(CH_F), TP_F, NELEM(TP_F)));
     (void)CH_D; (void)TP_D;
 #endif
     {   /* #97: a DRUM track's lane levels on EDIT > LANES (KICK SNARE CLAP HATCL) and LANES 2 (HATOP TOM RIM BELL) */
         static const char *const CH_K[] = {"KIT", "KIT 2", "KIT 3", "SOUND", "SOUND 2", "SOUND 3", "SOUND 4", "LEVELS",
-                                           "LEVELS 2", "X-MOD", "FILTER", "STEREO", "VOICE", "COMP", "COMP 2"};
+                                           "LEVELS 2", "X-MOD", "FILTER", "STEREO", "VOICE", "COMP"};
         static const char *const TP_K[] = {"SOUND", "LEVELS", "X-MOD", "COMP"};
         set_engine_of(TSEL, ENGI_DRUM);
-        bad += check("0.9.2 EDIT chain (DRUM): KIT (KIT KIT 2 KIT 3) . SOUND (1..4) . LEVELS (LEVELS LEVELS 2) . TONE (X-MOD FILTER STEREO VOICE) . COMP (COMP COMP 2)",
+        bad += check("0.9.2 EDIT chain (DRUM): KIT (KIT KIT 2 KIT 3) . SOUND (1..4) . LEVELS (LEVELS LEVELS 2) . TONE (X-MOD FILTER STEREO VOICE) . COMP (the model's)",
                      chain_walk(B_EDIT, CH_K, NELEM(CH_K), TP_K, NELEM(TP_K)));
         {   /* (0.6.58) KIT 3 turns BP and FEEDBK, (0.7.8) KNOB 3 the CLAP's HANDS, never IMAGE; STEREO's KNOB 1 is IMAGE */
             uint8_t t0 = dx_tone, h0 = dx_hands;
@@ -10702,22 +10705,22 @@ static int test_lz_edit(void)
     ui_power_on(); set_engine_of(TSEL, 0); frame();
     press(B_EDIT); frame();
     ok = pd_on() && lz_fam() == LZ_EDIT && pd_level() == 0u && lz_tab_lit(0) && lz_crumb_is("EDIT \xB7 SOUND \xB7 EDIT 1 \xB7 OSC") &&
-         lz_count_is("1/9");
+         lz_count_is("1/8");
     turn(EN_SELECT, 1); frame();
-    ok &= str_eq(cur_page()->title, "EDIT 2") && lz_count_is("2/9");
+    ok &= str_eq(cur_page()->title, "EDIT 2") && lz_count_is("2/8");
     turn(EN_SELECT, 1); frame();
     ok &= pd_level() == 1u && lz_tab_lit(1) && str_eq(cur_page()->title, "FILTER") && lz_crumb_is("EDIT \xB7 TONE \xB7 FILTER") &&
-          lz_count_is("3/9");
+          lz_count_is("3/8");
     frames(320); press(B_EDIT); frame();                            /* EDIT: the next group, FOCUS */
     ok &= pd_level() == 2u && lz_tab_lit(2) && str_eq(cur_page()->title, "FOCUS") && lz_crumb_is("EDIT \xB7 FOCUS \xB7 FOCUS") &&
-          lz_count_is("7/9");
+          lz_count_is("7/8");
     turn(EN_SELECT, 1); frame();
     ok &= str_eq(cur_page()->title, "COMP");                        /* (COMP has a card of its own) */
     turn(EN_SELECT, 1); frame();
     turn(EN_SELECT, 1); frame();
-    ok &= str_eq(cur_page()->title, "COMP 2");                      /* (no wrap) */
-    turn(EN_SELECT, -5); frame();
-    ok &= pd_level() == 1u && str_eq(cur_page()->title, "MORPH");    /* (MORPH VOICE VOICE 2 FOCUS COMP COMP 2: five back) */
+    ok &= str_eq(cur_page()->title, "COMP");                        /* (no wrap; COMP 2 the LA-2A's only) */
+    turn(EN_SELECT, -4); frame();
+    ok &= pd_level() == 1u && str_eq(cur_page()->title, "MORPH");    /* (MORPH VOICE VOICE 2 FOCUS COMP: four back) */
     frames(320); press(B_EDIT); frame();
     ok &= str_eq(cur_page()->title, "FOCUS");
     frames(320); press(B_EDIT); frame();
@@ -10725,6 +10728,28 @@ static int test_lz_edit(void)
     frames(320); press(B_EDIT); frame();
     ok &= str_eq(cur_page()->title, "EDIT 1");                      /* (round) */
     bad += check("0.9.2 EDIT: one chain by SELECT (no wrap), an EDIT tap the next group's first (round); tabs, crumb, n/N", ok);
+    {   /* (JIANT) COMP: the model's own front panel, nothing of the others' */
+        static const uint8_t WANT[4][9] = {
+            {P_CTYPE, 0xFF},
+            {P_CTYPE, P_DBX_THR, P_DBX_RAT, P_DBX_OUT, 0xFF},
+            {P_CTYPE, P_LA_PR, P_LA_GAIN, P_LA_MODE, P_LA_HF, P_LA_MIX, 0xFF},
+            {P_CTYPE, P_FA_IN, P_FA_THR, P_FA_TC, 0xFF}};
+        uint32_t m, i, j, n;
+        ok = 1;
+        for (m = 0; m < 4u; m++) {
+            uint8_t got[12];
+            TSEL->p[P_CTYPE] = (int16_t)m;
+            for (i = 0, n = 0; i < NPAGES; i++)
+                if (PAGES[i].fam == FAM_EDIT && page_visible(i) && !strncmp(PAGES[i].title, "COMP", 4))
+                    for (j = 0; j < 4u; j++)
+                        if (PAGES[i].id[j] != 0xFF && n < 12u) got[n++] = PAGES[i].id[j];
+            for (j = 0; WANT[m][j] != 0xFF; j++)
+                ok &= j < n && got[j] == WANT[m][j];
+            ok &= j == n;
+        }
+        TSEL->p[P_CTYPE] = 0;
+        bad += check("COMP: each model shows only its own controls (OFF: the model; DBX 160, LA-2A, FAIRCHILD 670)", ok);
+    }
     turn(EN_SELECT, 1); frame();
     open_family(FAM_ENV); frame();
     press(B_EDIT); frame();

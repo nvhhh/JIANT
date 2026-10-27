@@ -44,7 +44,11 @@ static const char *const N_PFXRES[] = {"1/8", "1/16", "1/32"};     /* (0.6.99) F
 /* seq.c kb_map; 1 = SNAP (stored projects: the former ON); 3 = SEQ: SNAP, and the sequencer's notes snap too as
  * they play (seq.c seq_step; the steps keep what was written). Append-only: older projects hold 0..2 */
 static const char *const N_QUANT[] = {"OFF", "SNAP", "WHITE", "SEQ"};
-static const char *const N_DYN[] = {"OFF", "DBX", "LA-2A", "FAIR"};   /* (JIANT) fx.c DYN_M, 0 OFF */
+static const char *const N_DYN[] = {"OFF", "DBX", "LA-2A", "FAIR"};   /* (JIANT) fx.c track_dyn, 0 OFF */
+static const char *const N_DBXR[] = {"1:1", "1.5:1", "2:1", "3:1", "4:1", "6:1", "10:1", "20:1", "INF:1"};   /* (JIANT) the dbx
+                                                         * 160's COMPRESSION detents (fx.c DBX_RAT) */
+static const char *const N_LAMODE[] = {"COMP", "LIMIT"};               /* (JIANT) the LA-2A's switch */
+static const char *const N_FATC[] = {"1", "2", "3", "4", "5", "6"};    /* (JIANT) the 670's TIME CONSTANT (fx.c FA_TC) */
 static const char *const N_DTYPE[] = {"SOFT", "HARD", "FOLD", "CRUSH", "RECT", "AMP"};   /* (JIANT) fx.c DT_*; 0.7.8 AMP */
 static const char *const N_FTYPE[] = {"LP", "HP", "BP", "COMB"};   /* (JIANT 0.5) P_FTYPE: eng_analog.c FT_* */
 static const char *const N_VOICE[] = {"POLY", "MONO", "LEG", "UNI"};   /* V_POLY .. V_UNISON */
@@ -154,12 +158,18 @@ static const param_desc_t TP[P_NALL] = {
 #undef LANE
     [P_DTYPE] = PE("TYPE", N_DTYPE, 0),         /* (JIANT) DIST: SOFT (as before) HARD FOLD CRUSH RECT AMP */
     [P_DTONE] = PD("TONE", F_BIPCT, -64, 63, 0),   /* .. its tone: darker / brighter */
-    [P_CTYPE] = PE("COMP", N_DYN, 0),          /* (JIANT) OFF, DBX 160, LA-2A, FAIR 670 (fx.c DYN_M) */
-    [P_CTHR] = PD("THRESH", F_CTHR, 0, 127, 79),          /* -18 dB (the bench's DBX) */
-    [P_CATT] = PD("ATTACK", F_CATT, 0, 127, 71),          /* 5 ms (DBX), 0.5 .. 30 ms */
-    [P_CTIM] = PD("TIME", F_CTIM, 0, 127, 51),            /* 2.0 (FAIR) */
-    [P_CREL] = PD("RELEASE", F_CREL, 0, 127, 56),         /* 150 ms, 20 .. 2000 ms */
-    [P_CMK] = PD("MAKEUP", F_CMK, 0, 127, 32),            /* 6 dB, 0 .. 24 dB */
+    [P_CTYPE] = PE("COMP", N_DYN, 0),          /* (JIANT) OFF, DBX 160, LA-2A, FAIR 670 (fx.c track_dyn) */
+    [P_DBX_THR] = PD("THRESH", F_CDB40, 0, 127, 70),      /* (JIANT, DYN) DBX 160: -40 .. 0 dB (-18 dB) */
+    [P_DBX_RAT] = PE("RATIO", N_DBXR, 4),               /* .. its COMPRESSION, 1:1 .. INF:1 (4:1) */
+    [P_DBX_OUT] = PD("OUTPUT", F_CDBS, 0, 40, 20),       /* .. its OUTPUT GAIN, -20 .. +20 dB (0 dB) */
+    [P_LA_PR] = PD("PEAK RED", F_INT, 0, 100, 40),        /* LA-2A: PEAK REDUCTION, the panel's 0 .. 100 */
+    [P_LA_GAIN] = PD("GAIN", F_INT, 0, 100, 20),          /* .. GAIN, 0 .. 100 (0 .. +30 dB) */
+    [P_LA_MODE] = PE("MODE", N_LAMODE, 0),               /* .. COMP / LIMIT */
+    [P_LA_HF] = PD("HF", F_INT, 0, 100, 0),               /* .. HF: the detector's high-frequency emphasis */
+    [P_LA_MIX] = PD("MIX", F_PCT, 0, 100, 100),           /* .. MIX: the compressed share (100 %: all of it) */
+    [P_FA_IN] = PD("INPUT", F_INT, 0, 20, 10),            /* FAIRCHILD 670: INPUT GAIN, the panel's 0 .. 20 (10: 0 dB) */
+    [P_FA_THR] = PD("THRESH", F_CTEN, 0, 100, 50),        /* .. THRESHOLD, 0.0 .. 10.0 */
+    [P_FA_TC] = PE("TIME", N_FATC, 1),                   /* .. TIME CONSTANT 1 .. 6 */
     [P_MSLEN] = PD("LEN", F_STEPS, 1, 16, 16),  /* (JIANT) the modulation sequence (mod.c MS_STEP) */
     [P_MSDIV] = PE("DIV", N_DIV, 2),
     [P_MSSLW] = PD("SLEW", F_PCT, 0, 127, 0),
@@ -476,27 +486,22 @@ static void param_format(const param_desc_t *d, int32_t v, char *val, const char
         }
         break;
     }
-    case F_CTHR:                                    /* (JIANT, DYN) -48 .. 0 dBFS, 16 Q8 octaves a step */
-        fmt_fix(val, ((int32_t)v - 127) * 376 / 100, 1);
+    case F_CDB40:                                   /* (JIANT, DYN) -40 .. 0 dB */
+        fmt_fix(val, (int32_t)v * 400 / 127 - 400, 1);
         *unit = "dB";
         break;
-    case F_CATT:
-    case F_CREL: {
-        int32_t q = d->fmt == F_CATT ? dyn_att_q8(v) : dyn_rel_q8(v), x10 = q * 10 / 256;
-        if (x10 < 1000) {
-            fmt_fix(val, x10, 1);
-        } else {
-            fmt_int(val, (q + 128) / 256);
+    case F_CDBS:                                    /* a signed dB, its 0 in the middle of the range */
+        fmt_int(val, v - (d->max + d->min) / 2);
+        if (v > (d->max + d->min) / 2) {
+            char t[8];
+            fmt_int(t, v - (d->max + d->min) / 2);
+            val[0] = '+';
+            str_cpy(val + 1, t, 6);
         }
-        *unit = "ms";
-        break;
-    }
-    case F_CTIM:                                    /* the FAIR's TIME, 0 .. 5 */
-        fmt_fix(val, ((int32_t)v * 50 + 63) / 127, 1);
-        break;
-    case F_CMK:                                     /* 0 .. 24 dB */
-        fmt_fix(val, (int32_t)v * 240 / 127, 1);
         *unit = "dB";
+        break;
+    case F_CTEN:                                    /* tenths: 0.0 .. 10.0 */
+        fmt_fix(val, v, 1);
         break;
     case F_DB:
         if (v <= 0) {
@@ -642,8 +647,11 @@ static const page_t PAGES[] = {
     {"FILTER", FAM_EDIT, SC_TRACK, GR_NONE, {P_FTYPE, P_E4, P_E5, P_E6}},   /* (JIANT 0.5) ANALOG: TYPE CUT RES DRV */
     {"FILTER", FAM_EDIT, SC_TRACK, GR_NONE, {P_FTYPE, P_FCUT, P_FRES, P_DIST}},   /* .. every other engine's (on the part;
                                                          * DRV: the part's DIST, after it) */
-    {"COMP", FAM_EDIT, SC_TRACK, GR_NONE, {P_CTYPE, P_CTHR, P_CATT, P_CTIM}},   /* (JIANT, DYN) the track's compressor: TYPE THRESH */
-    {"COMP 2", FAM_EDIT, SC_TRACK, GR_NONE, {P_CREL, P_CMK, 0xFF, 0xFF}},       /* ATTACK TIME, then RELEASE MAKEUP */
+    {"COMP", FAM_EDIT, SC_TRACK, GR_NONE, {P_CTYPE, 0xFF, 0xFF, 0xFF}},   /* (JIANT, DYN) the track's compressor: OFF, the */
+    {"COMP", FAM_EDIT, SC_TRACK, GR_NONE, {P_CTYPE, P_DBX_THR, P_DBX_RAT, P_DBX_OUT}},   /* model alone; each model its own */
+    {"COMP", FAM_EDIT, SC_TRACK, GR_NONE, {P_CTYPE, P_LA_PR, P_LA_GAIN, P_LA_MODE}},     /* front panel (ui.c page_visible: */
+    {"COMP 2", FAM_EDIT, SC_TRACK, GR_NONE, {P_LA_HF, P_LA_MIX, 0xFF, 0xFF}},           /* the selected model's pages) */
+    {"COMP", FAM_EDIT, SC_TRACK, GR_NONE, {P_CTYPE, P_FA_IN, P_FA_THR, P_FA_TC}},
     {"SOUND", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* DRUM: a sound of the kit (ui_dx.c) */
     {"SOUND 2", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"SOUND 3", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (JIANT 0.4) MODE, the pitch modulation, DRIVE */

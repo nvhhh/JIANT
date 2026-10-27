@@ -599,6 +599,11 @@ static int page_visible(uint32_t i)
         return trk_engp(TSEL) == &ENG_WHEEL;
     if (PAGES[i].id[0] == P_LRTRG && PAGES[i].id[1] == 0xFFu)   /* (0.6.12) RETRIG: LOFI BYTE / FLOAT's */
         return trk_engp(TSEL) == &ENG_LOFI && TSEL->p[P_E1] >= RW_BYTE;
+    if (PAGES[i].fam == FAM_EDIT && (PAGES[i].id[0] == P_CTYPE || PAGES[i].id[0] == P_LA_HF)) {   /* (JIANT, DYN) COMP,
+                                                         * COMP 2: the selected model's front panel only */
+        uint32_t m = (uint32_t)TSEL->p[P_CTYPE], k = PAGES[i].id[0] == P_LA_HF ? P_LA_PR : PAGES[i].id[1];
+        return m == (k == P_DBX_THR ? 1u : k == P_LA_PR ? 2u : k == P_FA_IN ? 3u : 0u);
+    }
     if (PAGES[i].scope == SC_TRACK && PAGES[i].id[0] == P_FTYPE)   /* (JIANT 0.5) FILTER: ANALOG's, or the part's */
         return (trk_eng(TSEL) == ENGI_ANALOG) == (PAGES[i].id[1] == P_E4);
     return !(PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] >= P_FM1_ATK &&

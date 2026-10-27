@@ -1611,12 +1611,13 @@ static void project_capture(project_t *p)
 /* the music as it is now -> slot, named `name` (0: the current name; "" none); 0 saved, nonzero refused or failed.
  * The current name becomes the saved one */
 /* (JIANT, DYN) the compressor settings are per project: OBJ_COMP holds one entry per project slot and song section (32,
- * 3 bytes x 4 tracks: type, threshold, ratio). They are not in the project block, which is full. An entry is copied into
+ * 12 bytes x 4 tracks: the model and every model's controls). They are not in the project block, which is full. An entry is copied into
  * the tracks when its section loads (comp_apply), taken from them when the section is stored (comp_store), and written to
  * flash with the sections (comp_flush). The track values are the ones on screen; the table is the saved truth. */
 #define COMP_N 32u
-#define COMP_BYTES 6u
-static const uint8_t COMP_P[COMP_BYTES] = {P_CTYPE, P_CTHR, P_CATT, P_CTIM, P_CREL, P_CMK};
+#define COMP_BYTES 12u
+static const uint8_t COMP_P[COMP_BYTES] = {P_CTYPE, P_DBX_THR, P_DBX_RAT, P_DBX_OUT, P_LA_PR, P_LA_GAIN, P_LA_MODE,
+                                           P_LA_HF, P_LA_MIX, P_FA_IN, P_FA_THR, P_FA_TC};
 #if FELUCCA_FLASH
 static uint8_t comp_tab[COMP_N][NTRK][COMP_BYTES];
 static uint8_t comp_dirty;

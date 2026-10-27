@@ -1731,18 +1731,15 @@ static void draw_tracks(void)
         ts.bed = bsig;
     }
 }
-/* (JIANT, DYN) the compressor's static curve (EDIT COMP and COMP 2, the whole display): input against output in dB, THRESH,
- * the model's ratio and MAKEUP; a straight line when it is OFF. dB x10 throughout */
+/* (JIANT, DYN) the compressor's static curve (EDIT COMP and COMP 2, the whole display): input against output in dB, the
+ * selected model's (fx.c dyn_curve_db10); a straight line when it is OFF. dB x10 throughout */
 static void graph_comp_curve(const track_t *t, uint16_t c, int32_t x0, int32_t pw, int32_t cy, int32_t a)
 {
-    uint32_t ty = (uint32_t)t->p[P_CTYPE];
-    int32_t thr = ((int32_t)t->p[P_CTHR] - 127) * 376 / 100, mk = (int32_t)t->p[P_CMK] * 240 / 127;
-    int32_t sl = dyn_slope_q8(ty), bx = x0 + 2, bw = pw - 4;
-    int32_t in10, px, py;
+    int32_t bx = x0 + 2, bw = pw - 4, in10, px, py;
     cv_rect(x0, cy - a - 1, pw, 2 * a + 3, T_SURF);            /* (cleared: the curve's own area) */
     cv_rect(bx, cy - a, 1, 2 * a, T_RAISE);                    /* the curve's frame */
     for (in10 = -480; in10 <= 0; in10 += 16) {
-        int32_t over = in10 - thr, red = over > 0 ? (over * sl) >> 8 : 0, out = in10 - red + mk;
+        int32_t out = dyn_curve_db10(t, in10);                 /* (fx.c: the model's own curve) */
         px = bx + (in10 + 480) * (bw - 2) / 480;
         py = cy + a - (out + 480) * (2 * a) / 480;
         if (py < cy - a) py = cy - a;

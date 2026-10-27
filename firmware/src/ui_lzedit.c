@@ -236,7 +236,7 @@ static int graph_edit_lz(const track_t *t, const page_t *pg)
         graph_voice_lz(t, pg);
     else if (pg->graph == GR_FOCUS)
         graph_focus_lz(t);
-    else if (pg->id[0] == P_CTYPE || pg->id[0] == P_CREL)   /* (JIANT, DYN) COMP and COMP 2: the compressor's transfer graph, the whole display */
+    else if (pg->id[0] == P_CTYPE || pg->id[0] == P_LA_HF)   /* (JIANT, DYN) COMP and COMP 2: the compressor's transfer graph, the whole display */
         graph_comp_curve(t, T_THEME, 4, 232, (int32_t)cv_h / 2, (int32_t)cv_h / 2 - 6);
     else
         return 0;
