@@ -327,7 +327,7 @@ static void vx_noise(int32_t e)
 #define SB_CELL 25                                       /* a cell, in the mockup's units */
 #define SB_COS 3355                                      /* cos 35 degrees, Q12 */
 #define SB_SIN 2349                                      /* sin 35 degrees, Q12 */
-#define SB_LIFE 307                                      /* a spray dot lives 1.2 beats (Q8) */
+#define SB_LIFE 512                                      /* a spray dot lives 2 beats (Q8) */
 #define SB_PLUM 0x38A7u                                  /* #3A1538, the dark dots */
 #define SB_ROSE 0xD22Fu                                  /* #D6457F, the rose dots */
 #include "serum_bottle.h"
@@ -338,7 +338,7 @@ static void sb_put(int32_t dx, int32_t dy, int32_t size, uint16_t c)   /* a poin
 }
 static void vx_serum(int32_t e)
 {
-    int32_t sw = vx_sw(1u, 1u, 0u, 256, 21, e), cell = SB_CELL * sw / 256, sz = (CR(cell) >> 4) + 1, r, c, m, k, n;
+    int32_t sw = vx_sw(1u, 1u, 0u, 256, 7, e), cell = SB_CELL * sw / 256, sz = (CR(cell) >> 4) + 1, r, c, m, k, n;
     uint64_t t256 = (uint64_t)fm1_ms * (uint32_t)song.g[G_BPM] * 256u / 60000u;   /* beats so far (Q8) */
     uint32_t bpm = (uint32_t)song.g[G_BPM];
     if (sz < 2)                                          /* (a 1 px cell leaves holes: the bottle looked see-through) */
