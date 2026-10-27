@@ -666,7 +666,8 @@ enum { S_HOME, S_HOME_IDLE, S_MESSAGE, S_MESSAGE_KEY, S_MESSAGE_NOFILE, S_PRESET
        S_LIVE_RIELES, S_LIVE_RIELES_T3, S_LIVE_MANO, S_LIVE_MANO_KEYS,
        S_MIXER_T4, S_HOME_T4, S_MOCK_HOME, S_MOCK_PRESETS, S_MOCK_SEQ, S_MOCK_DRUM, S_MOCK_MIXER, S_MOCK_DIALOG, S_MOCK_MENU,
        S_TOAST_ENV, S_TOAST_MUTATE, S_TOAST_MUTATE_HINT, S_TOAST_MOTION, S_TOAST_MOTION_LOCKS, S_TOAST_PUNCH, S_TOAST_AUTO_LIST,
-       S_TOAST_AUTO_LIST_DRUM, S_TOAST_PATTERN, S_TOAST_FM6_OP, S_TOAST_ANALOG, S_PRESETS_TYPE, S_MENU_MIDI, S_MENU_SCREEN2, S_V6_SHRUB, S_V6_SHRUB_FULL, S_V6_MSEQ_MOTION, S_COUNT };
+       S_TOAST_AUTO_LIST_DRUM, S_TOAST_PATTERN, S_TOAST_FM6_OP, S_TOAST_ANALOG, S_PRESETS_TYPE, S_MENU_MIDI, S_MENU_SCREEN2, S_V6_SHRUB, S_V6_SHRUB_FULL, S_V6_MSEQ_MOTION,
+       S_MK_REST, S_MK_AH, S_MK_EE, S_MK_OO, S_MK_CHANT, S_MK_HOME, S_MK_FULL, S_COUNT };
 static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "message_key", "message_nofile", "presets", "presets_nofav", "user",
     "phrases", "project", "tools", "song_empty", "song", "step", "pattern", "chance", "comp", "comp_trig", "comp_echo", "mutate", "morph", "dx_image", "dx_send", "page_flash", "page_flash_home", "fugue", "motion", "drum",
     "drum_hand", "drum_cym", "mixer", "mixer_pan", "env", "env_dest", "lfo", "mod", "fx", "slicer", "slbus", "slpitch", "dly", "scl", "shift", "arp",
@@ -704,7 +705,8 @@ static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "mes
     "live_rieles", "live_rieles_t3", "live_mano", "live_mano_keys",
     "mixer_tracks4", "home_tracks4", "mock_home", "mock_presets", "mock_seq", "mock_drum", "mock_mixer", "mock_dialog", "mock_menu",
     "toast_env", "toast_mutate", "toast_mutate_hint", "toast_motion", "toast_motion_locks", "toast_punch", "toast_auto_list",
-    "toast_auto_list_drum", "toast_pattern", "toast_fm6_op", "toast_analog", "presets_pluck", "menu_midi", "menu_screen2", "v6_shrub", "v6_shrub_full", "v6_mseq_motion"};
+    "toast_auto_list_drum", "toast_pattern", "toast_fm6_op", "toast_analog", "presets_pluck", "menu_midi", "menu_screen2", "v6_shrub", "v6_shrub_full", "v6_mseq_motion",
+    "mk_rest", "mk_ah", "mk_ee", "mk_oo", "mk_chant", "mk_home", "mk_full"};
 
 /* (0.9.11) GLO > LIVE: six sequences of their own lengths (16 32 7 16 . 1/8 20 4 . 1/4, as the mock-up's), modifiers on
  * T2 (THIN 70 %), T3 (x2 RATCH x3), T4 (LOOP 8), T5 (2/3), played two seconds from PLAY so the playheads and ghosts are
@@ -1824,6 +1826,22 @@ static void setup(int s)
     case S_V6_SHRUB_FULL: {                          /* (WT 110: ten branches; CUT and RES open, the FILT ACID leaves) */
         static const int16_t K[8] = {110, 60, 14, 50, 100, 60, 20, 1};
         v6_scene(15, "WT LEAD", "EDIT 1", K, 60, 300, 7); ui_scope = 0; break;
+    }
+    case S_MK_REST: case S_MK_AH: case S_MK_EE: case S_MK_OO: case S_MK_CHANT: case S_MK_HOME: case S_MK_FULL: {
+        /* (0.9.20) MONK: his faces (ui_engvis.c vx_monk) beside EDIT: silent at rest, then A, E, U sung just now (the
+         * outline at its swell), a note held 3 s (the chant), on HOME and on the whole panel */
+        static const int16_t VW[7] = {0, 0, 32, 127, 0, 0, 0};
+        int16_t K[8] = {-99, -99, 0, -99, -99, -99, -99, -99};
+        K[0] = VW[s - S_MK_REST];
+        v6_scene(ENGI_MONK, "RABTEN", s == S_MK_HOME ? 0 : "EDIT 1", K, s == S_MK_REST ? 0 : 60, s == S_MK_CHANT ? 3000 : 100, 11);
+        if (s == S_MK_REST) {                           /* (silent: no level left from the scenes before) */
+            TSEL->peak = 0;
+            vxs.en[song.sel % NTRK] = 0;
+        }
+        mk_held[song.sel % NTRK].age = s == S_MK_CHANT ? 0xFFFFFFFFu : 0u;   /* (the chant: its note held 3 s) */
+        mk_held[song.sel % NTRK].ms = fm1_ms - 3000u;
+        if (s == S_MK_FULL) ui_scope = 0;
+        break;
     }
     case S_V6_MSEQ_MOTION: {                         /* (0.9.12) MOTION over the MSEQ bars (vx_mseq, drawn in draw) */
         static const uint8_t L[16] = {10, 40, 70, 100, 127, 90, 60, 30, 0, 50, 110, 20, 80, 80, 80, 80};

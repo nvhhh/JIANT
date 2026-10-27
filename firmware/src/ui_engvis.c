@@ -358,6 +358,103 @@ static void vx_shrub(int32_t e)
     vx_bush(2496, 2912, 544, 352, 5, e);
 }
 
+/* -------------------------------------------------------------------------------------------------- MONK --- */
+/* (0.9.20) MONK: a monk of six faces (ui_monk.h: tools/gen_monk.py from assets/ui-art/monk), drawn as they are, 112 px
+ * (2 px an art pixel, the garden's blocks) in the middle of the rectangle, a smaller one (SOUND's) sampled down to fit.
+ * Silent he rests; sounding he shows the vowel sung (VOWEL / VOWEL2 / TALK, or WORDS' phoneme): A ah, E I ee, O U
+ * (rounded) oo, m n ng mm; a note held past 2 s the chant. His red outline (a ring 2 px out and a fainter one 4 px)
+ * pulses on the beat, as strong as the sound, and he lifts 2 px every other beat */
+#include "ui_monk.h"
+#define MK_RED 0xD8A1u
+enum { MK_REST, MK_AH, MK_OO, MK_EE, MK_MM, MK_CHANT };
+static struct { uint32_t age, ms; } mk_held[NTRK] __attribute__((section(".pool")));   /* the newest note, when it came */
+static uint32_t vx_monk_face(const track_t *t, int32_t e)
+{
+    uint32_t k = (uint32_t)(t - trk) % NTRK, i, a = 0, rnd;
+    int32_t f2;
+    for (i = 0; i < NVOICE; i++)
+        if (t->v[i].active && t->v[i].age > a) a = t->v[i].age;
+    if (a > mk_held[k].age) mk_held[k].ms = fm1_ms;
+    mk_held[k].age = a;
+    if (!e)
+        return MK_REST;
+    if (t->p[P_VLANG]) {                                 /* WORDS: the phoneme sounding */
+        const sing_t *s = sing_view(t);
+        uint32_t c = sing_phon(s);
+        if (PHON[c].cls == PC_SIL) return MK_REST;
+        if (PHON[c].cls == PC_NAS) return MK_MM;
+        f2 = s->f[1];
+        rnd = PHON[c].place & PL_RND;
+    } else {                                             /* VOWEL -> VOWEL2 over TALK (as formant_render) */
+        int32_t v0 = t->p[P_E0], v1 = t->p[P_E1], g = 0, x, ii, fr;
+        for (i = 0; i < NVOICE; i++)
+            if (t->v[i].active && (int32_t)(t->v[i].s[7] & FMT_TALK_MASK) > g) g = (int32_t)(t->v[i].s[7] & FMT_TALK_MASK);
+        if (t->p[P_E2]) { g >>= 9; v0 += ((v1 - v0) * ((g * (65536 - g)) >> 15)) >> 15; }
+        x = clamp(v0, 0, 127) * 4 * 256 / 127;
+        ii = x >> 8 < 4 ? x >> 8 : 3;
+        fr = x >> 8 < 4 ? x & 255 : 256;
+        f2 = VOWEL_F[ii][1] + (((VOWEL_F[ii + 1][1] - VOWEL_F[ii][1]) * fr) >> 8);
+        rnd = v0 > 80;
+    }
+    if (fm1_ms - mk_held[k].ms > 2000u) return MK_CHANT;
+    if (rnd) return MK_OO;
+    return f2 > 1550 ? MK_EE : MK_AH;                    /* (front: F2 over ~1.55 kHz) */
+}
+/* a pixel of colour i (0 nothing, 1..13 MK_PAL; 14 15 the outline's rings, over what is there, ring / 256 strong) */
+static void mk_px(int32_t x, int32_t y, uint32_t i, int32_t ring)
+{
+    uint16_t *p;
+    y += cv_oy;
+    if (!i || (uint32_t)x >= cv_w || (uint32_t)y >= cv_h || (i >= 14u && !ring))
+        return;
+    p = &cv_px[(uint32_t)y * cv_w + (uint32_t)x];
+    *p = swap16(i < 14u ? MK_PAL[i] : ux_mix(swap16(*p), MK_RED, (i == 14u ? ring : ring * 45 / 100) * 100 / 256));
+}
+/* a face's skip: the pixels rest's (255s carry on); none left: never */
+static uint32_t mk_skip(const uint8_t **d, const uint8_t *de)
+{
+    uint32_t k = 0;
+    if (*d >= de)
+        return 0xFFFFFFFFu;
+    while (**d == 255u) { k += 255u; (*d)++; }
+    return k + *(*d)++;
+}
+static void vx_monk(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t h, int32_t e)
+{
+    uint32_t face = vx_monk_face(t, e), n = 0, c = 0, dn = 0, dc = 0, skip, sx, sy, tx;
+    const uint8_t *b = MK_RLE, *d = MK_RLE + MK_OFF[face], *de = MK_RLE + MK_OFF[face + 1u];
+    int32_t S = w < h ? w : h, ring = e ? e * (51 + gd_pulse(1u, 1u, 0u) * 205 / 256) / 256 : 0, x0, y0, ty = -1;
+    uint8_t row[MK_W];
+    S = S < MK_W ? S : MK_W;
+    x0 = x + (w - S) / 2;
+    y0 = y + (h - S) / 2 - (e && gd_run && ((gd_bt >> 16) & 1u) ? 2 : 0);
+    skip = face ? mk_skip(&d, de) : 0xFFFFFFFFu;
+    for (sy = 0; sy < MK_W; sy++) {
+        for (sx = 0; sx < MK_W; sx++) {
+            if (!n) {
+                n = (*b >> 4) + 1u;
+                c = *b++ & 15u;
+            }
+            n--;
+            row[sx] = (uint8_t)c;
+            if (!dn && !skip) {                          /* (the face's own pixels: a run) */
+                dn = (*d >> 4) + 1u;
+                dc = *d++ & 15u;
+            }
+            if (dn) {
+                row[sx] = (uint8_t)dc;
+                if (!--dn) skip = mk_skip(&d, de);
+            } else
+                skip--;
+        }
+        if ((int32_t)(sy * (uint32_t)S / MK_W) == ty)    /* (sampled down: this row's place drawn already) */
+            continue;
+        ty = (int32_t)(sy * (uint32_t)S / MK_W);
+        for (tx = 0; tx < (uint32_t)S; tx++)
+            mk_px(x0 + (int32_t)tx, y0 + ty, row[tx * MK_W / (uint32_t)S], ring);
+    }
+}
+
 /* ------------------------------------------------------------------------------------------------ the glue --- */
 /* the engine's creature in the rectangle x y w h (canvas px: EDIT's panel, HOME's middle), en_home: HOME's level for
  * the track (-1: its own, its part's peak slewed); 1 drawn */
@@ -390,6 +487,7 @@ static int vx_draw(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t h,
     case ENGI_WHEEL: vx_wheel(e); break;
     case ENGI_NOISE: vx_noise(e); break;
     case ENGI_SHRUB: vx_shrub(e); break;
+    case ENGI_MONK: vx_monk(t, x, y, w, h, e); break;
     default: vx_beetle(e); break;                        /* (ANIMAL's ladybird; DIGITAL its family's) */
     }
     gd.x0 = x0;
