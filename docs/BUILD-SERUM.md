@@ -1,4 +1,4 @@
-# Build guide: SERUM branch (`serum-serum`)
+# Build guide: SERUM branch (`shrub-serum`, the remote branch name is unchanged)
 
 This guide is for building the SERUM firmware (the wavetable engine, the two new creatures and the two new scopes) into a `.fwsc` you can install on the FM-1. Read `BUILDING.md` first for the general toolchain notes; this file lists only what is specific to this branch and the order to run things in.
 
@@ -20,7 +20,7 @@ The branch is based on `origin/claude/intelligent-rubin-3oz7z6` (the usbloop / L
 ## 1. Check out the branch
 
 ```
-git switch serum-serum
+git switch shrub-serum
 git status          # expect the changes listed above, nothing else
 ```
 
