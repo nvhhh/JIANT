@@ -155,8 +155,11 @@ static const param_desc_t TP[P_NALL] = {
     [P_DTYPE] = PE("TYPE", N_DTYPE, 0),         /* (JIANT) DIST: SOFT (as before) HARD FOLD CRUSH RECT AMP */
     [P_DTONE] = PD("TONE", F_BIPCT, -64, 63, 0),   /* .. its tone: darker / brighter */
     [P_CTYPE] = PE("COMP", N_DYN, 0),          /* (JIANT) OFF, DBX 160, LA-2A, FAIR 670 (fx.c DYN_M) */
-    [P_CTHR] = PD("THRESH", F_PCT, 0, 127, 127),
-    [P_CRAT] = PD("RATIO", F_PCT, 0, 127, 64),
+    [P_CTHR] = PD("THRESH", F_CTHR, 0, 127, 79),          /* -18 dB (the bench's DBX) */
+    [P_CATT] = PD("ATTACK", F_CATT, 0, 127, 71),          /* 5 ms (DBX), 0.5 .. 30 ms */
+    [P_CTIM] = PD("TIME", F_CTIM, 0, 127, 51),            /* 2.0 (FAIR) */
+    [P_CREL] = PD("RELEASE", F_CREL, 0, 127, 56),         /* 150 ms, 20 .. 2000 ms */
+    [P_CMK] = PD("MAKEUP", F_CMK, 0, 127, 32),            /* 6 dB, 0 .. 24 dB */
     [P_MSLEN] = PD("LEN", F_STEPS, 1, 16, 16),  /* (JIANT) the modulation sequence (mod.c MS_STEP) */
     [P_MSDIV] = PE("DIV", N_DIV, 2),
     [P_MSSLW] = PD("SLEW", F_PCT, 0, 127, 0),
@@ -473,6 +476,28 @@ static void param_format(const param_desc_t *d, int32_t v, char *val, const char
         }
         break;
     }
+    case F_CTHR:                                    /* (JIANT, DYN) -48 .. 0 dBFS, 16 Q8 octaves a step */
+        fmt_fix(val, ((int32_t)v - 127) * 376 / 100, 1);
+        *unit = "dB";
+        break;
+    case F_CATT:
+    case F_CREL: {
+        int32_t q = d->fmt == F_CATT ? dyn_att_q8(v) : dyn_rel_q8(v), x10 = q * 10 / 256;
+        if (x10 < 1000) {
+            fmt_fix(val, x10, 1);
+        } else {
+            fmt_int(val, (q + 128) / 256);
+        }
+        *unit = "ms";
+        break;
+    }
+    case F_CTIM:                                    /* the FAIR's TIME, 0 .. 5 */
+        fmt_fix(val, ((int32_t)v * 50 + 63) / 127, 1);
+        break;
+    case F_CMK:                                     /* 0 .. 24 dB */
+        fmt_fix(val, (int32_t)v * 240 / 127, 1);
+        *unit = "dB";
+        break;
     case F_DB:
         if (v <= 0) {
             str_cpy(val, "OFF", 6);
@@ -617,7 +642,8 @@ static const page_t PAGES[] = {
     {"FILTER", FAM_EDIT, SC_TRACK, GR_NONE, {P_FTYPE, P_E4, P_E5, P_E6}},   /* (JIANT 0.5) ANALOG: TYPE CUT RES DRV */
     {"FILTER", FAM_EDIT, SC_TRACK, GR_NONE, {P_FTYPE, P_FCUT, P_FRES, P_DIST}},   /* .. every other engine's (on the part;
                                                          * DRV: the part's DIST, after it) */
-    {"COMP", FAM_EDIT, SC_TRACK, GR_NONE, {P_CTYPE, P_CTHR, P_CRAT, 0xFF}},   /* (JIANT, DYN) the track's compressor: TYPE THRESH RATIO */
+    {"COMP", FAM_EDIT, SC_TRACK, GR_NONE, {P_CTYPE, P_CTHR, P_CATT, P_CTIM}},   /* (JIANT, DYN) the track's compressor: TYPE THRESH */
+    {"COMP 2", FAM_EDIT, SC_TRACK, GR_NONE, {P_CREL, P_CMK, 0xFF, 0xFF}},       /* ATTACK TIME, then RELEASE MAKEUP */
     {"SOUND", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* DRUM: a sound of the kit (ui_dx.c) */
     {"SOUND 2", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"SOUND 3", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (JIANT 0.4) MODE, the pitch modulation, DRIVE */

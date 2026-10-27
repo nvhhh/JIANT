@@ -1731,14 +1731,39 @@ static void draw_tracks(void)
         ts.bed = bsig;
     }
 }
+/* (JIANT, DYN) the HOME picture (ui_scope OFF and ON), the track's compressor: on the left its static curve, input against
+ * output in dB (THRESH, the model's ratio, MAKEUP; a straight line when it is OFF); on the right its gain reduction, a bar an
+ * audio block (fx.c dyn_hist: the deepest reduction of each, the last 32), the newest at the right. dB x10 throughout */
+static void graph_comp(const track_t *t, uint16_t c, int32_t x0, int32_t pw, int32_t cy, int32_t a)
+{
+    uint32_t ti = (uint32_t)(t - trk) % NTRK, ty = (uint32_t)t->p[P_CTYPE], n;
+    int32_t thr = ((int32_t)t->p[P_CTHR] - 127) * 376 / 100, mk = (int32_t)t->p[P_CMK] * 240 / 127;
+    int32_t sl = dyn_slope_q8(ty), bx = x0 + 2, bw = pw * 5 / 11, rx = x0 + bw + 8, rw = pw - bw - 10;
+    int32_t in10, px, py;
+    cv_rect(x0, cy - a - 1, pw, 2 * a + 3, T_SURF);            /* (cleared: the bars shrink) */
+    cv_rect(bx, cy - a, 1, 2 * a, T_RAISE);                    /* the curve's frame */
+    for (in10 = -480; in10 <= 0; in10 += 16) {
+        int32_t over = in10 - thr, red = over > 0 ? (over * sl) >> 8 : 0, out = in10 - red + mk;
+        px = bx + (in10 + 480) * (bw - 2) / 480;
+        py = cy + a - (out + 480) * (2 * a) / 480;
+        if (py < cy - a) py = cy - a;
+        if (py > cy + a) py = cy + a;
+        cv_rect(px - 1, py - 1, 2, 2, c);
+    }
+    for (n = 0; n < 32u; n++) {                                /* the gain reduction: down from the top */
+        int32_t gr = (int32_t)dyn_hist[ti][(dyn_hw[ti] + n) & 31u] * 235 / 100, h = gr > 480 ? 2 * a : gr * (2 * a) / 480;
+        int32_t bxr = rx + (int32_t)n * rw / 32;
+        if (h > 0)
+            cv_rect(bxr, cy - a, rw / 32 > 1 ? rw / 32 - 1 : 1, h, c);
+    }
+}
 /* oscilloscope of the output, triggered on a rising zero crossing: a RAISE centre line, the trace 2 px (in silence
  * a flat line on it; MENU > SCREEN OFF keeps it from staying on the panel for hours) */
 static void scope_at(int32_t x0, int32_t pw, int32_t cy, int32_t a, uint16_t c);
-static void scope_pic(int32_t x0, int32_t pw, int32_t cy, int32_t a, uint16_t c);
-static void graph_scope(uint16_t c)
+static void graph_scope(const track_t *t, uint16_t c)
 {
-    if (ui_scope < 2u)                                       /* (GARDEN) OFF and ON: the music's picture (XY) */
-        scope_pic(PANEL_X0, PANEL_W, (int32_t)cv_h / 2, cv_h == H_GRAPH ? 46 : (int32_t)cv_h / 2 - 6, c);   /* (LARGE: the strip) */
+    if (ui_scope < 2u)                                       /* (JIANT, DYN) OFF and ON: the track's compressor (graph_comp) */
+        graph_comp(t, c, PANEL_X0, PANEL_W, (int32_t)cv_h / 2, cv_h == H_GRAPH ? 46 : (int32_t)cv_h / 2 - 6);   /* (LARGE: the strip) */
     else
         scope_at(PANEL_X0, PANEL_W, (int32_t)cv_h / 2, cv_h == H_GRAPH ? 46 : (int32_t)cv_h / 2 - 6, c);
 }
@@ -1795,34 +1820,6 @@ static void scope_orbit(const int16_t *snap, uint32_t trig, int32_t peak, int32_
         int32_t x2 = cx + snap[n] * a / peak, y2 = cy - snap[n - D] * a / peak;
         cv_line_t(x1, y1, x2, y2, ux_mix(T_SURF, c, 35), 4);   /* the glow */
         cv_line_t(x1, y1, x2, y2, c, 2);
-    }
-}
-/* (GARDEN, the owner: the music draws a picture) the HOME scope in XY: X = the output, Y = the same output D samples back,
- * the whole 512-sample window as dots, the oldest dim and the newest bright, so a periodic sound draws its closed figure.
- * D: a quarter of the period of the first two rising zero crossings (ORBIT's; 24 without a second) */
-static int32_t scope_pic_v(uint32_t w, uint32_t n, int32_t k) { return scope_s(scope_buf[(w + n) & (SCOPE_N - 1u)], k); }
-static void scope_pic(int32_t x0, int32_t pw, int32_t cy, int32_t a, uint16_t c)
-{
-    uint32_t w = scope_w, n, t0 = 1, t1;
-    int32_t D = 24, cx = x0 + pw / 2, peak = 750, k = scope_k();
-    for (n = 0; n < SCOPE_N; n++) {
-        int32_t v = scope_pic_v(w, n, k);
-        if (v < 0)
-            v = -v;
-        if (v > peak)
-            peak = v;
-    }
-    while (t0 < SCOPE_N && !(scope_pic_v(w, t0 - 1u, k) < 0 && scope_pic_v(w, t0, k) >= 0))
-        t0++;
-    for (t1 = t0 + 8u; t0 < SCOPE_N && t1 < SCOPE_N && t1 <= t0 + 256u; t1++)
-        if (scope_pic_v(w, t1 - 1u, k) < 0 && scope_pic_v(w, t1, k) >= 0) {
-            D = (int32_t)(t1 - t0) / 4;
-            break;
-        }
-    for (n = (uint32_t)D; n < SCOPE_N; n++) {
-        int32_t px = cx + scope_pic_v(w, n, k) * a / peak, py = cy - scope_pic_v(w, n - (uint32_t)D, k) * a / peak;
-        uint16_t col = n + 16u >= SCOPE_N ? c : ux_mix(T_SURF, c, 20 + (int32_t)(n - (uint32_t)D) * 80 / (SCOPE_N - D));
-        cv_rect(px - 1, py - 1, 2, 2, col);
     }
 }
 /* .. pw px wide from x0, about the line cy, +-a px (0.8.5: EDIT's SOUND, in its well) */
@@ -2070,7 +2067,7 @@ static void draw_graph(void)
         uint32_t k = strip_kind();
         cv_oy = k == SK_ADSR || k == SK_LFO ? 3 : 0;
         graph_ht = LG_H_GRAPH - 6;
-        if (k == SK_SCOPE) graph_scope(c);
+        if (k == SK_SCOPE) graph_scope(t, c);
         else if (k == SK_ADSR) graph_adsr(t, c);
         else if (k == SK_LFO) graph_lfo(t, c);
         else graph_title();
@@ -2169,7 +2166,7 @@ static void draw_graph(void)
             else {                                   /* the FX, DEST, VOICE, GLOBAL pages: their graphs (else the scope) */
                 cv_oy = 0;
                 if (!graph_tech(t, pg))
-                    graph_scope(c);
+                    graph_scope(t, c);
             }
             break;
         }

@@ -51,7 +51,8 @@ static uint8_t mc_host, mc_host_cpu;     /* tests: 1 = jobs handed over (run at 
 enum {
     F_INT, F_PCT, F_BIPCT, F_TIME, F_LFOHZ, F_CUTOFF, F_DB, F_SEMI, F_ENUM, F_BPM, F_NOTE,
     F_ONOFF, F_OCT, F_STEPS,
-    F_PCTINV                     /* (JIANT 0.6.37) a share of 127 shown and turned the other way: 0 is 100 % */
+    F_PCTINV,                    /* (JIANT 0.6.37) a share of 127 shown and turned the other way: 0 is 100 % */
+    F_CTHR, F_CATT, F_CTIM, F_CREL, F_CMK   /* (JIANT, DYN) the compressor: THRESH dB, ATTACK and RELEASE ms, TIME, MAKEUP dB */
 };
 
 typedef struct {
@@ -97,9 +98,14 @@ enum {                          /* per-track parameters */
 enum {                          /* (JIANT, DYN) past P_COUNT: the compressor settings. Not in the project block, a user preset,
                                  * the motion or the MIDI learn: the comp table (project.c comp_*) keeps them per project slot and
                                  * song section; the tracks hold them (track_t.p has P_NALL) */
-    P_CTYPE = P_COUNT, P_CTHR, P_CRAT,         /* the dynamics model (fx.c track_dyn; makeup per model), THRESH, RATIO */
-    P_NALL
+    P_CTYPE = P_COUNT, P_CTHR, P_CATT, P_CTIM, P_CREL, P_CMK,   /* the dynamics model (fx.c track_dyn), THRESH, ATTACK, TIME */
+    P_NALL                                                     /* (FAIR), RELEASE, MAKEUP */
 };
+int32_t dyn_att_q8(int32_t v);                 /* (fx.c) the ATTACK knob in ms, Q8 */
+int32_t dyn_rel_q8(int32_t v);                 /* (fx.c) the RELEASE knob in ms, Q8 */
+extern uint16_t dyn_hist[NTRK][32];     /* (fx.c) each track's gain reduction per block, Q8 octaves, the last 32 */
+extern uint32_t dyn_hw[NTRK];                  /* (fx.c) dyn_hist's write index (& 31 is the oldest) */
+int32_t dyn_slope_q8(uint32_t ty);             /* (fx.c) 1 - 1/RATIO of a DYN model, Q8 */
 #define P_LRTRG P_FM1_ATK              /* (JIANT 0.6.12) LOFI BYTE / FLOAT's RTRG: a note restarts the formula's time (voice.c
                                          * voice_start), in a slot of the retired DIGITAL's (0: OFF, its default) */
 #define P_TCHAN P_FM1_DEC              /* (JIANT 0.6.37) SHIFT > CHANCE: how much of the track's steps it skips, 0 none (100 %,

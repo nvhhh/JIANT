@@ -1615,7 +1615,8 @@ static void project_capture(project_t *p)
  * the tracks when its section loads (comp_apply), taken from them when the section is stored (comp_store), and written to
  * flash with the sections (comp_flush). The track values are the ones on screen; the table is the saved truth. */
 #define COMP_N 32u
-#define COMP_BYTES 3u
+#define COMP_BYTES 6u
+static const uint8_t COMP_P[COMP_BYTES] = {P_CTYPE, P_CTHR, P_CATT, P_CTIM, P_CREL, P_CMK};
 #if FELUCCA_FLASH
 static uint8_t comp_tab[COMP_N][NTRK][COMP_BYTES];
 static uint8_t comp_dirty;
@@ -1625,13 +1626,11 @@ static int dyn_slot_key(uint32_t slot)                     /* the entry of secti
 }
 static void comp_reset_key(int o)                      /* an entry to the defaults (the params' OFF, THRESH, RATIO) */
 {
-    uint32_t t;
+    uint32_t t, k;
     if (o < 0 || o >= (int)COMP_N) return;
-    for (t = 0; t < NTRK; t++) {
-        comp_tab[o][t][0] = (uint8_t)TP[P_CTYPE].def;
-        comp_tab[o][t][1] = (uint8_t)TP[P_CTHR].def;
-        comp_tab[o][t][2] = (uint8_t)TP[P_CRAT].def;
-    }
+    for (t = 0; t < NTRK; t++)
+        for (k = 0; k < COMP_BYTES; k++)
+            comp_tab[o][t][k] = (uint8_t)TP[COMP_P[k]].def;
     comp_dirty = 1;
 }
 static void comp_load(void)                            /* power-on: the flash table, else the defaults */
@@ -1648,24 +1647,20 @@ static void comp_load(void)                            /* power-on: the flash ta
 static void comp_apply(uint32_t slot)                  /* the tracks take the entry of section slot (a section loaded) */
 {
     int o = dyn_slot_key(slot);
-    uint32_t t;
+    uint32_t t, k;
     if (o < 0 || o >= (int)COMP_N) return;
-    for (t = 0; t < NTRK; t++) {
-        trk[t].p[P_CTYPE] = (int16_t)clamp(comp_tab[o][t][0], TP[P_CTYPE].min, TP[P_CTYPE].max);
-        trk[t].p[P_CTHR] = (int16_t)clamp(comp_tab[o][t][1], TP[P_CTHR].min, TP[P_CTHR].max);
-        trk[t].p[P_CRAT] = (int16_t)clamp(comp_tab[o][t][2], TP[P_CRAT].min, TP[P_CRAT].max);
-    }
+    for (t = 0; t < NTRK; t++)
+        for (k = 0; k < COMP_BYTES; k++)
+            trk[t].p[COMP_P[k]] = (int16_t)clamp(comp_tab[o][t][k], TP[COMP_P[k]].min, TP[COMP_P[k]].max);
 }
 static void comp_store(uint32_t slot)                  /* the entry of section slot from the tracks (it is stored) */
 {
     int o = dyn_slot_key(slot);
-    uint32_t t;
+    uint32_t t, k;
     if (o < 0 || o >= (int)COMP_N) return;
-    for (t = 0; t < NTRK; t++) {
-        comp_tab[o][t][0] = (uint8_t)trk[t].p[P_CTYPE];
-        comp_tab[o][t][1] = (uint8_t)trk[t].p[P_CTHR];
-        comp_tab[o][t][2] = (uint8_t)trk[t].p[P_CRAT];
-    }
+    for (t = 0; t < NTRK; t++)
+        for (k = 0; k < COMP_BYTES; k++)
+            comp_tab[o][t][k] = (uint8_t)trk[t].p[COMP_P[k]];
     comp_dirty = 1;
 }
 static void comp_reset(uint32_t slot) { comp_reset_key(dyn_slot_key(slot)); }   /* an empty section: the defaults */
