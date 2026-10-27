@@ -1733,18 +1733,42 @@ static void draw_tracks(void)
 }
 /* (JIANT, DYN) the compressor's static curve (EDIT COMP and COMP 2, the whole display): input against output in dB, the
  * selected model's (fx.c dyn_curve_db10); a straight line when it is OFF. dB x10 throughout */
+/* (GARDEN, the owner's reference: a halftone wave) the curve as a band of 3 px squares on a 3 px grid, fanned out
+ * from the curve, coloured along it: blue at the quiet end, through red and yellow, to green at the loud one. */
+static const uint16_t CR_RAIN[12] = {0x013Au, 0x303Au, 0x783Au, 0xC83Au, 0xD031u, 0xD027u, 0xD0C0u, 0xD340u, 0xD5A0u,
+                                     0x9E80u, 0x5680u, 0x0680u};
 static void graph_comp_curve(const track_t *t, uint16_t c, int32_t x0, int32_t pw, int32_t cy, int32_t a)
 {
-    int32_t bx = x0 + 2, bw = pw - 4, in10, px, py;
+    int32_t bx = x0 + 2, bw = pw - 4, i, j, px, py, gx, gy;
+    uint32_t ph = fm1_ms / 90u;                                /* the waves turn slowly; the specks reshuffle every 150 ms */
+    uint32_t seed = fm1_ms / 150u;
+    (void)c;                                                   /* (the band takes its own colours) */
     cv_rect(x0, cy - a - 1, pw, 2 * a + 3, T_SURF);            /* (cleared: the curve's own area) */
     cv_rect(bx, cy - a, 1, 2 * a, T_RAISE);                    /* the curve's frame */
-    for (in10 = -480; in10 <= 0; in10 += 16) {
-        int32_t out = dyn_curve_db10(t, in10);                 /* (fx.c: the model's own curve) */
+    for (i = 0; i <= 48; i++) {
+        int32_t in10 = -480 + i * 10, out = dyn_curve_db10(t, in10);   /* (fx.c: the model's own curve) */
         px = bx + (in10 + 480) * (bw - 2) / 480;
         py = cy + a - (out + 480) * (2 * a) / 480;
         if (py < cy - a) py = cy - a;
         if (py > cy + a) py = cy + a;
-        cv_rect(px - 1, py - 1, 2, 2, c);
+        /* three waves, each a third of a turn apart, that cross each other along the curve */
+        for (j = 0; j < 3; j++) {
+            int32_t s = sine_i(((uint32_t)i * 2048u + (uint32_t)j * 21845u + ph * 512u) << 16) * a / (3 << 15);
+            gx = px / 3 * 3;
+            gy = (py + s) / 3 * 3;
+            if (gy < cy - a || gy > cy + a - 3)
+                continue;
+            cv_rect(gx, gy, 3, 3, CR_RAIN[(i * 11 / 48 + j * 4) % 12]);
+        }
+        /* loose specks scattered about the waves at random */
+        for (j = 0; j < 2; j++) {
+            uint32_t h = (((uint32_t)i * 2654435761u) ^ (seed * 40503u + (uint32_t)j * 9176u)) >> 8;
+            gx = px / 3 * 3 + ((int32_t)(h & 31u) - 16) / 3 * 3;
+            gy = (py + ((int32_t)((h >> 5) & 63u) - 32)) / 3 * 3;
+            if ((h >> 11) & 1u || gy < cy - a || gy > cy + a - 3)
+                continue;
+            cv_rect(gx, gy, 3, 3, CR_RAIN[(h >> 13) % 12]);
+        }
     }
 }
 /* (GARDEN, the owner: the music draws a picture) the HOME scope in XY: X = the output, Y = the same output D samples back,
