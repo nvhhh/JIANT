@@ -442,6 +442,13 @@ static const preset_t FORMANT_PRESETS[] = {
     {"SCAT EN", {0, 64, 0, 0, 96, 4, 76, 0}, {16, 60, 100, 60}, 0, 1 | TAG(VOX), FX(0, 0, 35, 30), PAT(4), WORDS(LG_EN, 17)},
     {"ROBOT EN", {0, 64, 0, -3, 127, 0, 90, 0}, {2, 65, 120, 56}, 0, 1 | TAG(VOX), FX(10, 10, 35, 30), PAT(4), WORDS(LG_EN, 6)},
     {"WHISPER JA", {0, 64, 0, 3, 50, 120, 52, 0}, {40, 90, 110, 80}, 0, TAG(VOX), FX(0, 40, 30, 70), PAT(5), WORDS(LG_JA, 7)},
+    /* (DELAY LAMA, from MonkSynth's presets) the five monk sounds: the head size as SHIFT (the formants' ratio, a voice's
+     * 0.75 .. 1.25 in semitones: -5 .. +4), the delay mix as the DELAY send; the glide and the volume are the track's */
+    {"RABTEN", {64, 0, 0, 0, 84, 6, 72, 0}, {24, 70, 112, 72}, 0, 1 | TAG(VOX), FX(0, 0, 102, 0), PAT(4)},
+    {"DORJE", {64, 0, 0, -5, 84, 6, 72, 0}, {24, 70, 112, 72}, 0, 1 | TAG(VOX), FX(0, 0, 38, 0), PAT(4)},
+    {"NGAWANG", {64, 0, 0, -2, 84, 6, 72, 0}, {24, 70, 112, 72}, 0, 1 | TAG(VOX), FX(0, 0, 77, 0), PAT(4)},
+    {"JAMYANG", {64, 0, 0, 2, 84, 6, 72, 0}, {24, 70, 112, 72}, 0, 1 | TAG(VOX), FX(0, 0, 0, 0), PAT(4)},
+    {"TINLEY", {64, 0, 0, 4, 84, 6, 72, 0}, {24, 70, 112, 72}, 0, 1 | TAG(VOX), FX(0, 0, 115, 0), PAT(4)},
 };
 
 static const engine_t ENG_FORMANT = {
