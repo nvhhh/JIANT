@@ -4218,10 +4218,10 @@ static int test_edit_cycle(void)
 {
     /* (0.9.2: one chain, SELECT a page a detent; an EDIT tap the next group's first. Was 0.8.5's lens: SELECT a level, the
      * tap the level's next set) */
-    static const char *const CH_A[] = {"EDIT 1", "EDIT 2", "FILTER", "MORPH", "VOICE", "VOICE 2", "FOCUS"};   /* (JIANT 0.5:
+    static const char *const CH_A[] = {"EDIT 1", "EDIT 2", "FILTER", "COMP", "MORPH", "VOICE", "VOICE 2", "FOCUS"};   /* (JIANT 0.5:
                                                          * ANALOG's FILTER; 0.6.45: MORPH) */
     static const char *const TP_A[] = {"FILTER", "FOCUS"};
-    static const char *const CH_F[] = {"EDIT 1", "EDIT 2", "FILTER", "VOICE", "VOICE 2", "OPERATOR", "OP ENV", "OPERATOR 2"};
+    static const char *const CH_F[] = {"EDIT 1", "EDIT 2", "FILTER", "COMP", "VOICE", "VOICE 2", "OPERATOR", "OP ENV", "OPERATOR 2"};
     static const char *const TP_F[] = {"FILTER", "OPERATOR"};
     static const char *const CH_D[] = {"EDIT 1", "EDIT 2", "FILTER", "VOICE", "VOICE 2", "OP1 ENV", "OP2 ENV", "OP3 ENV",
                                        "OP4 ENV", "OP LEVEL"};
@@ -4237,7 +4237,7 @@ static int test_edit_cycle(void)
         ok &= !str_eq(PAGES[i].title, "ENGINE");
     bad += check("no ENGINE page (engines are the EDIT layer's)", ok);
     set_engine_of(TSEL, 0);
-    bad += check("0.9.2 EDIT chain (ANALOG): SOUND (EDIT 1 EDIT 2) . TONE (FILTER MORPH VOICE VOICE 2) . FOCUS; taps: groups",
+    bad += check("0.9.2 EDIT chain (ANALOG): SOUND (EDIT 1 EDIT 2) . TONE (FILTER COMP MORPH VOICE VOICE 2) . FOCUS; taps: groups",
                  chain_walk(B_EDIT, CH_A, NELEM(CH_A), TP_A, NELEM(TP_A)));
 #if FELUCCA_FM4
     set_engine_of(TSEL, 1);
@@ -4246,16 +4246,16 @@ static int test_edit_cycle(void)
     (void)CH_F;
 #else
     set_engine_of(TSEL, ENGI_DIGITAL);
-    bad += check("0.9.2 EDIT chain (engine 1 asked for: FM6, DIGITAL retired): SOUND . TONE (FILTER VOICE VOICE 2) . OPERATOR (OPERATOR OP ENV OPERATOR 2)",
+    bad += check("0.9.2 EDIT chain (engine 1 asked for: FM6, DIGITAL retired): SOUND . TONE (FILTER COMP VOICE VOICE 2) . OPERATOR (OPERATOR OP ENV OPERATOR 2)",
                  TSEL->eng_req == ENGI_FM6 && chain_walk(B_EDIT, CH_F, NELEM(CH_F), TP_F, NELEM(TP_F)));
     (void)CH_D; (void)TP_D;
 #endif
     {   /* #97: a DRUM track's lane levels on EDIT > LANES (KICK SNARE CLAP HATCL) and LANES 2 (HATOP TOM RIM BELL) */
         static const char *const CH_K[] = {"KIT", "KIT 2", "KIT 3", "SOUND", "SOUND 2", "SOUND 3", "SOUND 4", "LEVELS",
-                                           "LEVELS 2", "X-MOD", "FILTER", "STEREO", "VOICE"};
+                                           "LEVELS 2", "X-MOD", "FILTER", "COMP", "STEREO", "VOICE"};
         static const char *const TP_K[] = {"SOUND", "LEVELS", "X-MOD"};
         set_engine_of(TSEL, ENGI_DRUM);
-        bad += check("0.9.2 EDIT chain (DRUM): KIT (KIT KIT 2 KIT 3) . SOUND (1..4) . LEVELS (LEVELS LEVELS 2) . TONE (X-MOD FILTER STEREO VOICE)",
+        bad += check("0.9.2 EDIT chain (DRUM): KIT (KIT KIT 2 KIT 3) . SOUND (1..4) . LEVELS (LEVELS LEVELS 2) . TONE (X-MOD FILTER COMP STEREO VOICE)",
                      chain_walk(B_EDIT, CH_K, NELEM(CH_K), TP_K, NELEM(TP_K)));
         {   /* (0.6.58) KIT 3 turns BP and FEEDBK, (0.7.8) KNOB 3 the CLAP's HANDS, never IMAGE; STEREO's KNOB 1 is IMAGE */
             uint8_t t0 = dx_tone, h0 = dx_hands;
@@ -10702,15 +10702,15 @@ static int test_lz_edit(void)
     ui_power_on(); set_engine_of(TSEL, 0); frame();
     press(B_EDIT); frame();
     ok = pd_on() && lz_fam() == LZ_EDIT && pd_level() == 0u && lz_tab_lit(0) && lz_crumb_is("EDIT \xB7 SOUND \xB7 EDIT 1 \xB7 OSC") &&
-         lz_count_is("1/7");
+         lz_count_is("1/8");
     turn(EN_SELECT, 1); frame();
-    ok &= str_eq(cur_page()->title, "EDIT 2") && lz_count_is("2/7");
+    ok &= str_eq(cur_page()->title, "EDIT 2") && lz_count_is("2/8");
     turn(EN_SELECT, 1); frame();
     ok &= pd_level() == 1u && lz_tab_lit(1) && str_eq(cur_page()->title, "FILTER") && lz_crumb_is("EDIT \xB7 TONE \xB7 FILTER") &&
-          lz_count_is("3/7");
+          lz_count_is("3/8");
     frames(320); press(B_EDIT); frame();                            /* EDIT: the next group, FOCUS */
     ok &= pd_level() == 2u && lz_tab_lit(2) && str_eq(cur_page()->title, "FOCUS") && lz_crumb_is("EDIT \xB7 FOCUS \xB7 FOCUS") &&
-          lz_count_is("7/7");
+          lz_count_is("8/8");
     turn(EN_SELECT, 1); frame();
     ok &= str_eq(cur_page()->title, "FOCUS");                       /* (no wrap) */
     turn(EN_SELECT, -3); frame();
