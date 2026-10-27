@@ -1536,10 +1536,10 @@ function makeMockDevice(opt = {}) {
     E("TIME", NDTIME, 1), D("FEEDBK", F.PCT, 0, 120, 60), D("TONE", F.PCT, 0, 127, 64), D("MIX", F.PCT, 0, 127, 90),   /* (JIANT 0.4: free
        times past the divisions; TONE: COLR + HPF in one) */
     D("SIZE", F.PCT, 0, 127, 90), D("DAMP", F.PCT, 0, 127, 60), D("RATE", F.LFOHZ, 0, 127, 40), D("DEPTH", F.PCT, 0, 127, 60),
-    E("MIDI", ["USB", "TRS"], 0), D("REL", F.PCT, 0, 100, 30),   /* G_DREL (was SYNC): DUCK's release */ E("ROUTE", ["CH1-6", "SEL"], 0), D("CPU", F.INT, 0, 0, 0),
+    E("MIDI", ["USB", "TRS"], 0), D("REL", F.PCT, 0, 100, 30),   /* G_DREL (was SYNC): DUCK's release */ E("ROUTE", ["CH1-8", "SEL"], 0), D("CPU", F.INT, 0, 0, 0),
     D("SLOT", F.INT, 1, 4, 1), D("DJ FILT", F.BIPCT, -64, 63, 0), E("LOAD", NGO, 0), E("SAVE", NGO, 0),   /* (0.9.1) G_DJF 17 (was NAME, "--"): the master DJ FILTER */
     E("ENG", ["ANALOG", "-", "PHASE", "LOFI", "-", "VOICE", "-", "WHEEL",
-      "-", "-", "DRUM", "NOISE", "FM6", "-", "ANIMAL"], 0), D("CLIP", F.PCT, 0, 100, 0),   /* G_CLIP (was SET); 0.8.3 ANIMAL */
+      "-", "-", "DRUM", "NOISE", "FM6", "-", "ANIMAL", "SHRUB", "MONK"], 0), D("CLIP", F.PCT, 0, 100, 0),   /* G_CLIP (was SET); 0.8.3 ANIMAL; 0.9.10 SHRUB; 0.9.20 MONK */
     E("CLRSQ", NGO, 0), E("INIT", NGO, 0),
     E("TYPE", ["ROOM", "SPRING", "SHIMR", "RESO", "CLOUD"], 0),               /* G_RTYPE (id 24, was G_DRCH): the reverb's model */
     D("PUNCH", F.PCT, 0, 100, 0), D("DUCK", F.PCT, 0, 100, 0),   /* G_PUNCH, G_DUCK (JIANT; were G_DRLVL, G_DRREV) */
@@ -1557,6 +1557,7 @@ function makeMockDevice(opt = {}) {
     D("MOD", F.PCT, 0, 127, 0),                       /* (0.6.86) G_DMOD 66: the delay's tape drift (WOW, FLUTTER) */
     E("TYPE", ["ANALOG", "DIGITAL"], 0), E("PING", ["OFF", "ON"], 0),   /* (0.6.90) G_DTYPE 67, G_DPING 68 */
     D("LEN", F.INT, 1, 64, 64), E("RES", ["1/8", "1/16", "1/32"], 1),   /* (0.6.99) G_PFXLEN 69, G_PFXRES 70: the punch-in lane */
+    E("T7", ["OFF", "ON"], 1), E("T8", ["OFF", "ON"], 1),   /* (0.9.20) G_SLT7 71, G_SLT8 72: the SLICER's T7 T8 */
   ];
   const NONE = D("-", F.INT, 0, 0, 0);
   const RATIO = [".5", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "14", "16"];
@@ -1691,6 +1692,18 @@ function makeMockDevice(opt = {}) {
         P("BEE", [3, 90, 30, 75, 10, 40, 2, 22], [10, 64, 127, 40], 0, 5), P("FLY", [3, 70, 90, 78, 25, 50, 1, 22], [10, 64, 127, 40], 0, 5),
         P("WOLF", [4, 0, 8, 64, 40, 50, 0, 5], [20, 64, 127, 60], 1, 5), P("DOG BARK", [4, 100, 70, 64, -15, 85, 5, 6], [0, 64, 127, 30], 0, 3),
         P("ROAR", [4, 110, 100, 100, -20, 50, 3, 9], [6, 64, 127, 50], 1, 8), P("PURR", [4, 10, 60, 50, 0, 60, 1, 19], [10, 64, 127, 40], 1, 8)] },
+    /* 15: SHRUB (0.9.10, src/eng_shrub.c): two wavetable oscillators, a sub, a filter (LADDER ACID SVF) */
+    { name: "SHRUB", titles: ["OSC", "FLT"], edit: [D("WT", F.INT, 0, 127, 0), D("WARP", F.PCT, 0, 127, 0),
+        D("DETUNE", F.INT, 0, 127, 10, null, "ct"), D("SUB", F.PCT, 0, 127, 0), D("CUT", F.CUTOFF, 0, 127, 90),
+        D("RES", F.PCT, 0, 127, 30), D("DRIVE", F.PCT, 0, 127, 0), E("FILT", ["LADDER", "ACID", "SVF"], 0)],
+      presets: [P("MONO GIANT", [2, 0, 12, 60, 40, 25, 20, 0], [0, 50, 100, 30], 1), P("ACID LADDER", [3, 0, 0, 0, 50, 100, 25, 1], [0, 55, 20, 30], 1),
+        P("WT PAD", [4, 30, 20, 0, 70, 10, 0, 0], [80, 90, 110, 95]), P("WT LEAD", [6, 10, 14, 0, 85, 35, 15, 0], [4, 70, 100, 50], 1),
+        P("PLUCK", [1, 90, 0, 0, 30, 40, 0, 2], [0, 88, 0, 60]), P("BELL", [5, 127, 0, 0, 100, 20, 0, 2], [0, 92, 0, 80]),
+        P("KEYS", [2, 40, 6, 10, 80, 10, 5, 2], [2, 80, 30, 70]), P("SWEEP FX", [7, 60, 40, 0, 60, 90, 40, 1], [120, 100, 80, 110])] },
+    /* 16: MONK (0.9.20, src/eng_formant.c ENG_MONK): VOICE's formant render, MonkSynth's five monks */
+    { name: "MONK", titles: ["VOWL", "TONE"], edit: [D("VOWEL", F.INT, 0, 127, 0), D("VOWEL2", F.INT, 0, 127, 64), D("TALK", F.TIME, 0, 127, 0),
+        D("SHIFT", F.SEMI, -12, 12, 0), D("BUZZ", F.PCT, 0, 127, 64), D("BREATH", F.PCT, 0, 127, 10), D("Q", F.PCT, 0, 127, 64), D("RAND", F.PCT, 0, 127, 0)],
+      presets: [["RABTEN", 0], ["DORJE", -5], ["NGAWANG", -2], ["JAMYANG", 2], ["TINLEY", 4]].map(([n, s]) => P(n, [64, 0, 0, s, 84, 6, 72, 0], [24, 70, 112, 72], 1, 4)) },
   ];
   const FM6_E = ENG.findIndex((e) => e.name === "FM6"), FM6_OWN = FM6.FACTORY_PK.length, DRUM_E = ENG.findIndex((e) => e.name === "DRUM");
   /* factory PATTERNS[] (engines.c; the device loads them from SEQ > PATTERNS, presets only suggest one): absolute
@@ -1719,11 +1732,11 @@ function makeMockDevice(opt = {}) {
   for (let k = 0; k < 16; k++) TP.push(D("LEVEL", F.PCT, 0, 127, 0));                     /* 96..111: its levels */
   TP.push(E("TYPE", ["LP", "HP", "BP", "COMB"], 0),                                    /* 112: the FILTER's type (JIANT 0.5) */
     D("CUT", F.CUTOFF, 0, 127, 127), D("RES", F.PCT, 0, 127, 0));                       /* 113, 114: the other engines' */
-  const P_COUNT = 123, G_COUNT = 71, NSTEP = 64, P_E0 = 115, G_ENGSEL = 20, P_SLCR = 45;
+  const P_COUNT = 123, G_COUNT = 73, NSTEP = 64, P_E0 = 115, G_ENGSEL = 20, P_SLCR = 45;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const enumOrig = (d, v) => d.fmt === F.ENUM && d.names ? aliasOf(d.names, v - d.min) + d.min : v;   /* params.c enum_orig */
   /* tracks (firmware v3): four synth parts (1.0), six (JIANT 0.6); engine / preset / p / step below are the selected track's */
-  const NTRK = 6;
+  const NTRK = 8;                                    /* (0.9.19: 6 -> 8) */
   const newTrack = () => ({ engine: 0, preset: 0, fm6: FM6.INIT_PK.slice(),
     p: TP.map((d) => d.def).concat(new Array(8).fill(0)),
     motion: {on: true, events: []},
@@ -2353,7 +2366,7 @@ function enumShown(d) {
 /* the order the device shows its engines in (src/engines.c ENGINE_ORDER): the lists here follow it, the protocol keeps
    the engine numbers. engineOrder(names): the indices of names in that order, "-" (a reserved number) left out; a name
    the list does not know (another firmware) follows in index order */
-const ENGINE_ORDER = ["DRUM", "VOICE", "ANIMAL", "LOFI", "ANALOG", "FM6", "PHASE", "WHEEL", "NOISE", "DIGITAL"];   /* (0.9.9: DRUM-X, VOICE,
+const ENGINE_ORDER = ["DRUM", "VOICE", "ANIMAL", "LOFI", "ANALOG", "FM6", "PHASE", "WHEEL", "NOISE", "SHRUB", "MONK", "DIGITAL"];   /* (0.9.9: DRUM-X, VOICE,
    ANIMAL first, as the parts at power-on; DIGITAL, FELUCCA_FM4 builds only, last; was ANALOG FM6 DIGITAL PHASE LOFI VOICE WHEEL NOISE
    DRUM ANIMAL; PROGRAM CHANGE numbers the sounds in this order too) */
 function engineOrder(names) {
@@ -2761,7 +2774,7 @@ const stepEdit = new Map(); /* index -> time of the last edit */
 const EXPECT = { pcount: 91, gcount: 27, pe0: 83 };
 /* the same layout without the chord keys (P_COUNT 89, P_E0 81), the FM operator ENVs too (69, 61) or the matrix
    (firmware 1.0: 57, 49) */
-const knownLayout = (info) => [EXPECT.gcount, 32, 36, 37, 66, 67, 69, 71].includes(info.gcount) &&   /* (JIANT FUNB: 5, 9, then 10 more globals; 0.6.3: the SLICER's 29) */
+const knownLayout = (info) => [EXPECT.gcount, 32, 36, 37, 66, 67, 69, 71, 73].includes(info.gcount) &&   /* (JIANT FUNB: 5, 9, then 10 more globals; 0.6.3: the SLICER's 29) */
   [[120, 112], [99, 91], [91, 83], [89, 81], [69, 61], [57, 49]].some(([c, e]) => info.pcount === c && info.pe0 === e);
 const P = { LEVEL: 0, SLEN: 29 };
 const LAYOUT = (pe0) => [
@@ -2778,7 +2791,7 @@ const LAYOUT = (pe0) => [
     ["OP LVL", 0, [65, 70, 75, 80]]] }] : []),
   { t: "VOICE", pages: [["LEVEL", 0, [0]], ["VOICE", 0, [37, 38, 41, 42]]] },   /* (JIANT 0.4: no VOICE 2: PAN on MIXER, MUTE there and GLO) */
   { t: "FX", pages: [["FX", 0, [33, 34, 35, 36]], ["MASTER", 1, [21, 25, 26, 13]], ...(dev && dev.gdesc && dev.gdesc[17] && dev.gdesc[17].label === "DJ FILT" ? [["DJ FILTER", 1, [17]]] : []),   /* (0.9.1, as the device names it) */ ...(pe0 >= 112 ? [["DIST", 0, [33, 91, 92]]] : []), ...(dev && dev.info && dev.info.gcount >= 66 ? [["AUTO PAN", 0, [45, 46, 48, 47]], ["SLICER", 1, [37, 38, 39, 40]], ["SL BUS", 1, [41, 42, 43, 44]],
-      ["SL BUS 2", 1, [45, 46, 47]], ["SL PITCH", 1, [48, 49]], ...[0, 1, 2, 3].map((k) => [`PITCH ${4 * k + 1}-${4 * k + 4}`, 1,
+      ["SL BUS 2", 1, [45, 46, 47]], ...(dev.info.gcount >= 73 ? [["SL BUS 3", 1, [71, 72]]] : []),   /* (0.9.20: T7 T8) */ ["SL PITCH", 1, [48, 49]], ...[0, 1, 2, 3].map((k) => [`PITCH ${4 * k + 1}-${4 * k + 4}`, 1,
       [50 + 4 * k, 51 + 4 * k, 52 + 4 * k, 53 + 4 * k]])] : [["SLICER", 0, [45, 46, 47, 48]]]),   /* (0.6.3: one, on a bus) */
     ["DLY", 1, [4, 5, 6, 7]], ...(pe0 >= 112 ? [["DLY 2", 1, [28, 34, 35, ...(dev && dev.info && dev.info.gcount >= 67 ? [66] : [])]],
     ...(dev && dev.info && dev.info.gcount >= 69 ? [["DLY 3", 1, [67, 68]]] : [])] : []), ["REVERB", 1, pe0 >= 112 ? [24, 8, 9, 31] : [24, 8, 9]],

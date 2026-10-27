@@ -42,7 +42,7 @@ static void song_from(uint32_t seed, uint32_t load)
     rp_apply();                                          /* LOAD */
     gp.genre = GEN_EXPLORE; gp.seed = (uint16_t)seed; gp.energy = 95; gp.form = 0;
     for (k = 0; k < GP_N; k++) gp.amt[k] = GA_AUTO;
-    gp.complex = 70; gp.swing = GA_AUTO; gp.human = 30;
+    gp.complex = 70; gp.swing = GA_AUTO;
     mc_host_v12 = 1;                                     /* (0.9.13: made inside two cores' CPU budget, the FM-1's default;
                                                          * one core's would leave out parts: these are dense on purpose) */
     cpt_res = 63; cpt_cores = 2;                         /* (0.9.14: the device as the model holds it, gen.c gc_dev x1.00) */
@@ -195,7 +195,7 @@ int main(void)
             song.g[G_SLMODE] = V[v].mode;
             song.g[G_SLFX] = V[v].fx;
             for (i = 0; i < NPART; i++)
-                song.g[G_SLT1 + i] = (V[v].mask >> i) & 1u;
+                song.g[sl_trk_g(i)] = (V[v].mask >> i) & 1u;   /* (0.9.20: T7 T8 their own switches) */
             null_tol = 2;
             bad = take(nb, 1, 0, &snd, &gave, &sums);
             null_tol = 0;

@@ -139,7 +139,7 @@ static void dm_reset(void)
 {
     ui_power_on();
     ui_rec_prefs |= PREF_SIX >> 8; rp_apply();
-    settings.palette = UI_JIANT_INDEX; palette_set(UI_JIANT_INDEX);
+    settings.palette = 0u; palette_set(0u);   /* (GARDEN, the one palette) */
     memset(dm_nh, 0, sizeof dm_nh);
 }
 static void dm_wait(void) { uint32_t d = 600000u + dm_rnd() % 2400000u; host_ticks += d * 2u; fm1_ms += d / 1000u; }
@@ -159,7 +159,7 @@ int main(int argc, char **argv)
             for (p = 0; p < 3u; p++) {
                 dm_reset();
                 gp.genre = (uint8_t)g; gp.seed = (uint16_t)(p * 1234u + 7u); gp.energy = 50; gp.form = (uint8_t)(p % 3u);
-                gp.complex = 50; gp.swing = GA_AUTO; gp.human = 30;
+                gp.complex = 50; gp.swing = GA_AUTO;
                 for (k = 0; k < GP_N; k++) gp.amt[k] = GA_AUTO;
                 gen_go();
                 printf("%u %u %08x\n", g, p, dice_print());
@@ -175,7 +175,7 @@ int main(int argc, char **argv)
         dm_reset();
         for (k = 0; k < DM_NR; k++) lastp[k] = 0xFFFFu;
         gp.genre = (uint8_t)(g < NGENRE ? g + 1u : GEN_EXPLORE);
-        gp.energy = 50; gp.form = 0; gp.complex = 50; gp.swing = GA_AUTO; gp.human = 30;
+        gp.energy = 50; gp.form = 0; gp.complex = 50; gp.swing = GA_AUTO;
         for (k = 0; k < GP_N; k++) gp.amt[k] = GA_AUTO;
         gp.seed = (uint16_t)(dm_rnd() % 10000u);
         for (p = 0; p < N; p++) {
@@ -251,7 +251,7 @@ int main(int argc, char **argv)
             dm_mel_t m = {0};
             uint32_t tk;
             dm_reset();
-            gp.genre = 1; gp.seed = 77; gp.energy = 50; gp.form = 0; gp.complex = 50; gp.swing = GA_AUTO; gp.human = 30;
+            gp.genre = 1; gp.seed = 77; gp.energy = 50; gp.form = 0; gp.complex = 50; gp.swing = GA_AUTO;
             for (k = 0; k < GP_N; k++) gp.amt[k] = GA_AUTO;
             gen_go();
             tk = gs.trk_of[roles[ri]];

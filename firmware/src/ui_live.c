@@ -1,18 +1,19 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments
  * Copyright (C) 2026 Juan Ignacio Antonucci (Juan Jiant) */
-/* GLO > LIVE (0.9.11): the six sequences side by side and their live modifiers (seq_live.c), two pages, the approved
+/* GLO > LIVE (0.9.11): the sequences side by side (0.9.20: eight) and their live modifiers (seq_live.c), two pages, the approved
  * mock-up secuencias.html (V3 MANO, V1 RIELES), first in GLO in a group of their own (ui_lens.c CE_GLO).
- *   MANO   the keys are a board: the black keys 1..6 (F#3 .. F#4) pick the tracks while held (several at once; none, or
+ *   MANO   the keys are a board: the black keys 1..6 (F#3 .. F#4) pick the tracks while held
+ *          (0.9.20: T1..T6, or T3..T8 with T7 or T8 selected: seq.c key_trk) (several at once; none, or
  *          A#4: ALL), the white keys are the modifiers while held: F3 /2, G3 x2, A3 TR (3/2), B3 DT (2/3), C4 .. F4 LOOP
  *          8 4 2 1 (from where the playhead is; the shortest held wins), G4 REV, A4 PING, B4 C5 RATCH x2 x3, D5 THIN 50 %,
  *          E5 F5 OCT+ OCT-, G5 RETURN. G#4 LATCH: a white key then turns its modifier on / off (for the tracks held then).
  *          C#5 D#5 GIRO -1 / +1 (a step back / on), F#5 RND (the steps in any order) on / off. The keys play no note here
  *          (seq.c keyboard_block, song.grid 3); off the page they play again (a key still held keeps its modifier until
  *          it is let go). KNOB 1 RATE, 2 LOOP, 3 THIN on the tracks held (none: all), 4 the DJ FILTER (MIXER's KNOB 4).
- *          The panel: the six rails small, the board (held: ACCENT, latched: THEME).
- *   RIELES six rails, each its loop across the screen, its playhead, its ghost, its window, under it LEN . DIV and what
- *          is done to it. KNOB 1 PISTAS: ALL, T1 .. T6, SYN (the synths), DRM (the DRUM tracks); 2 RATE /4 .. x4; 3 CORTE
+ *          The panel: the rails small, the board (held: ACCENT, latched: THEME).
+ *   RIELES the rails, each its loop across the screen, its playhead, its ghost, its window, under it LEN . DIV and what
+ *          is done to it. KNOB 1 PISTAS: ALL, T1 .. T8, SYN (the synths), DRM (the DRUM tracks); 2 RATE /4 .. x4; 3 CORTE
  *          (the first N steps); 4 DENS (left THIN 90 .. 10 %, the middle all, right RATCH x2 .. x4).
  * How they combine: one state per track. The knobs of both pages are its LATCHED layer (RATE is the same value on both
  * pages; MANO's LOOP and RIELES' CORTE are the one window, LOOP from the playhead, CORTE from step 1, the last turned
@@ -46,7 +47,7 @@ static uint32_t lv_tracks(void)
     if (lv_isman()) {
         for (k = 0; k < 27u; k++)
             if (((lv.kb >> k) & 1u) && key_black(k) && (i = key_place(k)) <= 7u)
-                m |= i == 7u ? LV_ALL : i < NTRK ? 1u << i : 0u;
+                m |= i == 7u ? LV_ALL : i < 6u ? 1u << key_trk(i) : 0u;   /* (0.9.20: T3..T8 with T7 or T8 selected) */
         return m ? m : LV_ALL;
     }
     if (lv.tgt - 1u < NTRK)
@@ -286,7 +287,7 @@ static __attribute__((noinline)) void live_knob(uint32_t slot, int32_t steps)
         tracks_edit(3, steps);
         return;
     }
-    if (!mano && !slot--) {                             /* PISTAS: ALL, T1 .. T6, SYN, DRM */
+    if (!mano && !slot--) {                             /* PISTAS: ALL, T1 .. T8, SYN, DRM */
         lv.tgt = (uint8_t)clamp((int32_t)lv.tgt + d, 0, NTRK + 2);
         return;
     }
@@ -397,7 +398,7 @@ static void lv_board(int32_t y)
         int32_t w = blk ? 10 : 4 + ((int32_t)p + 1) * 232 / 16 - x0 - 1, yy = blk ? y : y + 15, hh = blk ? 13 : 26;
         uint16_t ink, fill;
         if (blk) {
-            nm[0] = LV_BK[p];
+            nm[0] = p < 6u ? (char)('1' + key_trk(p)) : LV_BK[p];
             nm[1] = 0;
             if (st == LS_OFF && ((p == 6u && lv.latch) || (p == 10u && (lv.rnd & tg))))
                 st = LS_SEL;
@@ -411,7 +412,7 @@ static void lv_board(int32_t y)
         cv_text_in(x0, yy + hh - 9 - AF_X_CAP_Y, w, &AF_X, nm, ink, fill);
     }
 }
-/* the panel: RIELES six rails across it; MANO six rails small over the board */
+/* the panel: RIELES the eight rails across it; MANO the rails small over the board */
 static __attribute__((noinline)) void graph_live(void)
 {
     int mano = lv_isman();

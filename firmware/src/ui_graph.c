@@ -14,11 +14,15 @@
 /* (0.8.9) SKIN HUD's HOME (ui.c hud_home): every strip begins on the beings (ui_lzhome.c eco_backdrop: the strip at screen
  * x, y), its words outlined (gfx.c cv_halo); elsewhere a strip cleared to BG */
 static void eco_backdrop(int32_t x0, int32_t y0, int words);
+#include "ui_garden.c"                               /* (GARDEN, Phase 2) the scene: HOME's backdrop */
 static void lz_begin(uint32_t w, uint32_t h, uint32_t x, uint32_t y)
 {
     cv_begin(w, h, T_BG);
     if (hud_home()) {
         eco_backdrop((int32_t)x, (int32_t)y, 0);
+        cv_halo = 1;
+    } else if (gd_back() && !gd_plain) {
+        gd_scene((int32_t)x, (int32_t)y);
         cv_halo = 1;
     }
 }
@@ -30,23 +34,13 @@ static void lz_blit(uint32_t x, uint32_t y)
     else
         cv_blit(x, y);
 }
-/* (0.8.9) HUD: the knob row while KNOB 1..4 rest: whole for 3 s after a turn (0.9.0: or the page, level or set shown
- * changing), then down to 22 % in 0.6 s (steps of 13 %); every other case 100 (0.9.0: every page but HUD's HOME) */
-static uint32_t hud_fade(void)
-{
-    uint32_t el = fm1_ms - ui.knob_ms;
-    if (!hud_home() || el < 3000u)                   /* (0.9.0: HUD's HOME only, over the beings) */
-        return 100u;
-    return el >= 3600u ? 22u : 100u - (el - 3000u) * 78u / 600u / 13u * 13u;
-}
-
 /* (0.8.9) a tile in a lens's panel (FX's modules, the menu's tabs, ENV's tracks, MOD's slots): COLORS a rounded RAISE box
  * (r 4), the one picked framed in fc (the mock-up's card and its stroke); BOTTOM and HUD none (the words on the background;
  * the one picked: its name underlined, lz_uline). What lies under its words: lz_tile_bg */
-static uint16_t lz_tile_bg(void) { return ux.skin ? T_SURF : T_RAISE; }
+static uint16_t lz_tile_bg(void) { return UX_SKIN ? T_SURF : T_RAISE; }
 static void lz_tile(int32_t x, int32_t y, int32_t w, int32_t h, int sel, uint16_t fc)
 {
-    if (ux.skin)
+    if (UX_SKIN)
         return;
     if (sel) {
         cv_rrect(x, y, w, h, 4, fc, cv_bg);
@@ -56,7 +50,7 @@ static void lz_tile(int32_t x, int32_t y, int32_t w, int32_t h, int sel, uint16_
 }
 static void lz_uline(int32_t x, int32_t y, const aafont_t *f, const char *s, uint16_t c)   /* BOTTOM, HUD: under a name */
 {
-    if (ux.skin)
+    if (UX_SKIN)
         cv_rect(x, y, text_w(f, s) - 1, 1, c);
 }
 
@@ -65,26 +59,12 @@ static int32_t graph_ht = 100;
 #include "ui_organic.c"                              /* JIANT FM's organic line art (drawn by code) */
 #include "ui_fm6op.c"                                /* (0.6.10, from Felucca 1.5) EDIT > OPERATOR, OP ENV, OPERATOR 2 */
 static uint16_t heat_col(int32_t v);
-/* (0.9.5, as the 0.6.36) JIANT (thermal): a card's colour its value as heat (ratio 0..1000, -1 none); bipolar (its range
- * across 0): by the distance from the centre, cold in the middle */
-static int heat_on(int32_t ratio) { return settings.palette == UI_JIANT_INDEX && ratio >= 0; }
-static uint16_t card_heat(int32_t ratio, int bip)
-{
-    int32_t r = clamp(ratio, 0, 1000);
-    if (bip)
-        r = (r > 500 ? r - 500 : 500 - r) * 2;
-    return heat_col(r * 256 / 1000);
-}
-/* knob c's colour on a lens card, a layer's KNOBS, EDIT's chips: JIANT its value's heat; another palette the knob's own
- * (UI_KNOBS) */
+/* knob c's colour on a lens card, a layer's KNOBS, EDIT's chips: the knob's own (UI_KNOBS; GARDEN: JIANT's heat,
+ * heat_on / card_heat / heat_y, retired) */
 static uint16_t knob_col(uint32_t c, int32_t ratio, int bip)
 {
-    return heat_on(ratio) ? card_heat(ratio, bip) : T_K(c);
-}
-/* JIANT (thermal): a curve's colour at canvas row y, hot at the top (y0) and cold at the bottom (y1); else c */
-static uint16_t heat_y(int32_t y, int32_t y0, int32_t y1, uint16_t c)
-{
-    return settings.palette == UI_JIANT_INDEX && y1 > y0 ? heat_col(24 + (y1 - y) * 232 / (y1 - y0)) : c;
+    (void)ratio; (void)bip;
+    return T_K(c);
 }
 #include "ui_being.c"                                /* (JIANT 0.5) the beings: the engine pages' creatures */
 #include "ui_engvis.c"                               /* (0.9.4) VOICE's head, ANIMAL's creature, DRUM-X's kit */
@@ -101,24 +81,24 @@ static void graph_adsr(const track_t *t, uint16_t c)
     int32_t e = 32768;                                                  /* exp(-4.6 u), Q15 */
 #define EGY(lvl) (bot - (lvl) * (bot - top) / 1000)
     cv_rect(PANEL_X0, bot + 2, PANEL_W, 1, T_RAISE);
-    cv_line_t(x0, bot, x1, top, heat_y((bot + top) / 2, top, bot, c), 2);                                  /* attack: linear */
+    cv_line_t(x0, bot, x1, top, c, 2);                                  /* attack: linear */
     px = x1;
     py = top;
     for (i = 1; i <= d; i++) {                                          /* decay: exponential to SUS */
         int32_t lvl;
         e = (e * (32768 - 150733 / d)) >> 15;           /* k^d = exp(-4.6) */
         lvl = sus + ((1000 - sus) * e >> 15);
-        cv_line_t(px, py, x1 + i, EGY(lvl), heat_y(py, top, bot, c), 2);
+        cv_line_t(px, py, x1 + i, EGY(lvl), c, 2);
         px = x1 + i;
         py = EGY(lvl);
     }
-    cv_line_t(px, py, x3, EGY(sus), heat_y(py, top, bot, c), 2);                               /* sustain */
+    cv_line_t(px, py, x3, EGY(sus), c, 2);                               /* sustain */
     px = x3;
     py = EGY(sus);
     e = 32768;
     for (i = 1; i <= r; i++) {                                          /* release: exponential to 0 */
         e = (e * (32768 - 150733 / r)) >> 15;
-        cv_line_t(px, py, x3 + i, EGY(sus * e >> 15), heat_y(py, top, bot, c), 2);
+        cv_line_t(px, py, x3 + i, EGY(sus * e >> 15), c, 2);
         px = x3 + i;
         py = EGY(sus * e >> 15);
     }
@@ -143,12 +123,12 @@ static void graph_adsr(const track_t *t, uint16_t c)
 #undef EGY
 }
 
-/* LFO: the wave as it runs (JIANT 0.5): the phase now at the playhead (a quarter in), two cycles across, scrolling
- * at the LFO's own rate; behind the playhead dimmer (what it played), the level now a dot, its depth after FADE */
+/* LFO: the wave as it runs (JIANT 0.5): the phase now at the playhead (a quarter in), four cycles across (GARDEN, the
+ * owner: two scrolled too fast to follow; a cycle half as wide moves half as fast, still on the LFO's time); behind the playhead dimmer (what it played), the level now a dot, its depth after FADE */
 static void graph_lfo(const track_t *t, uint16_t c)
 {
     int32_t x, cy = graph_ht / 2, a = 38 * graph_ht / 100, py = cy, xp = PANEL_W / 4;
-    uint32_t span = 0xFFFFFFFFu / (PANEL_W / 2u), ph = t->lfo_ph - (uint32_t)xp * span;
+    uint32_t span = 0xFFFFFFFFu / (PANEL_W / 4u), ph = t->lfo_ph - (uint32_t)xp * span;
     int32_t now = cy - mulq15(t->lfo_val, t->lfo_fade) * a / 32768;
     cv_rect(PANEL_X0, cy, PANEL_W, 1, T_RAISE);
     for (x = 0; x < PANEL_W; x++) {                  /* (lfo_wave only reads the track) */
@@ -158,7 +138,7 @@ static void graph_lfo(const track_t *t, uint16_t c)
             y = cy - ((int32_t)((((px >> 29) + 1u) * 2654435761u) >> 16) - 32768) * a / 32768;
         if (x)
             cv_line_t(PANEL_X0 + x - 1, py, PANEL_X0 + x, y,
-                      x < xp ? ux_mix(T_SURF, heat_y(y, cy - a, cy + a, c), 45) : heat_y(y, cy - a, cy + a, c), 2);
+                      x < xp ? ux_mix(T_SURF, c, 45) : c, 2);
         py = y;
     }
     cv_rect(PANEL_X0 + xp, cy - a - 4, 1, 2 * a + 8, T_MID);   /* the playhead */
@@ -444,9 +424,7 @@ static void pr_split(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c, uin
  * little warmer), an accent near white (243); another palette the notes ACCENT, an accent TEXT (the highlight) */
 static uint16_t lz_note(const step_t *st, int acc, uint16_t c)
 {
-    (void)c;
-    if (settings.palette == UI_JIANT_INDEX)
-        return heat_col(acc ? 243 : st->n > 1u ? 146 : 115);
+    (void)c; (void)st;
     return acc ? T_TEXT : T_ACCENT;
 }
 /* a step's component mark (3 x 3 at y): an arpeggio ACCENT, another THEME; none: nothing */
@@ -486,13 +464,13 @@ static void bar_cell(const track_t *t, uint32_t b, int32_t x, int32_t y, int32_t
     uint32_t len = (uint32_t)clamp(t->p[P_SLEN], 1, NSTEP), i, l, dr = drum_track(t);
     int sel = b == ui.bank;
     int32_t sw = w - 4, top = y + (h > 20 ? 14 : 3), nh = h - (h > 20 ? 17 : 5);
-    uint16_t bg = ux.skin ? T_SURF : T_RAISE, nc;
+    uint16_t bg = UX_SKIN ? T_SURF : T_RAISE, nc;
     char s[2];
     if (b * 16u >= len) {                            /* past LEN: a dark cell */
         cv_rect(x, y, w, h, T_BG);
         return;
     }
-    if (ux.skin)                                     /* (0.8.9) BOTTOM, HUD: bare, a line under it (the bar edited THEME) */
+    if (UX_SKIN)                                     /* (0.8.9) BOTTOM, HUD: bare, a line under it (the bar edited THEME) */
         cv_rect(x, y + h - 1, w, 1, sel ? T_THEME : T_LINE);
     else if (sel) {                                  /* COLORS: a rounded card, the bar edited framed THEME */
         cv_rrect(x, y, w, h, 3, T_THEME, cv_bg);
@@ -589,11 +567,11 @@ static void graph_roll(const track_t *t, uint16_t c)
         uint32_t pc = (uint32_t)n % 12u;
         static const uint8_t KB[12] = {0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0};
         int in = mask == 0xFFFu ? !KB[pc] : (int)((mask >> ((uint32_t)(n - t->p[P_ROOT] + 120) % 12u)) & 1u);
-        if (in && !ux.skin)                          /* ((0.8.9) BOTTOM, HUD: no rows, the beats only) */
+        if (in && !UX_SKIN)                          /* ((0.8.9) BOTTOM, HUD: no rows, the beats only) */
             cv_rect(PR_RX, y, PR_CX(ncol) - PR_RX, PR_RH, T_LANE);
     }
     for (i = 0; i < 16u; i++)                         /* step lines, the beats brighter */
-        if (!ux.skin || !(i % 4u))
+        if (!UX_SKIN || !(i % 4u))
             cv_rect(PR_CX(i), PR_Y0, 1, ybot - PR_Y0, i % 4u ? T_GRID : T_LINE);
     if (ncol < 16u)                                   /* past LEN: dark */
         cv_rect(PR_CX(ncol), PR_Y0, PR_RX + PR_RW - PR_CX(ncol), ybot - PR_Y0, T_BG);
@@ -939,19 +917,12 @@ static void page_title(char *ti)
     }
 }
 /* the strip's title: L centred (M when L lacks a glyph or is too wide) */
-/* the thermal ramp (JIANT): a value 0..256 as heat, as a thermal camera sees it: cyan (cold) .. blue .. violet .. red
- * .. orange .. yellow .. white (other palettes: their surface toward their accent and text) */
+/* a value 0..256 as a ramp: the surface toward the accent, then toward the text (GARDEN: the thermal ramp, JIANT's,
+ * retired; Phases 4 and 5 replace what still draws with it) */
 static uint16_t heat_col(int32_t v)
 {
-    static const uint16_t H[7] = {0x3955u, 0x82DFu, 0xFA09u, 0xFBA3u, 0xFDEBu, 0xFF99u, 0xFFFFu};   /* (0.8.9, the skins' mock-up: the 0.6's
-                                                         * ramp, indigo violet red orange amber cream white; was cyan blue violet
-                                                         * red orange yellow white) */
-    int32_t k;
     v = clamp(v, 0, 256);
-    if (settings.palette != UI_JIANT_INDEX)
-        return v < 128 ? ux_mix(T_SURF, T_ACCENT, v * 100 / 128) : ux_mix(T_ACCENT, T_TEXT, (v - 128) * 100 / 128);
-    k = v * 6 / 257;
-    return ux_mix(H[k], H[k + 1], (v * 6 - k * 256) * 100 / 256);
+    return v < 128 ? ux_mix(T_SURF, T_ACCENT, v * 100 / 128) : ux_mix(T_ACCENT, T_TEXT, (v - 128) * 100 / 128);
 }
 
 /* DRUM (DRUM-X): the eight sounds as columns, each as high and as hot as its hit now (a muted one crossed); the MORPH
@@ -1162,6 +1133,8 @@ static uint32_t graph_signature(void)
         return h ^ gen_draw_sig() ^ (strip_kind() == SK_SCOPE ? ui.frame / 2u * 2654435761u : 0u);
     if (ui.home)
         return h ^ (ui.frame / 2u) ^ (home_level() * 7u + home_set()) * 104729u;   /* the beings: every other frame */
+    if (gd_page() && !(ui_prefs & PREF_ANIM_OFF))    /* (GARDEN, Phase 4) a page's plants: 15 a second */
+        h ^= (fm1_ms / 66u) * 2654435761u;
     h ^= (uint32_t)pg->graph * 131u + TSEL->eng_req + song.sel * 7777u + ui.page * 1291u;
     if (strip_kind() == SK_TITLE)                    /* MENU > LARGE: the page's title (its engine, its number) */
         return h ^ 0x5A17u;
@@ -1248,7 +1221,7 @@ static uint32_t graph_signature(void)
     }
     if (pg->graph == GR_DXIMG)                       /* (0.6.48) IMAGE and how wide it plays */
         h = (h ^ ((uint32_t)t->p[P_DXIMG] << 16 | (uint32_t)dx_img_k(t))) * 16777619u;
-    if (DX_KIT3(pg))                                 /* (0.8.8) KIT 3's colony lives every frame, as KIT's (was still) */
+    if (DX_KIT3(pg))                                 /* (0.8.8) KIT 3's kit lives every frame, as KIT's (was still) */
         h ^= ui.frame * 2654435761u;
     if (pg->graph >= GR_FMOP && pg->graph <= GR_FMENV)   /* (0.9.6) FM6's operators: the colony lives, as the beings */
         h ^= ui.frame / 2u * 2246822519u;
@@ -1397,6 +1370,7 @@ static struct {
     uint32_t col[NTRK];                              /* (the cards: JIANT's six columns, else the four from trk_base4) */
     uint8_t meter[NTRK];
     uint32_t frame;                                  /* (0.9.0) ui.frame of the meters' last step */
+    uint32_t bed;                                    /* (GARDEN) the beds' signature */
 } ts;
 
 static int32_t meter_px(int32_t a)                   /* |sample| (Q15) -> px: 60 dB over the slot */
@@ -1491,7 +1465,7 @@ static void track_strip(uint32_t c, uint32_t sel, uint32_t st, uint32_t mute, ui
         cv_keycap(5, 22 + AF_S_CAP_Y + HALF_UP(AF_S_CAP_H - KC_H), KC_MUTE, T_KEY, T_INK, T_SURF);
     else
         cv_free_text(5, 22, &AF_S, b, mute ? T_DIM : sel ? T_TEXT : T_MID, T_SURF, CARD_W - 10);
-    cv_rrect(5, TSS_GY, gw, 3, 1, ux.style ? T_LINE : T_BG, T_SURF);
+    cv_rrect(5, TSS_GY, gw, 3, 1, UX_STYLE ? T_LINE : T_BG, T_SURF);
     cv_rrect(5, TSS_GY, fx < 3 ? 3 : fx, 3, 1, hot == 1u ? T_ACCENT : vc, T_BG);
     cv_rrect(5, TSS_MY, gw, 3, 1, T_RAISE, T_SURF);
     if (m)
@@ -1536,7 +1510,7 @@ static void track_col6(uint32_t c, uint32_t sel, uint32_t st, uint32_t mute, uin
             cv_rect(4 + k * 8, 38, 6, 62, T_RAISE);
             if (v)
                 cv_rect(4 + k * 8, 100 - v, 6, v, mute ? T_DIM : sel && hot == (uint32_t)k + 1u ? T_ACCENT :
-                        settings.palette == UI_JIANT_INDEX ? heat_col(60 + v * 3) : T_THEME);
+                        T_THEME);
             cv_text(4 + k * 8, 106 - AF_X_CAP_Y, &AF_X, SN[k], T_DIM);
         }
         cv_blit((uint32_t)T6_X(col), lz_on() ? graph_y() + 9u : Y_GRAPH);
@@ -1566,14 +1540,91 @@ static void track_col6(uint32_t c, uint32_t sel, uint32_t st, uint32_t mute, uin
         cv_rect(4, 113, rv * pw / 127 + 1, 3, mute ? T_DIM : hot == 3u ? T_ACCENT : heat_col(40 + rv * 3 / 2));
     cv_blit((uint32_t)T6_X(col), lz_on() ? graph_y() + 9u : Y_GRAPH);   /* (0.8.5: GLO's lens, the panel under the cards) */
 }
+/* (GARDEN) MIXER's beds (mockups/pages.html sMix) with what the columns showed kept (the owner's choice): the six
+ * tracks shown, each a dirt mound (the selected track's orange) with a tulip as tall as its LEVEL, its cup opening with
+ * the output meter (no tulip at OFF: a seed); over it, on the sky, the track's pebble (armed: a dot, red recording), the
+ * sound's name (muted: in the accent; asleep: OFF), LEVEL in dB, PAN from the middle and the REV send as two thin bars.
+ * The knob just turned in the accent, as the columns. One canvas, the whole strip */
+#define GM_X(k) (20 + 40 * (int32_t)(k))            /* a bed's middle */
+#define GM_NY 24                                     /* the rows (from the strip's top): the name, */
+#define GM_DY 38                                     /* the dB, */
+#define GM_PY 54                                     /* PAN, */
+#define GM_RY 60                                     /* the REV send */
+static void mix_beds(uint32_t b4)
+{
+    const int32_t gy = (int32_t)graph_y();
+    uint32_t k;
+    cv_begin(240, graph_h(), T_BG);
+    gd_scene(0, gy);
+    for (k = 0; k < 6u; k++) {
+        uint32_t c = b4 + k, sel = c == song.sel, lvl = trk_level(c), mute = trk[c].p[P_MUTE] != 0, n;
+        uint32_t arm = (song.rec >> c) & 1u, hot = sel && ui.hot_t ? ui.hot_col + 1u : 0u, asleep = c >= trk_live;
+        int32_t x = GM_X(k), pan = clamp(trk[c].p[P_PAN], -64, 63), rv = clamp(trk[c].p[P_REV], 0, 127), m = ts.meter[c];
+        uint16_t vc = mute || asleep ? T_DIM : T_THEME;
+        char b[16], v[12];
+        cv_oy = 0;
+        cv_trk(x - 8, 4, 16, c, sel ? T_ACCENT : mute || asleep ? T_DIM : T_MID, gd_sky(gy + 12));
+        if (arm && !asleep)
+            cv_rect(x + 10, 9, 6, 6, song.playing ? T_REC : T_ACCENT);
+        if (asleep) {
+            str_cpy(b, "OFF", sizeof b);
+        } else {                                     /* the sound's first word, cut to the bed */
+            trk_short_name(c, v);
+            for (n = 0; v[n] && v[n] != ' ' && n < 12u; n++)
+                b[n] = v[n];
+            b[n] = 0;
+            while (n > 1u && text_w(&AF_S, b) > 37)
+                b[--n] = 0;
+        }
+        cv_halo = 1;                                 /* (the words outlined in BG: over the rain and the mill) */
+        cv_text_in(x - 19, GM_NY, 38, &AF_S, b, asleep ? T_DIM : mute ? T_ACCENT : sel ? T_TEXT : T_MID, T_BG);
+        cv_halo = 0;
+        if (asleep) {
+            cv_oy = -gy;
+            gd_mound(x, gd_gy(x) / 16 + 3, 16, GD_DIRTDK);
+            continue;
+        }
+        if (lvl) {
+            int32_t d = LEVEL_DB_X10[lvl];
+            fmt_int(v, (d + (d < 0 ? -5 : 5)) / 10);
+            str_cpy(v + str_len(v), " dB", 4);
+        } else {
+            str_cpy(v, "OFF", sizeof v);
+        }
+        cv_halo = 1;
+        cv_text_in(x - 19, GM_DY, 38, &AF_S, v, hot == 1u ? T_ACCENT : lvl && !mute ? T_TEXT : T_DIM, T_BG);
+        cv_halo = 0;
+        cv_rect(x - 15, GM_PY, 30, 2, GD_SURF);      /* PAN, from the middle */
+        if (pan)
+            cv_rect(pan > 0 ? x : x + pan * 15 / 64, GM_PY, (pan > 0 ? pan : -pan) * 15 / 64 + 1, 2, hot == 2u ? T_ACCENT : vc);
+        cv_rect(x, GM_PY - 2, 1, 6, hot == 2u ? T_ACCENT : T_MID);
+        cv_rect(x - 15, GM_RY, 30, 2, GD_SURF);      /* the REV send */
+        if (rv)
+            cv_rect(x - 15, GM_RY, rv * 30 / 127 + 1, 2, hot == 3u ? T_ACCENT : vc);
+        cv_oy = -gy;
+        gd_mound(x, gd_gy(x) / 16 + 3, 16, sel ? GD_ORANGE : 0xDE14u);
+        if (lvl)
+            gd_tulip(x, gd_gy(x) / 16 + 2, 10 + (int32_t)lvl * 40 / 127,
+                     (gd_s(gd_pl.t * 20u + k * 9000u) * (6 + m / 2)) >> 8, 1 + (int32_t)lvl / 48,
+                     64 + m * 192 / (TS_MH - 2), k, 200, mute ? GD_MID : k & 1u ? GD_ORANGE : GD_BURNT);
+        else
+            cv_rect(x - 1, gd_gy(x) / 16 - 2, 2, 2, GD_SURF);
+    }
+    cv_oy = 0;
+    if (toast_on())
+        toast_pill();
+    cv_blit(0, (uint32_t)gy);
+}
 static void draw_tracks(void)
 {
     uint32_t c, sk = strip_kind() == SK_TRK, six = !sk;   /* (0.6.80: the six columns with every COLOR and STYLE;
                                                          * MENU > LARGE: four, bigger) */
     uint32_t b4 = six ? trk_base6() : trk_base4(), n = six ? 6u : 4u;
+    uint32_t bed = six && gd_back() && cur_page()->id[0] != P_DIST, bsig = 0;   /* (GARDEN: MIX as beds; SENDS columns) */
     if (ui.force) {
-        lcd_fill(0, graph_y(), 240, graph_h(), T_BG);
-        if (ux.style && !six)                        /* LINE: the strips divided as the cards above (four) */
+        if (!bed)
+            lcd_fill(0, graph_y(), 240, graph_h(), T_BG);
+        if (UX_STYLE && !six)                        /* LINE: the strips divided as the cards above (four) */
             draw_rules(graph_y(), graph_h());
         if (ui.frame - ts.frame > 1u)                /* (0.9.0) a redraw while they fall (a toast, a knob's page)
                                                       * keeps them falling: only meters left long ago start at 0
@@ -1603,6 +1654,10 @@ static void draw_tracks(void)
               ts.meter[c] * 131u + (uint32_t)(pan + 128) * 104729u + (uint32_t)rv * 1299709u + mute * 3u + sk * 0x9E37u + c * 0x51u +
               six * 0x3C6Fu + (cur_page()->id[0] == P_DIST ? 0x7F4Au + (uint32_t)t->p[P_DIST] * 3u + (uint32_t)t->p[P_CHOR] * 389u +
                                 (uint32_t)t->p[P_DLY] * 6151u + (uint32_t)t->p[P_REV] * 98317u : 0u);   /* (SENDS) */
+        if (bed) {
+            bsig = (bsig ^ sig) * 16777619u;
+            continue;
+        }
         if (!ui.force && sig == ts.col[c - b4])
             continue;
         ts.col[c - b4] = sig;
@@ -1669,13 +1724,67 @@ static void draw_tracks(void)
         }
         cv_blit((uint32_t)CARD_X(c - b4), Y_GRAPH);
     }
+    if (bed) {                                       /* (the tulips sway on the plants' clock: 15 a second) */
+        bsig ^= (ui_prefs & PREF_ANIM_OFF ? 0u : fm1_ms / 66u * 2654435761u) ^ b4 * 0x51u;
+        if (ui.force || bsig != ts.bed)
+            mix_beds(b4);
+        ts.bed = bsig;
+    }
+}
+/* (JIANT, DYN) the compressor's static curve (EDIT COMP and COMP 2, the whole display): input against output in dB, the
+ * selected model's (fx.c dyn_curve_db10); a straight line when it is OFF. dB x10 throughout */
+static void graph_comp_curve(const track_t *t, uint16_t c, int32_t x0, int32_t pw, int32_t cy, int32_t a)
+{
+    int32_t bx = x0 + 2, bw = pw - 4, in10, px, py;
+    cv_rect(x0, cy - a - 1, pw, 2 * a + 3, T_SURF);            /* (cleared: the curve's own area) */
+    cv_rect(bx, cy - a, 1, 2 * a, T_RAISE);                    /* the curve's frame */
+    for (in10 = -480; in10 <= 0; in10 += 16) {
+        int32_t out = dyn_curve_db10(t, in10);                 /* (fx.c: the model's own curve) */
+        px = bx + (in10 + 480) * (bw - 2) / 480;
+        py = cy + a - (out + 480) * (2 * a) / 480;
+        if (py < cy - a) py = cy - a;
+        if (py > cy + a) py = cy + a;
+        cv_rect(px - 1, py - 1, 2, 2, c);
+    }
+}
+/* (GARDEN, the owner: the music draws a picture) the HOME scope in XY: X = the output, Y = the same output D samples back,
+ * the whole 512-sample window as dots, the oldest dim and the newest bright, so a periodic sound draws its closed figure.
+ * D: a quarter of the period of the first two rising zero crossings (ORBIT's; 24 without a second) */
+static int32_t scope_pic_v(uint32_t w, uint32_t n, int32_t k) { return scope_s(scope_buf[(w + n) & (SCOPE_N - 1u)], k); }
+static void scope_pic(int32_t x0, int32_t pw, int32_t cy, int32_t a, uint16_t c)
+{
+    uint32_t w = scope_w, n, t0 = 1, t1;
+    int32_t D = 24, cx = x0 + pw / 2, peak = 750, k = scope_k();
+    for (n = 0; n < SCOPE_N; n++) {
+        int32_t v = scope_pic_v(w, n, k);
+        if (v < 0)
+            v = -v;
+        if (v > peak)
+            peak = v;
+    }
+    while (t0 < SCOPE_N && !(scope_pic_v(w, t0 - 1u, k) < 0 && scope_pic_v(w, t0, k) >= 0))
+        t0++;
+    for (t1 = t0 + 8u; t0 < SCOPE_N && t1 < SCOPE_N && t1 <= t0 + 256u; t1++)
+        if (scope_pic_v(w, t1 - 1u, k) < 0 && scope_pic_v(w, t1, k) >= 0) {
+            D = (int32_t)(t1 - t0) / 4;
+            break;
+        }
+    for (n = (uint32_t)D; n < SCOPE_N; n++) {
+        int32_t px = cx + scope_pic_v(w, n, k) * a / peak, py = cy - scope_pic_v(w, n - (uint32_t)D, k) * a / peak;
+        uint16_t col = n + 16u >= SCOPE_N ? c : ux_mix(T_SURF, c, 20 + (int32_t)(n - (uint32_t)D) * 80 / (SCOPE_N - D));
+        cv_rect(px - 1, py - 1, 2, 2, col);
+    }
 }
 /* oscilloscope of the output, triggered on a rising zero crossing: a RAISE centre line, the trace 2 px (in silence
  * a flat line on it; MENU > SCREEN OFF keeps it from staying on the panel for hours) */
 static void scope_at(int32_t x0, int32_t pw, int32_t cy, int32_t a, uint16_t c);
-static void graph_scope(uint16_t c)
+static void graph_scope(const track_t *t, uint16_t c)
 {
-    scope_at(PANEL_X0, PANEL_W, (int32_t)cv_h / 2, cv_h == H_GRAPH ? 46 : (int32_t)cv_h / 2 - 6, c);   /* (LARGE: the strip) */
+    (void)t;
+    if (ui_scope < 2u)                                       /* (GARDEN) OFF and ON: the music's picture (XY) */
+        scope_pic(PANEL_X0, PANEL_W, (int32_t)cv_h / 2, cv_h == H_GRAPH ? 46 : (int32_t)cv_h / 2 - 6, c);   /* (LARGE: the strip) */
+    else
+        scope_at(PANEL_X0, PANEL_W, (int32_t)cv_h / 2, cv_h == H_GRAPH ? 46 : (int32_t)cv_h / 2 - 6, c);
 }
 /* (0.9.18) BUBBLES (ui_scope 2): a row of soft dots, one every 3 px at the sample's height, each as big as the level
  * about it (the peak of 5 samples, 1..5 px), with a trail of two dim, smaller dots behind it (the samples before);
@@ -1698,7 +1807,7 @@ static void scope_bubbles(const int16_t *snap, uint32_t trig, int32_t peak, int3
         }
         y = cy - s * a / peak;
         r = 1 + lv * 4 / peak;
-        col = settings.palette == UI_JIANT_INDEX ? heat_col(40 + (y > cy ? y - cy : cy - y) * 216 / a) : c;
+        col = c;
         for (k = 2; k >= 1; k--) {                          /* the trail: the samples 3 and 6 back, dimmer and smaller */
             int32_t j = (int32_t)trig + x - 3 * k, ty;
             if (j < 0)
@@ -1728,10 +1837,8 @@ static void scope_orbit(const int16_t *snap, uint32_t trig, int32_t peak, int32_
     for (n = start + 1; n <= end; n++) {
         int32_t x1 = cx + snap[n - 1] * a / peak, y1 = cy - snap[n - 1 - D] * a / peak;
         int32_t x2 = cx + snap[n] * a / peak, y2 = cy - snap[n - D] * a / peak;
-        int32_t lv = snap[n] < 0 ? -snap[n] : snap[n];
-        uint16_t col = settings.palette == UI_JIANT_INDEX ? heat_col(40 + lv * 216 / peak) : c;
-        cv_line_t(x1, y1, x2, y2, ux_mix(T_SURF, col, 35), 4);   /* the glow */
-        cv_line_t(x1, y1, x2, y2, col, 2);
+        cv_line_t(x1, y1, x2, y2, ux_mix(T_SURF, c, 35), 4);   /* the glow */
+        cv_line_t(x1, y1, x2, y2, c, 2);
     }
 }
 /* .. pw px wide from x0, about the line cy, +-a px (0.8.5: EDIT's SOUND, in its well) */
@@ -1739,9 +1846,10 @@ static void scope_at(int32_t x0, int32_t pw, int32_t cy, int32_t a, uint16_t c)
 {
     static int16_t snap[SCOPE_N];
     uint32_t w = scope_w, i, trig = 0;
-    int32_t py = cy, x, peak = 1500;
+    int32_t py = cy, x, peak = 750, k = scope_k();    /* (GARDEN: the floor halved, quiet music twice as tall; MASTER
+                                                         * taken out: scope_k) */
     for (i = 0; i < SCOPE_N; i++) {
-        snap[i] = scope_buf[(w + i) & (SCOPE_N - 1u)];
+        snap[i] = (int16_t)scope_s(scope_buf[(w + i) & (SCOPE_N - 1u)], k);
         if (snap[i] > peak)
             peak = snap[i];
         else if (-snap[i] > peak)
@@ -1764,8 +1872,7 @@ static void scope_at(int32_t x0, int32_t pw, int32_t cy, int32_t a, uint16_t c)
     for (x = 0; x < pw; x++) {
         int32_t y = cy - snap[trig + (uint32_t)x] * a / peak;    /* auto-scaled */
         if (x)                                                   /* JIANT: each stroke as hot as it is loud */
-            cv_line_t(x0 - 1 + x, py, x0 + x, y, settings.palette == UI_JIANT_INDEX ?
-                      heat_col(40 + (y > cy ? y - cy : cy - y) * 216 / a) : c, 2);
+            cv_line_t(x0 - 1 + x, py, x0 + x, y, c, 2);
         py = y;
     }
 }
@@ -1780,8 +1887,7 @@ static void graph_mseq(const track_t *t, uint16_t c)
     int32_t y0 = 92, hmax = 80;
     for (i = 0; i < 16u; i++) {
         int32_t x = 13 + (int32_t)i * 13, h = t->p[P_MS0 + i] * hmax / 127;
-        uint16_t col = i >= len ? T_RAISE : i == now ? T_ACCENT : settings.palette == UI_JIANT_INDEX ?
-                       heat_col(48 + t->p[P_MS0 + i] * 200 / 127) : c;
+        uint16_t col = i >= len ? T_RAISE : i == now ? T_ACCENT : c;
         cv_rrect(x, y0 - hmax, 10, hmax, 2, T_RAISE, T_SURF);
         if (h > 0)
             cv_rrect(x, y0 - (h < 3 ? 3 : h), 10, h < 3 ? 3 : h, 2, col, T_RAISE);
@@ -1799,9 +1905,8 @@ static void graph_mseq(const track_t *t, uint16_t c)
  * the bars in all. KNOB 1 the row, 2 its section (on END: STOP / x2 .. / LOOP), 3 its bars, 4 its scene */
 static uint16_t sec_col(uint32_t s)
 {
-    static const uint8_t HJ[4] = {0, 85, 171, 213}, HO[4] = {120, 160, 200, 240};   /* (0.8.5: JIANT the mock-up's cyan
-                                                         * violet orange yellow; was 60 115 175 230) */
-    return heat_col(settings.palette == UI_JIANT_INDEX ? HJ[s & 3u] : HO[s & 3u]);
+    static const uint8_t HO[4] = {120, 160, 200, 240};   /* (was 60 115 175 230; JIANT's, HJ, retired) */
+    return heat_col(HO[s & 3u]);
 }
 #include "ui_tech.c"                                /* (JIANT 0.5) the technical graphs (FX, DEST, VOICE, GLOBAL) */
 #include "ui_lzsave.c"                              /* (0.8.5) SAVE's lens: its levels' panels */
@@ -1944,7 +2049,30 @@ static void draw_graph(void)
         lz_blit(0, graph_y());
         return;
     }
-    if (lz_low())                                    /* (0.8.9) BOTTOM, HUD: no panel, the picture on the background */
+    if (gd_page()) {                                 /* (GARDEN, Phase 4) the page's scene in the panel's place: whole when
+                                                      * the page comes, then only the rows its plants reach */
+        static uint8_t drawn;
+        uint32_t sc = gd_page(), b0 = ui.force || drawn != sc || toast_on() || GS_TOP[sc] < graph_y() ? 0u : GS_TOP[sc] - graph_y();
+        drawn = (uint8_t)sc;
+        cv_begin(240, graph_h() - b0, T_BG);
+        gd_scene(0, (int32_t)(graph_y() + b0));
+        cv_oy = -(int32_t)(graph_y() + b0);
+        gd_plants(sc);
+        cv_oy = 0;
+        if (toast_on())
+            toast_pill();
+        cv_blit(0, graph_y() + b0);
+        return;
+    }
+    if (gd_back()) {                                 /* (GARDEN) the garden round it, the panel a BG card, its edge burnt */
+        int bare = ui.home && home_level() == 1u;   /* (Phase 6: BEING stands in the garden, no card; ROUTES too) */
+        if (!bare && gd_edged == (int32_t)(graph_y() * 256u + graph_h()))
+            gd_edges((int32_t)graph_y(), (int32_t)graph_h(), 1);
+        else
+            gd_scene(0, (int32_t)graph_y());
+        if (!bare)
+            gd_ring(3, 1, 234, (int32_t)graph_h() - 2);
+    } else if (lz_low())                             /* (0.8.9) BOTTOM, HUD: no panel, the picture on the background */
         ;
     else if (lz_on())                                /* (0.8.5) a lens page: the mock-up's panel, 4 .. 236 (0.8.9 COLORS: */
         cv_rrect(4, 0, 232, (int32_t)graph_h(), 6, T_SURF, T_BG);   /* rounded, as the 0.6's) */
@@ -1958,7 +2086,7 @@ static void draw_graph(void)
         uint32_t k = strip_kind();
         cv_oy = k == SK_ADSR || k == SK_LFO ? 3 : 0;
         graph_ht = LG_H_GRAPH - 6;
-        if (k == SK_SCOPE) graph_scope(c);
+        if (k == SK_SCOPE) graph_scope(t, c);
         else if (k == SK_ADSR) graph_adsr(t, c);
         else if (k == SK_LFO) graph_lfo(t, c);
         else graph_title();
@@ -2002,10 +2130,10 @@ static void draw_graph(void)
         case GR_MORPH:
             graph_morph(t);
             break;
-        case GR_DXIMG:                               /* (0.6.58) KIT 3: the colony; STEREO: IMAGE */
+        case GR_DXIMG:                               /* (0.6.58) KIT 3: the kit's pieces; STEREO: IMAGE */
             if (DX_KIT3(pg)) {
                 cv_oy = 0;
-                graph_colony(t, -1);
+                vx_kit_page(t, -1);
             } else
                 graph_dximg(t);
             break;
@@ -2031,10 +2159,7 @@ static void draw_graph(void)
             break;
         case GR_DXSND:                               /* EDIT > SOUND: the kit's lanes, the sound edited singled out */
             cv_oy = 0;
-            if (pg->title[0] == 'S')                 /* (0.9.4) SOUND 1..4: the drum kit, the sound edited lit (ui_engvis.c) */
-                vx_kit_page(t, (int32_t)(dx_ui_lane & 7u));
-            else
-                graph_colony(t, dx_ui_lane);
+            vx_kit_page(t, (int32_t)(dx_ui_lane & 7u));   /* (GARDEN) the kit's pieces, the sound edited lit (ui_engvis.c) */
             break;
         case GR_LYRIC:                               /* (0.8.5) EDIT > WORDS: what VOICE sings */
             graph_sing(t);
@@ -2047,10 +2172,10 @@ static void draw_graph(void)
             if (pg->scope == SC_ENGINE && trk_eng(t) == ENGI_DRUM) {   /* (0.8.5: WHEEL's and FM6's EDIT 1
                                                       * and 2 their beings, as every synth's: EDIT's lens, SOUND) */
                 cv_oy = 0;
-                if (pg->id[0] == P_E0)               /* (0.9.4) KIT: the kit's beings (ui_engvis.c); KIT 2 the colony */
-                    vx_kit_page(t, -1);
+                if (pg->id[0] == P_E0)               /* (GARDEN) KIT: the BEING's kit; KIT 2 its pieces (ui_engvis.c) */
+                    vx_draw(t, 4, 2, 232, (int32_t)cv_h - 4, -1);
                 else
-                    graph_colony(t, -1);
+                    vx_kit_page(t, -1);
             }
 #if FELUCCA_FM4
             else if ((pg->scope == SC_ENGINE || pg->id[0] == P_FM1_LEVEL) && trk_eng(t) == ENGI_DIGITAL)
@@ -2060,7 +2185,7 @@ static void draw_graph(void)
             else {                                   /* the FX, DEST, VOICE, GLOBAL pages: their graphs (else the scope) */
                 cv_oy = 0;
                 if (!graph_tech(t, pg))
-                    graph_scope(c);
+                    graph_scope(t, c);
             }
             break;
         }

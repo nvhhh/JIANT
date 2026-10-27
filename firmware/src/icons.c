@@ -22,7 +22,7 @@ static uint32_t trk_icon(uint32_t k, int filled) { (void)filled; return ICON_TRK
  * (0.9.19) of the eight: T5..T8 with T7 / T8 selected (T3..T6 with T5 / T6, as before) */
 static uint32_t trk_base4(void) { return song.sel < 4u ? 0u : song.sel < 6u ? 2u : NTRK - 4u; }
 /* (0.9.19) the six columns of the JIANT style's mixer: T1..T6, or T3..T8 with T7 / T8 selected */
-static uint32_t trk_base6(void) { return song.sel < 6u ? 0u : NTRK - 6u; }
+static uint32_t trk_base6(void) { return key_trk(0); }
 static int32_t cv_trk(int32_t x, int32_t y, uint32_t size, uint32_t k, uint16_t fill, uint16_t under)
 {
     const aafont_t *f = size > 16u ? &AF_M : &AF_S;

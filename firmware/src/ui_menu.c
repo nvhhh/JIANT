@@ -339,7 +339,7 @@ static const char *menu_short(uint32_t row)          /* a card's label: a whole 
     static const struct { uint8_t row; char s[9]; } SH[] = {
         {MI_LOWCUT, "SPEAKER"}, {MI_CPU, "CORES"}, {MI_CLKLVL, "LEVEL"}, {MI_USB, "LEVEL"}, {MI_SERIAL, "USB AUD"},
         {MI_ANIM, "ANIMATE"}, {MI_SCROFF, "SLEEP"}, {MI_HOLD, "HOLD"}, {MI_ACCEL, "SPEEDUP"}, {MI_SCLLED, "SCALE"},
-        {MI_RESTORE, "RESTORE"}, {MI_CLOCK, "CPU MHZ"}, {MI_PANEL, "CALIB"}, {MI_LCLEAR, "CLEAR"}, {MI_ECO, "ECO"}};   /* (no two alike on a
+        {MI_RESTORE, "RESTORE"}, {MI_CLOCK, "CPU MHZ"}, {MI_PANEL, "CALIB"}, {MI_LCLEAR, "CLEAR"}};   /* (no two alike on a
                                                          * page: tests/ui_test.c) */
     uint32_t k;
     for (k = 0; k < NELEM(SH); k++)
@@ -349,14 +349,8 @@ static const char *menu_short(uint32_t row)          /* a card's label: a whole 
 }
 /* the panel's line under a row: what it does, in plain words; a value's own (v) where the values differ in kind */
 static const struct { uint8_t row, v; const char *s; } MI_HELP[] = {
-    {MI_COLOR, 255, "THE SCREEN'S COLOURS"},
-    {MI_SKIN, 0, "VALUES ON TOP, THE PICTURE BELOW"},
-    {MI_SKIN, 1, "CARDS AND A PANEL, AS 0.6"},
-    {MI_SKIN, 2, "PICTURE FULL, VALUES AT THE FOOT"},
-    {MI_STYLE, 255, "FILLED CARDS, OR LINES"},
     {MI_LARGE, 255, "BIG LABELS AND VALUES"},
     {MI_SCOPE, 255, "EDIT PAGES: A SCOPE BY THE BEING"},
-    {MI_ECO, 255, "ECO STYLE: OG or GOOBERS"},
     {MI_ANIM, 255, "OFF: VALUES SNAP, NOTHING ROLLS"},
     {MI_LEDS, 255, "HOW IDLE KEYS AND BUTTONS GLOW"},
     {MI_SCROFF, 255, "SCREEN DARK AFTER THIS LONG IDLE"},
@@ -393,6 +387,7 @@ static const struct { uint8_t row, v; const char *s; } MI_HELP[] = {
     {MI_SCLLED, 255, "THE KEYS OF THE SCALE GLOW"},
     {MI_RESTORE, 255, "ON: THE LAST SESSION AT POWER-ON"},
     {MI_CLOCK, 255, "320 MHZ IF IT CRASHES (RESTART)"},
+    {MI_MOTION, 255, "HOW FAST THE GARDEN MOVES"},
     {MI_PANEL, 255, "OCT+: TEACH EACH BUTTON AND KNOB"},
     {MI_ABOUT, 255, "OCT+: VERSION, LOAD, CREDITS"},
 };
@@ -408,7 +403,7 @@ static uint16_t menu_vcol(uint32_t c, uint32_t row)   /* a value's colour, as it
 {
     int32_t r = menu_ratio(row);
     uint16_t k = knob_col(c, r, 0);
-    return r < 0 ? T_MID : heat_on(r) ? ux_mix(k, T_TEXT, 20) : k;
+    return r < 0 ? T_MID : k;
 }
 static void menu_cards(void)
 {
@@ -444,21 +439,29 @@ static void menu_panel(void)
         if (r == MI_NONE)
             continue;
         sel = r == ui.menu_sel;
-        bg = sel ? T_TINT : T_RAISE;
-        cv_rect(8, y, 224, MROW_H - 2, bg);
-        if (sel)
-            cv_rect(8, y, 3, MROW_H - 2, T_ACCENT);
+        bg = sel ? GD_PBLUE : T_BG;                    /* (GARDEN, Phase 6, the mockup's MENU: the row turned last on a
+                                                        * pblue band, an orange pebble at its left, its bar orange) */
+        if (sel) {
+            cv_rrect(8, y, 224, MROW_H - 2, 4, bg, T_BG);
+            gd_blob(12 * 16, (y + 8) * 16, 56, 7, GD_ORANGE, c + 1u, 256, 256);
+        }
         kn[0] = (char)('1' + c);
         GFX_HOOK_ALIGN(0, y + 3, 0, y + 16, AL_V, "menu row name centred up/down");
-        cv_text(16, y + 3 + CAP_IN(X, 13), &AF_X, kn, T_THEME);
+        cv_text(18, y + 3 + CAP_IN(X, 13), &AF_X, kn, T_MID);
         GFX_HOOK_ALIGN(0, y + 3, 0, y + 16, AL_V, "menu row name centred up/down");
-        cv_text_on(26, y + 3 + CAP_IN(S, 13), &AF_S, MI_NAME[r], sel ? T_TEXT : T_MID, bg);
+        cv_text_on(28, y + 3 + CAP_IN(S, 13), &AF_S, MI_NAME[r], T_TEXT, bg);
         menu_val(r, v);
         if (v[0]) {
             GFX_HOOK_ALIGN(0, y + 3, 0, y + 16, AL_V, "menu row name centred up/down");
             cv_text_r(226, y + 3 + CAP_IN(S, 13), &AF_S, v, menu_vcol(c, r), bg);
         }
-        cv_free_text(26, y + 20 - AF_X_CAP_Y, &AF_X, menu_help(r), T_DIM, bg, 202);
+        {                                              /* its value's bar, 2 px */
+            int32_t f = menu_ratio(r);
+            cv_rect(28, y + 17, 198, 2, ux_mix(bg, T_LINE, 70));
+            if (f >= 0)
+                cv_rect(28, y + 17, (198 * f + 500) / 1000, 2, sel ? GD_ORANGE : GD_BLUE);
+        }
+        cv_free_text(28, y + 22 - AF_X_CAP_Y, &AF_X, menu_help(r), T_DIM, bg, 198);
     }
 }
 static void draw_menu(void)
@@ -474,7 +477,7 @@ static void draw_menu(void)
             ui.hot_t--;
     }
     sig = ui.menu * 7u + ui.menu_sel * 131u + settings.palette * 1009u + settings.lowcut * 7919u + settings_hold * 3511u +
-          settings_leds * 6151u + ui_prefs * 4099u + ui_style * 257u + ui_skin * 1543u + song.rec * 65537u + song.sel * 13u +
+          settings_leds * 6151u + ui_prefs * 4099u + song.rec * 65537u + song.sel * 13u +
           ui_rec_prefs * 92821u + ui_scr * 131071u + (ui.hot_t ? ui.hot_col + 1u : 0u) * 0x9E3779B1u +
           (ui.menu == 1 && ui.msg_t ? str_hash(0x70A57u, ui.msg) : 0u) + ml_count() * 977u + ml.on * 3u + usb_out * 61u +
           midi_out_mode * 89u + cpu_cfg * 197u + ui_load * 433u + ui_scope * 71u +
@@ -524,7 +527,13 @@ static void draw_menu(void)
     draw_tabs();
     menu_cards();
     cv_begin(240, graph_h(), T_BG);                    /* (the panel as draw_graph's: COLORS its box, AIR / HUD none) */
-    if (!lz_low())
+    if (gd_back() && !gd_plain) {                      /* (GARDEN, Phase 6) a BG card over the garden, its edge burnt */
+        gd_scene(0, (int32_t)graph_y());
+        cv_rect(4, 2, 232, (int32_t)graph_h() - 4, T_BG);
+        gd_ring(3, 1, 234, (int32_t)graph_h() - 2);
+        gd.x0 = gd.y0 = 0;                             /* (the pebbles: gd_poly in the panel's own rows) */
+        gd.y1 = (int32_t)graph_h();
+    } else if (!lz_low())
         cv_rrect(4, 0, 232, (int32_t)graph_h(), 6, T_SURF, T_BG);
     cv_bg = T_SURF;
     menu_panel();

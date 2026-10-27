@@ -19,6 +19,7 @@ static void song_rows_fix(chain_config_t *c)      /* a song's rows as chain_conf
 static void song_index_load(void)
 {
     uint32_t k;
+    comp_load();                                    /* (the compressor table: every section's, before any is loaded) */
 #if FELUCCA_FLASH
     int n = st_load(OBJ_SONGIDX, &song_idx, sizeof song_idx);
     if (song_idx.magic == SONG_MAGIC && song_idx.cur < NSONG &&
@@ -148,6 +149,7 @@ static int section_load(uint32_t s)
     proj_lfo_keep = 0;
     if (rc)
         return 1;
+    comp_apply(s & 3u);
     chain_config = keep;
     ui.song_row = row;
     proj_cur = (uint8_t)(s & 3u);
@@ -200,6 +202,7 @@ static void section_store(uint32_t s)
     }
     proj_wire_gen++;
     memcpy(&proj_slot[s], &proj_wire, sizeof proj_slot[s]);
+    comp_store(s);
     live.cur = (int8_t)s;
     live.dirty |= (uint8_t)(1u << s);
     ui_say("STORED ", b);
@@ -281,6 +284,8 @@ static int song_flush(void)
     for (k = 0; k < 4u; k++)
         if (((live.dirty >> k) & 1u) && st_save(proj_obj(k), &proj_slot[k], sizeof proj_slot[k]))
             return 1;
+    if (comp_flush())
+        return 1;
 #else
     (void)k;
 #endif
@@ -336,6 +341,8 @@ static int song_switch(uint32_t n, int load_a)
         if (flash_ok)
             proj_fetch(k);
 #endif
+        if (!project_used(k))                       /* an empty section: the defaults, not the last song's */
+            comp_reset(k);
     }
     ui.song_row = 0;
     live.cur = -1;
@@ -424,6 +431,7 @@ static void song_poll(void)
         for (k = 0; k < 4u; k++)
             if (((live.dirty >> k) & 1u) && !st_save(proj_obj(k), &proj_slot[k], sizeof proj_slot[k]))
                 live.dirty &= (uint8_t)~(1u << k);    /* (a failed write stays dirty: tried again) */
+    comp_flush();
 #else
     live.dirty = 0;
     song_idx_dirty = 0;

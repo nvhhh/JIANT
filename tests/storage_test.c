@@ -128,9 +128,9 @@ int main(void)
     /* JIANT's songs: song 1 is the four project slots; songs 2..8 (28 objects) at 0xA0000..0xD7FFF, the index at
      * 0xD8000 / 0xD9000; every object's pair apart from every other one's, all in the store below 0xE0000 */
     {
-        uint32_t o, c, p, q, ok = OBJ_COUNT == OBJ_SONG1 + 28 && st_sector(OBJ_SONG1, 0) == 0xA0000u &&
-                                  st_sector(OBJ_COUNT - 1, 1) + 4096u == 0xD8000u && st_sector(OBJ_SONGIDX, 0) == 0xD8000u &&
-                                  st_sector(OBJ_SONGIDX, 1) == 0xD9000u;
+        uint32_t o, c, p, q, ok = OBJ_COMP == OBJ_SONG1 + 28 && OBJ_COUNT == OBJ_COMP + 1 && st_sector(OBJ_SONG1, 0) == 0xA0000u &&
+                                  st_sector(OBJ_SONGIDX, 0) == 0xD8000u && st_sector(OBJ_SONGIDX, 1) == 0xD9000u &&
+                                  st_sector(OBJ_COMP, 0) == 0xDA000u && st_sector(OBJ_COMP, 1) == 0xDB000u;
         for (o = OBJ_SONGIDX; o < OBJ_COUNT; o++)
             for (c = 0; c < 2u; c++) {
                 ok &= st_sector(o, c) >= 0xA0000u && st_sector(o, c) + 4096u <= 0xDC000u;
@@ -139,7 +139,7 @@ int main(void)
                         ok &= (p == o && q == c) || st_sector(p, q) != st_sector(o, c) ||
                               (p == OBJ_FM6BANK && o == OBJ_UPFM6) || (o == OBJ_FM6BANK && p == OBJ_UPFM6);
             }
-        bad += check("songs 2..8 and the song index: their own sectors in the freed sample area", ok);
+        bad += check("songs 2..8, the song index and the compressor table: their own sectors in the freed sample area", ok);
     }
     {
         static uint8_t bank[3472], back[3728], tab[3728];

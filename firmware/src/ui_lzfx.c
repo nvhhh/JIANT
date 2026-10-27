@@ -20,7 +20,8 @@
  * level is a dot on its curve, AUTO PAN's dot swings at RATE. Drawn on the panel's redraws only (every other frame
  * while it sounds: graph_signature); nothing of the audio path */
 #define FXG_H(v) heat_col((int32_t)(v))                 /* (0..256) */
-static int32_t fxg_en(void) { return song.playing || bg_energy() > 2 ? 32 + bg_energy() : 0; }   /* 0: still */
+/* (GARDEN, the owner on the device) the pictures' motion at half the frames' pace: ui.frame >> 1 */
+static int32_t fxg_en(void) { return bg_energy() > 2 ? 32 + bg_energy() : 0; }   /* 0: still (GARDEN: the sound, not the transport: silence is still) */
 static void fxg_label(int32_t x, int32_t y, const char *s, uint16_t c, int right)
 {
     if (right)                                          /* (AF_X 3 rows down: S's capitals' middle) */
@@ -34,7 +35,7 @@ static void fxg_delay(int32_t x, int32_t y, int32_t w, int32_t h)
     const char *u;
     int32_t i, a = 1000, mix = song.g[G_DMIX], fb = song.g[G_DFDBK], en = fxg_en();
     int32_t tr = RATIO(&GP[G_DTIME], enum_rank(&GP[G_DTIME], song.g[G_DTIME])), step = w * (500 + tr) / 10000;
-    int32_t pulse = en && step > 0 ? (int32_t)(ui.frame * 2u % (uint32_t)(9 * step)) : -99;   /* (the echo running) */
+    int32_t pulse = en && step > 0 ? (int32_t)((ui.frame >> 1) * 2u % (uint32_t)(9 * step)) : -99;   /* (the echo running) */
     cv_rect(x, y + h - 1, w, 1, T_LINE);
     for (i = 0; i < 9 && a > 8; i++) {
         int32_t px = x + 6 + i * step, bh = (h - 14) * 9 / 10 * a / 1000 * (mix * 7 / 10 + 38) / 127;
@@ -65,7 +66,7 @@ static void fxg_delay(int32_t x, int32_t y, int32_t w, int32_t h)
 static void fxg_reverb(int32_t x, int32_t y, int32_t w, int32_t h)
 {
     int32_t i, sz = song.g[G_RSIZE], ty = song.g[G_RTYPE], e = 1000, k = 1000 - (5000 - sz * 4300 / 127) / (w ? w : 1);
-    int32_t top = y + 12, hh = h - 12, en = fxg_en(), sweep = en && w > 0 ? (int32_t)(ui.frame * 3u % (uint32_t)w) : -1;
+    int32_t top = y + 12, hh = h - 12, en = fxg_en(), sweep = en && w > 0 ? (int32_t)((ui.frame >> 1) * 3u % (uint32_t)w) : -1;
     char b[16];
     for (i = 0; i < w; i++) {                        /* the decay, a column each: its height the envelope */
         int32_t env = i < w / 25 + 1 ? e * i / (w / 25 + 1) : e, n = 1000, ch;
@@ -89,12 +90,13 @@ static void fxg_reverb(int32_t x, int32_t y, int32_t w, int32_t h)
 static void fxg_chorus(int32_t x, int32_t y, int32_t w, int32_t h)
 {
     int32_t k, i, dep = song.g[G_CDEPTH], st = song.g[G_CSTER], mid = y + 8 + (h - 8) / 2;
-    uint32_t ph = fxg_en() ? ui.frame * (uint32_t)(song.g[G_CRATE] + 8) * 48u : 0u;   /* (running at RATE while it sounds) */
+    uint32_t ph = fxg_en() ? (ui.frame >> 1) * (uint32_t)(song.g[G_CRATE] + 8) * 48u : 0u;   /* (running at RATE while it sounds) */
     char b[16];
     for (k = 0; k < 3; k++) {
         int32_t py = 0;
         for (i = 0; i <= w; i++) {
-            int32_t amp = (h - 8) * 35 / 100 * dep / 127 * (10 + 2 * k) / 10 * (128 + st) / 128;
+            int32_t amp = (h - 8) * 35 / 100 * dep / 127 * (10 + 2 * k) / 10 * (128 + st) / 128 *
+                          (200 + gd_pulse(1u, 1u, (uint32_t)k * 12000u) * 112 / 256) / 256;   /* (the owner: each line pulsing on the beat) */
             int32_t yy = mid + (bg_sin((uint32_t)(i * 65536 / (w ? w : 1) * 2) + (uint32_t)k * 21000u + ph) * amp >> 15);
             yy = clamp(yy, y + 9, y + h - 1);
             if (i)
@@ -135,7 +137,7 @@ static void fxg_slicer(int32_t x, int32_t y, int32_t w, int32_t h)
     if (w > 120) {                                   /* the tracks in it, FX */
         uint32_t n = 0;
         for (i = 0; i < NTRK && n + 4u < sizeof b; i++)
-            if (song.g[G_SLT1 + i]) { b[n++] = 'T'; b[n++] = (char)('1' + i); b[n++] = ' '; }
+            if (song.g[sl_trk_g(i)]) { b[n++] = 'T'; b[n++] = (char)('1' + i); b[n++] = ' '; }
         b[n] = 0;
         if (!n) str_cpy(b, "NONE ", sizeof b);
         if (song.g[G_SLFX]) str_cpy(b + str_len(b), "+FX", 4);
@@ -147,7 +149,7 @@ static void fxg_slicer(int32_t x, int32_t y, int32_t w, int32_t h)
 }
 static void fxg_master(int32_t x, int32_t y, int32_t w, int32_t h)
 {
-    int32_t en = bg_energy(), lvl = song.playing || en > 2 ? 128 + en / 2 : 26, i, py = 0, duck = song.g[G_DUCK];
+    int32_t en = bg_energy(), lvl = en > 2 ? 128 + en / 2 : 26, i, py = 0, duck = song.g[G_DUCK];
     int32_t rel = song.g[G_DREL], cy = y + 30, ch = h - 32;
     char b[24];
     cv_rect(x, y + 2, w, 9, T_RAISE);
@@ -256,10 +258,15 @@ static void fxg_pan(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t h
     fxg_label(x + w, mid - 6 - AF_X_CAP_Y, "R", T_DIM, 1);
     if (sw > 0)
         cv_rect(cx - sw, mid, 2 * sw + 1, 1, T_MID);
-    {   /* the dot: at the middle, or swinging at RATE while it sounds (a sine over the span: the picture's, not the
-         * audio's own phase) */
-        int32_t dx = fxg_en() && sw > 0 ? bg_sin(ui.frame * (uint32_t)(t->p[P_APRATE] + 6) * 96u) * sw >> 15 : 0;
-        cv_rrect(cx + dx - 4, mid - 4, 9, 9, 4, FXG_H(205), T_SURF);
+    {   /* the dot: where AUTO PAN has the part now (the owner: it seemed not to work; fx.c autopan's own phase and
+         * wave, so in time with the tempo and still when the part is), the middle with DEPTH 0 (off) */
+        uint32_t ti = (uint32_t)(t - trk) % NTRK, ph = ap_ph[ti], wv = (uint32_t)clamp(t->p[P_APWAVE], 0, 4);
+        int32_t v = wv == 1u ? (ph < 0x80000000u ? (int32_t)(ph >> 15) - 32768 : 98303 - (int32_t)(ph >> 15)) :
+                    wv == 2u ? (int32_t)(ph >> 16) - 32768 : wv == 3u ? (ph < 0x80000000u ? 32767 : -32767) :
+                    wv == 4u ? ap_sh[ti] : osc_sine(ph);
+        cv_rrect(cx + (v * sw >> 15) - 4, mid - 4, 9, 9, 4, FXG_H(205), T_SURF);
+        if (!dep)
+            fxg_label(cx + 8, mid + 4, "DEPTH 0: OFF", T_DIM, 0);
     }
     {   /* WAVE . RATE as AUTO PAN's cards say them (its RATE by SYNC: page_desc) */
         int16_t *vp;
@@ -319,7 +326,7 @@ static void graph_fx_lz(const track_t *t, const page_t *pg)
             lz_tile(x, y, 76, 68, sel, T_THEME);
             cv_bg = bg;
             GFX_HOOK_ALIGN(0, y + 3, 0, y + 12, AL_V | AL_PASS, "FX module name");
-            cv_text_on(x + 4, y + 3, &AF_X, FX_MOD[m], sel ? T_THEME : ux.skin ? T_MID : T_TEXT, bg);
+            cv_text_on(x + 4, y + 3, &AF_X, FX_MOD[m], sel ? T_THEME : UX_SKIN ? T_MID : T_TEXT, bg);
             if (sel)
                 lz_uline(x + 4, y + 12, &AF_X, FX_MOD[m], T_THEME);
             if (ok)

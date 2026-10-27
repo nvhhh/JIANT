@@ -493,8 +493,7 @@ static void macro_dice(uint32_t mode)
     static const uint8_t DST[] = {MD_CUT, MD_SHP, MD_E1, MD_E1 + 1, MD_E1 + 2, MD_E1 + 3, MD_E1 + 4, MD_E1 + 5, MD_E1 + 6,
                                   MD_E1 + 7, MD_E1, MD_E1 + 1, MD_E1 + 2, MD_E1 + 3, MD_DLY, MD_REV, MD_PITCH, MD_DIST};   /* (the
                                                          * engine's, its first four twice as likely) */
-    uint32_t k, j, n, kmax = mode == 3u ? 6u : NTRK;   /* (0.9.19: DICE ALL's routes on T1..T6 as before: the generator's
-                                                        * random numbers, and so its pieces, do not move with T7 and T8) */
+    uint32_t k, j, n, kmax = NTRK;                      /* (0.9.20: DICE ALL's routes on every track, T7 T8 too) */
     for (k = 0; k < kmax; k++) {
         track_t *t = &trk[k];
         uint32_t has = 0, used = 0;
@@ -551,9 +550,9 @@ static void session_dice(uint32_t seed)
 }
 
 /* GLO's white keys after the SOLOs (F3 ..): unmute all, tap tempo; KNOB 1..4: the levels from track trk_base4() */
-/* (0.9.19) the GLO keys that name a track (its SOLO, its MUTE black key) are T1..T6 as they were: the places past them
- * keep their 6-track keys (UNMUTE, TAP, UNDO, FREEZE, REVERT ALL; the groups); T7 and T8 have no key here (their MUTE:
- * TRACKS KNOB 1, the mixer's) */
+/* (0.9.19) the GLO keys that name a track (its SOLO, its MUTE black key) are six: the places past them keep their
+ * 6-track keys (UNMUTE, TAP, UNDO, FREEZE, REVERT ALL; the groups); (0.9.20) the six follow the selected track (seq.c
+ * key_trk: T1..T6, or T3..T8) */
 #define GLO_KEYS 6u
 #define GLO_ALL GLO_KEYS
 #define GLO_TAP 7u
@@ -566,7 +565,7 @@ static void layer_key(uint32_t l, uint32_t k)
     if (l == LAYER_GLO) {
         if (key_black(k)) {
             if (p < GLO_KEYS)
-                trk[p].p[P_MUTE] = (int16_t)!trk[p].p[P_MUTE];
+                trk[key_trk(p)].p[P_MUTE] = (int16_t)!trk[key_trk(p)].p[P_MUTE];
             else if (p < GLO_KEYS + 4u)
                 dx_mute_set(dx_mute ^ (1u << (p - GLO_KEYS)));
         } else if (p < GLO_KEYS) {
@@ -635,7 +634,7 @@ static void layer_keys(uint32_t keys)
     lys.solo &= kb_layer;
     for (k = 0; k < 27u; k++)
         if ((lys.solo >> k) & 1u)
-            s |= 1u << key_place(k);
+            s |= 1u << key_trk(key_place(k));
     perf_solo = (uint8_t)s;
 }
 
@@ -805,9 +804,9 @@ static uint32_t layer_leds(uint32_t *br)
             can = e < PF_N && ((ok >> e) & 1u);
             on = can && ((held >> e) & 1u);
         } else if (l == LAYER_GLO) {                    /* sounding lit; SOLO held lit, the others, C4, F4 breathe */
-            on = b ? (p < GLO_KEYS && glo_sounding(p)) || (p >= GLO_KEYS && p < GLO_KEYS + 4u && !((dx_mute >> (p - GLO_KEYS)) & 1u))
+            on = b ? (p < GLO_KEYS && glo_sounding(key_trk(p))) || (p >= GLO_KEYS && p < GLO_KEYS + 4u && !((dx_mute >> (p - GLO_KEYS)) & 1u))
                    : p < GLO_KEYS && ((lys.solo >> k) & 1u);      /* (a group sounding: lit) */
-            can = !b && ((p < GLO_KEYS && p < trk_live) || p == GLO_ALL || (p == GLO_TAP && !song.g[G_CLOCK]) ||
+            can = !b && ((p < GLO_KEYS && key_trk(p) < trk_live) || p == GLO_ALL || (p == GLO_TAP && !song.g[G_CLOCK]) ||
                          (p == GLO_UNDO && undo_ok) || p == GLO_FRZ || (p == GLO_RVA && mut_back_ok()));
                                                         /* (the keys that do something breathe: not an asleep track's) */
             on |= !b && p == GLO_FRZ && mut_freeze;      /* (0.6.43: FREEZE on: lit) */
@@ -902,7 +901,7 @@ static uint32_t ly_keyname(uint32_t l, int blk, uint32_t p, char *nm)
     nm[0] = 0;
     if (l == LAYER_FX) {
         uint32_t held = perf_kill ? 0u : perf_held | perf_latched,
-                 e = blk ? (p >= 8u ? PF_SHUF + p - 8u : p == 6u ? PF_FRZ : PF_M1 + p) : p;
+                 e = blk ? (p >= 8u ? PF_SHUF + p - 8u : p == 6u ? PF_FRZ : PF_M1 + key_trk(p % 6u)) : p;
         static const char *const TG[3] = {"TRK ALL", "TRK SYN", "TRK DRM"};
         if (blk && p == 7u) {
             str_cpy(nm, TG[pfx_tgt % 3u], 12);
@@ -912,7 +911,7 @@ static uint32_t ly_keyname(uint32_t l, int blk, uint32_t p, char *nm)
             return LS_OFF;
         if (blk && p < GLO_KEYS) {
             str_cpy(nm, "MUTE T1", 12);
-            nm[6] = (char)('1' + p);
+            nm[6] = (char)('1' + key_trk(p));
             return (held >> e) & 1u ? LS_MUTE : LS_OFF;
         }
         str_cpy(nm, PF_NAME[e], 12);                    /* (0.9.14: a sweep's black key too; 0.9.17 FREEZE, SHUFFLE) */
@@ -922,8 +921,8 @@ static uint32_t ly_keyname(uint32_t l, int blk, uint32_t p, char *nm)
     if (l == LAYER_GLO) {
         if (blk && p < GLO_KEYS) {
             str_cpy(nm, "MUTE T1", 12);
-            nm[6] = (char)('1' + p);
-            return trk[p].p[P_MUTE] ? LS_MUTE : p >= trk_live ? LS_DIM : LS_OFF;
+            nm[6] = (char)('1' + key_trk(p));
+            return trk[key_trk(p)].p[P_MUTE] ? LS_MUTE : key_trk(p) >= trk_live ? LS_DIM : LS_OFF;
         }
         if (blk && p < GLO_KEYS + 4u && glo_drums()) {
             str_cpy(nm, GLO_GROUP[p - GLO_KEYS], 12);
@@ -933,8 +932,8 @@ static uint32_t ly_keyname(uint32_t l, int blk, uint32_t p, char *nm)
             return LS_OFF;
         if (p < GLO_KEYS) {
             str_cpy(nm, "SOLO T1", 12);
-            nm[6] = (char)('1' + p);
-            return (perf_solo >> p) & 1u ? LS_HELD : p >= trk_live ? LS_DIM : LS_OFF;
+            nm[6] = (char)('1' + key_trk(p));
+            return (perf_solo >> key_trk(p)) & 1u ? LS_HELD : key_trk(p) >= trk_live ? LS_DIM : LS_OFF;
         }
         str_cpy(nm, p == GLO_ALL ? "UNMUTE" : p == GLO_TAP ? "TAP" : p == GLO_UNDO ? "UNDO" : p == GLO_FRZ ? "FREEZE" :
                     p == GLO_RVA ? "REVERT ALL" : "", 12);
@@ -1179,7 +1178,7 @@ static uint32_t lst_n __attribute__((section(".pool")));
 static void lst_chip(const char *a, const char *v, int on)
 {
     int32_t x = 4 + (int32_t)(lst_n & 1u) * 117, y = 16 + (int32_t)(lst_n >> 1) * 15;
-    uint16_t bg = ux.skin ? T_SURF : on ? T_TINT : T_RAISE;
+    uint16_t bg = UX_SKIN ? T_SURF : on ? T_TINT : T_RAISE;
     char b[24];
     if (lst_n >= 16u)
         return;
@@ -1189,7 +1188,7 @@ static void lst_chip(const char *a, const char *v, int on)
         str_cpy(b + str_len(b), " ", sizeof b - str_len(b));
         str_cpy(b + str_len(b), v, sizeof b - str_len(b));
     }
-    if (!ux.skin)
+    if (!UX_SKIN)
         cv_rrect(x, y, 114, 13, 3, bg, T_SURF);
     if (on)
         cv_rect(x, y + 2, 2, 9, T_THEME);
@@ -1307,7 +1306,7 @@ static void draw_layer(void)
     if (ui.force || sig != ui.layer_sig) {
         ui.layer_sig = sig;
         cv_begin(240, graph_h(), T_BG);
-        if (!ux.skin)                                   /* (0.8.5: the lens's panel; 0.8.9 COLORS rounded, BOTTOM / HUD none) */
+        if (!UX_SKIN)                                   /* (0.8.5: the lens's panel; 0.8.9 COLORS rounded, BOTTOM / HUD none) */
             cv_rrect(4, 0, 232, (int32_t)graph_h(), 6, T_SURF, T_BG);
         cv_bg = T_SURF;
         if (ui.lylv % 3u == 1u)                         /* KNOBS: the four as gauges */

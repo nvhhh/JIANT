@@ -48,31 +48,11 @@ int main(int argc, char **argv)
     static const uint8_t pd[] = {0x08, 0xf0};
     const aafont_t probe = {1, 1, 'A', 'A', 0, 0, pg, pp, pd, 0, 0, 0};
     double worst = 100;
-    assert(NPALETTES == 11u && !strcmp(UI_PALETTES[0].name, "GREY") && !strcmp(UI_PALETTES[7].name, "HI-CON") &&
-           !strcmp(UI_PALETTES[8].name, "NIGHT") && !strcmp(UI_PALETTES[9].name, "MONO") && UI_BW_INDEX == 9u &&
-           !strcmp(UI_PALETTES[10].name, "JIANT") && UI_JIANT_INDEX == 10u);   /* (JIANT 0.1: appended) */
-    /* (#50, 1.0.2: appended, the ids stay; GREY is the MONO of 1.0.1, id 0) */
-    for (unsigned st = ST_FLAT; st <= ST_LINE; st++) {   /* MONO: every token black or white, in FLAT and LINE */
-        uint16_t *tok = &ux.bg;
-        ux.style = (uint8_t)st;
-        palette_set(UI_BW_INDEX);
-        assert(&ux.grid - tok == 15);
-        for (unsigned i = 0; i < 16; i++) {
-            /* the one grey: DIM (inactive), LINE (tracks), RAISE (wells under white text), LANE (the piano roll) */
-            int grey_ok = tok[i] == UI_BW_GREY && (&tok[i] == &ux.dim || &tok[i] == &ux.line || &tok[i] == &ux.raise ||
-                                                   &tok[i] == &ux.lane);
-            if (!(tok[i] == 0x0000u || tok[i] == 0xFFFFu || grey_ok))
-                printf("MONO (%s): token %u = %04x is not black or white\n", st ? "LINE" : "FLAT", i, tok[i]);
-            assert(tok[i] == 0x0000u || tok[i] == 0xFFFFu || grey_ok);
-        }
-        assert(T_BG == 0u && T_SURF == 0u && T_TEXT == 0xFFFFu && T_SEL == 0xFFFFu && T_INK == 0u && T_REC == 0xFFFFu);
-    }
-    ux.style = ST_FLAT;
+    assert(NPALETTES == 1u && !strcmp(UI_PALETTES[0].name, "GARDEN"));   /* (GARDEN: the one palette; GREY, MONO,
+                                                         * the others and their checks retired with it) */
     for (unsigned p = 0; p < NPALETTES; p++) {
         uint16_t *tok = &ux.bg;
         palette_set(p);
-        if (p == UI_GREY_INDEX)
-            for (unsigned i = 0; i < 14; i++) assert(gray(tok[i]));      /* every token, derived ones too (RAISE, KEY the last) */
         /* text and the things read on the screen; the generator checks the same (tools/gen_ui_palettes.py) */
         struct { uint16_t fg, bg; double min; } c[] = {
             {T_TEXT, T_BG, 12.0}, {T_TEXT, T_SURF, 9.0}, {T_MID, T_BG, 5.0}, {T_MID, T_SURF, 4.0},
@@ -90,8 +70,8 @@ int main(int argc, char **argv)
         if (min < worst) worst = min;
         printf("%-7s text %.1f:1, labels %.1f:1, values %.1f:1, selection %.1f:1\n", UI_PALETTES[p].name,
                contrast(T_TEXT, T_BG), contrast(T_MID, T_BG), contrast(T_THEME, T_BG), contrast(T_INK, T_SEL));
-        assert((p == 6u) == ux.light);                         /* PAPER is the light one */
-        assert(T_REC == (p == UI_GREY_INDEX || p == UI_BW_INDEX ? T_ACCENT : ux.light ? UI_REC_LIGHT : UI_REC_DARK));
+        assert(ux.light);                                      /* GARDEN is light */
+        assert(T_REC == (ux.light ? UI_REC_LIGHT : UI_REC_DARK));
         /* the blend: transparent, solid and an edge between the two, on two backgrounds */
         for (unsigned b = 0; b < 2; b++) {
             uint16_t under = b ? T_SEL : T_BG, ink = b ? T_INK : T_THEME;
@@ -102,8 +82,6 @@ int main(int argc, char **argv)
                 unsigned a = channel(under, k), z = channel(ink, k), m = channel(swap16(cv_px[1]), k);
                 assert(m >= (a < z ? a : z) && m <= (a > z ? a : z));   /* no halo */
             }
-            if (p == UI_GREY_INDEX) assert(gray(swap16(cv_px[1])));
-            if (p == UI_BW_INDEX) assert(neutral(swap16(cv_px[1])));
         }
         assert(text_w(&AF_S, UI_PALETTES[p].name) <= 60);     /* the COLOR row's value */
         cv_begin(240, 124, T_BG);
@@ -127,18 +105,16 @@ int main(int argc, char **argv)
         for (unsigned y = 0; y < 124; y++)
             for (unsigned x = 0; x < 240; x++) {
                 uint16_t v = swap16(cv_px[y * 240 + x]);
-                if (p == UI_GREY_INDEX) assert(gray(v));          /* every blended pixel of GREY */
-                if (p == UI_BW_INDEX) assert(neutral(v));         /* and of MONO */
                 sheet[(p / 4 * 124 + y) * 960 + p % 4 * 240 + x] = v;
             }
     }
-    /* the ramp cache follows the palette (a stale ramp would blend toward the old background) */
-    palette_set(1);
+    /* the ramp cache follows the background (a stale ramp would blend toward the old one; GARDEN: one palette, so
+     * two backgrounds instead of two palettes) */
+    palette_set(0);
     cv_begin(3, 1, T_BG); cv_text(0, 0, &probe, "A", T_THEME);
-    uint16_t green = swap16(cv_px[1]);
-    palette_set(6);
-    cv_begin(3, 1, T_BG); cv_text(0, 0, &probe, "A", T_THEME);
-    assert(swap16(cv_px[1]) != green);
+    uint16_t on_bg = swap16(cv_px[1]);
+    cv_begin(3, 1, T_SEL); cv_text(0, 0, &probe, "A", T_THEME);
+    assert(swap16(cv_px[1]) != on_bg);
     /* fonts: Chakra Petch (JIANT 0.5) S 12 px; (0.8.9) M Inter Tight SemiBold 15 px (the values, as the 0.6), L Michroma
      * 18 px; tabular digits; the ellipsis; L has capitals only */
     assert(AF_S.h == 16 && AF_S.asc == 12 && AF_M.h == 19 && AF_M.asc == 15 && AF_L.h == 26 && AF_L.asc == 21);
@@ -162,6 +138,6 @@ int main(int argc, char **argv)
         }
         fclose(f);
     }
-    printf("Palettes: GREY gray, MONO black and white, contrast (worst margin x%.2f), blending, ramp cache, font metrics and ellipsis passed.\n", worst);
+    printf("Palettes: GARDEN contrast (worst margin x%.2f), blending, ramp cache, font metrics and ellipsis passed.\n", worst);
     return 0;
 }

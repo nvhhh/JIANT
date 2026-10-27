@@ -219,6 +219,163 @@ static void track_dist(track_t *t, int32_t *b, uint32_t n)
     }
 }
 
+/* (JIANT) DYN (P_CTYPE): a track's dynamics insert after DIST, each model with its own front panel's controls. A detector
+ * (attack, release) and a gain computer in log2 (Q8 octaves, 0 at full scale): over the threshold the gain falls by
+ * (1 - 1/RATIO), through a soft knee where the model has one; then the output gain. 0: out of the chain.
+ *   1 DBX 160      THRESHOLD -40 .. 0 dB, COMPRESSION 1:1 .. INF:1, OUTPUT GAIN -20 .. +20 dB; a hard knee, its
+ *                  program-dependent timing as a fixed 5 ms attack, 80 ms release
+ *   2 LA-2A        PEAK REDUCTION 0 .. 100 (the threshold 0 .. -40 dB), GAIN 0 .. 100 (0 .. +30 dB), COMP (3:1) / LIMIT
+ *                  (20:1), HF (the detector's emphasis above ~1 kHz, up to 4x), MIX (the compressed share); 10 ms attack,
+ *                  the opto's release 150 ms (light) .. 500 ms (10 dB and more), an 8 dB knee, a little colour
+ *   3 FAIRCHILD 670 INPUT GAIN 0 .. 20 (-15 .. +15 dB into it, 10: 0 dB), THRESHOLD 0.0 .. 10.0 (0 .. -30 dB), TIME
+ *                  CONSTANT 1 .. 6 (FA_TC; 5 and 6 program dependent); variable mu as 8:1 through a 12 dB knee, the
+ *                  tube colour; no output control, as the panel. One channel: the track is mono, LAT / VERT do not apply */
+typedef struct { int32_t thr, slope, knee, mk, ig; } dyn_s_t;   /* the static curve, Q8 octaves (slope Q8) */
+#define DYN_N 3
+static const uint16_t DBX_RAT[9] = {256, 384, 512, 768, 1024, 1536, 2560, 5120, 0};   /* Q8; 0: INF */
+static const uint32_t FA_TC[6][3] = {                /* attack, release, its program-dependent long end: ms x10 */
+    {2, 3000, 0}, {2, 8000, 0}, {4, 20000, 0}, {8, 50000, 0}, {2, 20000, 100000}, {4, 3000, 100000}};
+static const uint32_t DYN_EXP[33] = {                /* 2^(k / 32) in Q15 */
+    32768, 33486, 34219, 34968, 35734, 36516, 37316, 38133, 38968, 39821, 40693, 41584, 42495, 43425, 44376, 45348,
+    46341, 47356, 48393, 49452, 50535, 51642, 52773, 53928, 55109, 56316, 57549, 58809, 60097, 61413, 62757, 64132, 65536};
+static const uint16_t DYN_LOG[33] = {                /* log2(1 + k / 32) in Q8 */
+    0, 11, 22, 33, 44, 54, 63, 73, 82, 92, 100, 109, 118, 126, 134, 142, 150, 157, 165, 172, 179, 186, 193, 200, 207,
+    213, 220, 226, 232, 238, 244, 250, 256};
+static int32_t dyn_env[NTRK], dyn_lp[NTRK], dyn_red[NTRK];   /* the detector Q27 (Q15 << 12: long releases keep moving),
+                                                               * HF's low-pass, the last block's reduction */
+/* 2^(x / 256) in Q15, x Q8 octaves of any sign */
+static int32_t dyn_pow2(int32_t x)
+{
+    int32_t n = x >> 8, f = x - (n << 8), i = f >> 3, r = f & 7, v;
+    if (n < -20)
+        return 0;
+    if (n > 6)
+        n = 6;
+    v = (int32_t)DYN_EXP[i] + ((((int32_t)DYN_EXP[i + 1] - (int32_t)DYN_EXP[i]) * r) >> 3);
+    return n >= 0 ? v << n : v >> -n;
+}
+/* log2(e / 32768) in Q8 octaves, e in 1 .. 32767 */
+static int32_t dyn_log(int32_t e)
+{
+    int32_t msb = 0, norm, i, f, l;
+    while ((e >> (msb + 1)) != 0)
+        msb++;
+    norm = e << (15 - msb);
+    i = (norm >> 10) & 31;
+    f = norm & 1023;
+    l = DYN_LOG[i] + (((DYN_LOG[i + 1] - DYN_LOG[i]) * f) >> 10);
+    return ((msb - 15) << 8) + l;
+}
+static int32_t dyn_q8(int32_t db10) { return db10 * 4253 / 1000; }   /* dB x10 -> Q8 octaves */
+/* the one-pole's share of the new sample, 1 - exp(-1 / (ms * 44.1 samples)) ~ 1 / (ms * 44.1), in Q30, ms x10 (Q15 left a
+ * second's release at 0: it never let go) */
+static int32_t dyn_coef(int32_t ms10)
+{
+    if (ms10 < 1)
+        ms10 = 1;
+    return (int32_t)((0xFFFFFFFFu / ((uint32_t)ms10 * 441u + 100u)) * 25u);   /* (2^32 / 4 x 100; no 64-bit divide) */
+}
+/* the static curve of track t's model, dB x10 (thr, mk, ig) and Q8 (slope); 0 when it is OFF */
+static int dyn_static(const track_t *t, int32_t *thr, int32_t *slope, int32_t *knee, int32_t *mk, int32_t *ig)
+{
+    uint32_t ty = (uint32_t)t->p[P_CTYPE];
+    int32_t r;
+    *thr = 0, *slope = 0, *knee = 0, *mk = 0, *ig = 0;
+    if (ty == 1u) {
+        *thr = (int32_t)t->p[P_DBX_THR] * 400 / 127 - 400;
+        r = DBX_RAT[clamp(t->p[P_DBX_RAT], 0, 8)];
+        *slope = r ? 256 - 65536 / r : 256;
+        *mk = ((int32_t)t->p[P_DBX_OUT] - 20) * 10;
+    } else if (ty == 2u) {
+        *thr = -(int32_t)t->p[P_LA_PR] * 4;
+        *slope = t->p[P_LA_MODE] ? 256 - 65536 / 5120 : 256 - 65536 / 768;
+        *knee = 80;
+        *mk = (int32_t)t->p[P_LA_GAIN] * 3;
+    } else if (ty == 3u) {
+        *ig = ((int32_t)t->p[P_FA_IN] - 10) * 15;
+        *thr = -(int32_t)t->p[P_FA_THR] * 3;
+        *slope = 256 - 65536 / 2048;
+        *knee = 120;
+    } else
+        return 0;
+    return 1;
+}
+/* the reduction for `over` (the level less the threshold) through the knee, all in one unit; slope Q8 */
+static int32_t dyn_red_of(int32_t over, int32_t slope, int32_t knee)
+{
+    int32_t h = knee / 2, u;
+    if (over <= -h || slope == 0)
+        return 0;
+    if (over >= h || knee == 0)
+        return over > 0 ? (over * slope) >> 8 : 0;
+    u = over + h;
+    return u * u / (2 * knee) * slope >> 8;            /* (u <= knee: Q8 octaves, a few hundred; no 64-bit divide) */
+}
+int32_t dyn_curve_db10(const track_t *t, int32_t in10)   /* (the EDIT COMP graph) */
+{
+    int32_t thr, slope, knee, mk, ig, x;
+    if (!dyn_static(t, &thr, &slope, &knee, &mk, &ig))
+        return in10;
+    x = in10 + ig;
+    return x - dyn_red_of(x - thr, slope, knee) + mk;
+}
+static void track_dyn(track_t *t, int32_t *b, uint32_t n)
+{
+    uint32_t ty = (uint32_t)t->p[P_CTYPE], ti = (uint32_t)(t - trk) % NTRK;
+    int32_t thr, slope, knee, mk, ig, env, i, aa, ar, mx = 0, sat = 0, hf = 0, mix = 256, lp, igq, mkq;
+    if (ty == 0u || ty > DYN_N || !dyn_static(t, &thr, &slope, &knee, &mk, &ig)) {
+        dyn_red[ti] = 0;
+        return;                                        /* out of the chain */
+    }
+    thr = dyn_q8(thr), knee = dyn_q8(knee), igq = dyn_pow2(dyn_q8(ig)), mkq = dyn_pow2(dyn_q8(mk));
+    if (ty == 1u) {                                    /* DBX 160 */
+        aa = dyn_coef(50);
+        ar = dyn_coef(800);
+    } else if (ty == 2u) {                             /* LA-2A: the opto lets go slower the more it holds */
+        int32_t f = dyn_red[ti] * 256 / dyn_q8(100);
+        aa = dyn_coef(100);
+        ar = dyn_coef(1500 + 3500 * (f > 256 ? 256 : f) / 256);
+        hf = (int32_t)t->p[P_LA_HF] * 768 / 100;
+        mix = (int32_t)t->p[P_LA_MIX] * 256 / 100;
+        sat = 26;
+    } else {                                           /* FAIRCHILD 670 */
+        const uint32_t *c = FA_TC[clamp(t->p[P_FA_TC], 0, 5)];
+        int32_t f = dyn_red[ti] * 256 / dyn_q8(100), r = c[1];
+        if (c[2])
+            r += (int32_t)(((int64_t)(c[2] - c[1]) * (f > 256 ? 256 : f)) >> 8);
+        aa = dyn_coef(c[0]);
+        ar = dyn_coef(r);
+        sat = 128;
+    }
+    env = dyn_env[ti];
+    lp = dyn_lp[ti];
+    for (i = 0; i < (int32_t)n; i++) {
+        int32_t dry = b[i], x = (int32_t)(((int64_t)dry * igq) >> 15), d = x, v, red, g, y;
+        if (hf) {                                      /* LA-2A's HF: the detector hears the highs louder */
+            lp += ((x - lp) * 4362) >> 15;             /* (~1 kHz) */
+            d = x + (((x - lp) * hf) >> 8);
+        }
+        v = d < 0 ? -d : d;
+        if (v > 32767)
+            v = 32767;
+        v <<= 12;
+        env += (int32_t)((((int64_t)v - env) * (v > env ? aa : ar)) >> 30);
+        red = dyn_red_of(dyn_log(env < 4096 ? 1 : env >> 12) - thr, slope, knee);
+        if (red > mx)
+            mx = red;
+        g = dyn_pow2(-red);
+        y = (int32_t)(((int64_t)x * g * mkq) >> 30);  /* Q15 */
+        if (sat) {                                     /* colour: a cubic soft knee, mixed in */
+            int64_t c = ((int64_t)y * y) >> 15, sv = y - ((((c * y) >> 15)) >> 2);
+            y = y + (int32_t)(((sv - y) * sat) >> 8);
+        }
+        b[i] = mix == 256 ? y : dry + (((y - dry) * mix) >> 8);
+    }
+    dyn_env[ti] = env;
+    dyn_lp[ti] = lp;
+    dyn_red[ti] = mx;
+}
+
 /* master: peak limiter in front of the soft clipper. Fast attack (~0.1 ms),
  * ~150 ms release, threshold where tanh is still nearly linear, so chords
  * get quieter instead of crushed. */
@@ -949,10 +1106,10 @@ static __attribute__((noinline)) void rev_shimmer(const int32_t *rev_in, int32_t
 #define RS_LEN 1024u                                     /* each comb's line, in rev_comb: down to ~43 Hz */
 _Static_assert(sizeof rev_comb / 2u >= 4u * RS_LEN, "RESO in ROOM's buffers");
 /* (JIANT 0.6.5) RESO's two knobs of its own, in the slots of PRE and DAMP (no pre-delay, a fixed tone on RESO):
- * PITCH (G_RPRE 0..14) the chord that many steps of the scale up; FOLW (G_RDAMP 0..6) OFF / T1..T6: the chord built on
+ * PITCH (G_RPRE 0..14) the chord that many steps of the scale up; FOLW (G_RDAMP 0..8) OFF / T1..T8: the chord built on
  * the lowest note that track sounds (held after it stops), so it moves with the sequence. The strings glide there */
 static uint32_t reso_pitch(void) { return song.g[G_RTYPE] == 3 ? (uint32_t)clamp(song.g[G_RPRE], 0, 14) : 0u; }
-static uint32_t reso_folw(void) { return GFX(GF_RDAMP) >= 1 && GFX(GF_RDAMP) <= 6 ? (uint32_t)GFX(GF_RDAMP) : 0u; }
+static uint32_t reso_folw(void) { return GFX(GF_RDAMP) >= 1 && GFX(GF_RDAMP) <= (int32_t)NTRK ? (uint32_t)GFX(GF_RDAMP) : 0u; }
 static __attribute__((noinline)) void rev_reso(const int32_t *rev_in, int32_t *out, uint32_t n)
 {
     const track_t *t = &trk[0];
@@ -1978,6 +2135,10 @@ static inline __attribute__((always_inline)) void mix_part(track_t *t, uint32_t 
         if ((duck_g0 < 32767 || duck_g1 < 32767) && ENGINES[t->engine] != &ENG_DRUM)   /* DUCK: the kick's */
             lq = duck_ramp(l0 >> 8, mp_lvl[ti] >> 8, &dl);
         track_dist(t, b, n);
+#if FELUCCA_DYN
+        if (t->p[P_CTYPE])
+            track_dyn(t, b, n);
+#endif
         int32_t pm0 = 32768, pm1 = 32768;               /* (0.6.48: drum_mix's; pf.mg counts only while muting) */
         if ((pf.mute >> (t - trk)) & 1u) {
             pm0 = pf.mg[ti];
@@ -2075,7 +2236,7 @@ static __attribute__((noinline)) void stem_slicer_bus(uint32_t n)
     stem_sl = 0;
     if (slicer_on())
         for (k = 0; k < NPART; k++)
-            if (song.g[G_SLT1 + k] && !((mix_skip >> k) & 1u))
+            if (song.g[sl_trk_g(k)] && !((mix_skip >> k) & 1u))
                 stem_sl |= (uint8_t)(1u << k);
     if (slicer_fx())                                    /* FX ON: the returns through it (kept for the FX return) */
         for (i = 0; i < n; i++) {
@@ -2184,12 +2345,13 @@ static volatile int8_t mc_cur = -1;                      /* the part core 1 is i
 static uint8_t mc_mask_last;                             /* the parts core 1 had the last block (MENU > ABOUT, tests) */
 static uint32_t mc_jobs;                                 /* (0.6.72) blocks core 1 rendered parts in (console status) */
 static void mix_part_m(track_t *t, uint32_t n);         /* (below) */
-#define MC_FX 0x80u                                       /* (0.6.75) mc_job: the buses too */
+#define MC_FX 0x80000000u                                 /* (0.6.75) mc_job: the buses too (0.9.20: bit 31; it was 0x80,
+                                                         * T8's bit of the parts' mask: core 1 rendered T8 again) */
 static void fx_run(uint32_t n);                          /* (below) */
-static __attribute__((noinline)) void mc_job(uint32_t a)  /* core 1: the buses (MC_FX), the parts of mask a & 0x3F, a >> 8
-                                                         * samples */
+static __attribute__((noinline)) void mc_job(uint32_t a)  /* core 1: the buses (MC_FX), the parts of mask a & 0xFF, a >> 8 &
+                                                         * 0xFFFF samples */
 {
-    uint32_t i, n = a >> 8, t0 = PRF_T();
+    uint32_t i, n = (a >> 8) & 0xFFFFu, t0 = PRF_T();
     if (a & MC_FX)
         fx_run(n);
     for (i = 0; i < n; i++)
@@ -2430,11 +2592,14 @@ static __attribute__((noinline)) void mix_silent(int32_t *out, uint32_t n, uint3
 {
     uint32_t k;
     for (k = 0; k < NPART; k++) {
+        mp_seen[k] = 0;
+        if (k >= trk_live)                              /* (asleep, TRACKS 4 / 6: mix_part runs nothing of it either; with
+                                                         * eight parts T7 and T8 sleep at TRACKS 6) */
+            continue;
         track_lfo_tick(&trk[k]);                        /* (the LFOs turn on: their pages, the next note's phase; */
         drift_clk[k] += ENGINES[trk[k].engine] != &ENG_DRUM && trk[k].p[P_DRIFT] < 127;   /* DRIFT's clock as well) */
         if (ENGINES[trk[k].engine]->block)
             ENGINES[trk[k].engine]->block(&trk[k]);
-        mp_seen[k] = 0;
     }
     slicer_bus(sl_l, sl_r, n);                          /* (its clock; off: nothing else) */
     mc_mask_last = 0;

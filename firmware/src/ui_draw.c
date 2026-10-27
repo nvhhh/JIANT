@@ -101,6 +101,7 @@ static void draw_battery(int32_t bx)
 #define ROLL_SNAP 3u                                    /* frames (~45 ms) */
 #define ROLL_BPM 4u                                     /* ui.roll[]: the four cards, then the header BPM */
 #define ROLL_Y (lz_low() ? 11 : lz_on() ? 14 : 18)        /* a card's value strip: rows 18..34, its figures (21..31) in the middle, */
+#define CARD_VDY (AF_M_CAP_Y + AF_M_CAP_H / 2 - AF_V_CAP_Y - AF_V_CAP_H / 2)   /* (GARDEN) V's capitals centred where M's were */
 #define ROLL_H 17                                       /* the label (MONO's chip: to row 17) above it, the gauge (39) below;
                                                          * (0.8.5) a lens page's card (38 tall): rows 14..30, the figures
                                                          * 17..27, the gauge at 33; 0.8.9 SKIN BOTTOM / HUD's
@@ -108,7 +109,7 @@ static void draw_battery(int32_t bx)
                                                          * label 4..10, the gauge 28..29) */
 #define CARD_VY (ROLL_Y - 1)                            /* the value's line (M) */
 #define CARD_XY 4                                       /* (0.8.5) a lens card's label (AF_X): its line, capitals rows 5..11 */
-#define CARD_BG (ux.style || lz_low() ? T_SURF : T_RAISE)   /* (0.8.5, the mock-up) a card: RAISE (LINE: no fill; 0.8.9 BOTTOM,
+#define CARD_BG (UX_STYLE || lz_low() ? T_SURF : T_RAISE)   /* (0.8.5, the mock-up) a card: RAISE (LINE: no fill; 0.8.9 BOTTOM,
                                                          * HUD: none, the knob row on the background) */
 static const uint8_t ROLL_EASE[17] = {0, 45, 84, 118, 147, 172, 193, 210, 223, 234, 242, 247, 251, 253, 254, 255, 255};
 
@@ -145,9 +146,9 @@ static void roll_note(uint32_t k, const char *a, const char *b, int snap)
 /* s (M) at x, y with field k's roll: each character at its pen in s (the digits are tabular and never kerned,
  * so the old value has the same pens); a rolling digit has moved o of the strip's h rows (ROLL_EASE, one frame
  * later per place from the right), clipped to the strip. The roll's last frame clears it: the static text. */
-static int32_t roll_text(uint32_t k, int32_t x, int32_t y, const char *s, uint16_t fg)
-{
-    const aafont_t *f = &AF_M;                         /* (0.8.5: the header's BPM in S; 0.8.9, the skins' mock-up: in M) */
+static int32_t roll_text(uint32_t k, int32_t x, int32_t y, const char *s, uint16_t fg, const aafont_t *f)
+{                                                       /* (f: M; 0.8.5: the header's BPM in S; 0.8.9, the skins' mock-up: in
+                                                         * M; GARDEN: the pods' values V) */
     uint32_t e = (uint8_t)(ui.frame - ui.roll[k].t0) + 1u, i, p = 0;
     const char *a = ui.roll[k].from;
     int32_t cy = k < ROLL_BPM ? ROLL_Y : 0, h = k < ROLL_BPM ? ROLL_H : HEAD_RULE_Y;   /* (above the header's rule) */
@@ -216,24 +217,24 @@ static void head_geo(head_geo_t *g, const char *bpm)
 {
     char z[8] = "0000000";
     z[str_len(bpm) < 7u ? str_len(bpm) : 7u] = 0;
-    g->bx = HEAD_BPM_X;
     text_ink(&AF_M, z, g->b);
-    g->mx0 = HEAD_TR_X;
-    g->mx1 = HEAD_TR_X + 8;
+    g->bx = hud_home() || gd_back() ? HEAD_LOAD_X - 6 - g->b[2] : HEAD_BPM_X;   /* (GARDEN: right, by the load) */
+    g->mx0 = g->bx == HEAD_BPM_X ? HEAD_TR_X : g->bx - HEAD_GAP - 8;
+    g->mx1 = g->mx0 + 8;
     g->sx0 = g->mx1 + 1;
     g->sx1 = g->bx + g->b[2] + 2;
 }
-static void head_transport(void)
+static void head_transport(int32_t tx)
 {
     int32_t r, k;
     uint16_t c = seq_counting() ? T_ACCENT : song.playing ? T_THEME : T_MID;
     if (!song.playing && !seq_counting()) {
-        cv_rect(HEAD_TR_X, HEAD_MID - 4, 8, 9, c);
+        cv_rect(tx, HEAD_MID - 4, 8, 9, c);
         return;
     }
     for (k = cv_halo; k >= 0; k--)                      /* (0.8.9) a triangle, 8 x 11, pointing right (HUD: its outline) */
         for (r = 0; r < 11; r++)
-            cv_rect(HEAD_TR_X + k, HEAD_MID - 5 + r + k, 1 + (5 - (r < 5 ? 5 - r : r - 5)) * 7 / 5, 1, k ? T_BG : c);
+            cv_rect(tx + k, HEAD_MID - 5 + r + k, 1 + (5 - (r < 5 ? 5 - r : r - 5)) * 7 / 5, 1, k ? T_BG : c);
 }
 static void sound_name(const track_t *t, char *b);
 /* the centre's words (b holds 40) and their colour */
@@ -318,6 +319,47 @@ static int32_t head_group(void)
     cv_text(x, HEAD_SY, &AF_S, b, T_THEME);
     return x0;
 }
+/* (GARDEN, Phase 3) the top line over the sky, no bar: the breadcrumb (a message in its place) at the left; at the right
+ * the REC mark, BPM LOCK's, the track's pebble, the play state, the BPM (small), the load, the battery */
+static int32_t crumb_mx;                                /* (GARDEN) the header's breadcrumb: its right end, no count */
+static int32_t crumb_count(char *b);
+static void draw_crumbs(int32_t y, uint16_t fg, uint16_t last);
+static void foot_crumbs(char *b, uint32_t n);
+static void head_garden(const head_geo_t *g, const char *bpm, int msg)
+{
+    char n[2] = {(char)('1' + song.sel % NTRK), 0};
+    int32_t kx = g->mx0 - 4 - 13, x = kx;
+    uint8_t h = cv_halo;
+    if (!ui.roll[ROLL_BPM].from[0])
+        GFX_HOOK_ALIGN(0, 0, 0, HEAD_RULE_Y, AL_V, "header text on its middle");
+    roll_text(ROLL_BPM, g->bx, HEAD_BMY, bpm, ui.bpm_t ? T_ACCENT : T_THEME, &AF_M);
+    head_transport(g->mx0);
+    if (ui_prefs & PREF_BPM_LOCK) {                    /* (the lock, 8 x 10) */
+        x -= HEAD_GAP + 8;
+        cv_rect(x + 2, HEAD_MID - 5, 4, 1, T_MID);
+        cv_rect(x + 1, HEAD_MID - 4, 1, 3, T_MID);
+        cv_rect(x + 6, HEAD_MID - 4, 1, 3, T_MID);
+        cv_rect(x, HEAD_MID - 1, 8, 6, T_MID);
+    }
+    if (song.rec) {
+        x -= HEAD_GAP + 9;
+        draw_rec_mark(x - 3, T_BG);
+    }
+    gd_pebble(kx - 1, HEAD_MID - 7, 15, 15, song.sel, T_ACCENT);
+    cv_halo = 0;
+    GFX_HOOK_ALIGN(kx, HEAD_MID - 6, kx + 13, HEAD_MID + 7, AL_HV, "header track number in its box");
+    cv_text_in(kx, HEAD_XY, 13, &AF_X, n, T_INK, T_ACCENT);
+    cv_halo = h;
+    if (msg)
+        head_msg(6, x - 12);
+    else {
+        crumb_mx = x - 8;
+        draw_crumbs(HEAD_XY, T_TEXT, T_TEXT);
+        crumb_mx = 0;
+    }
+    draw_battery(HEAD_BAT_X);
+    draw_load(HEAD_LOAD_X);
+}
 static void draw_head(void)
 {
     char b[16], ttl[40];
@@ -332,6 +374,12 @@ static void draw_head(void)
     int msg = ui.msg_t || ui.layer;
     int centre = !msg || ui.bpm_t || ui.layer == LAYER_GLO;   /* the BPM being changed: it stays, the message right */
     int32_t lx, r = HEAD_LOAD_X - 6;
+    int gl = hud_home() || gd_back();
+    if (gl) {                                           /* (GARDEN: the breadcrumb in the line) */
+        char cr[48];
+        foot_crumbs(cr, sizeof cr);
+        sig += str_hash(sig, cr);
+    }
     if (song.g[G_BPM] != ui.roll_bpm) {
         char a[8];
         fmt_int(a, ui.roll_bpm);
@@ -343,10 +391,11 @@ static void draw_head(void)
     }
     fmt_int(b, song.g[G_BPM]);
     head_geo(&g, b);
-    if (!ui.force && sig == ui.head_sig) {
+    if (!ui.force && sig == ui.head_sig && !(gl && ui.roll[ROLL_BPM].from[0])) {   /* (GARDEN: rolling, the line whole:
+                                                         * its cells (gfx.c cv_blit_cells) know the line, not a strip) */
         if (ui.roll[ROLL_BPM].from[0]) {               /* rolling: the BPM's strip only (the rule under it again) */
             cv_begin((uint32_t)(g.sx1 - g.sx0), H_HEAD, T_BG);
-            roll_text(ROLL_BPM, g.bx - g.sx0, HEAD_BMY, b, ui.bpm_t ? T_ACCENT : T_THEME);
+            roll_text(ROLL_BPM, g.bx - g.sx0, HEAD_BMY, b, ui.bpm_t ? T_ACCENT : T_THEME, &AF_M);
             if (!skin_hud())
                 cv_rect(0, HEAD_RULE_Y, g.sx1 - g.sx0, 1, T_LINE);
             cv_blit((uint32_t)g.sx0, Y_HEAD);
@@ -355,6 +404,11 @@ static void draw_head(void)
     }
     ui.head_sig = sig;
     lz_begin(240, H_HEAD, 0, Y_HEAD);
+    if (gl) {
+        head_garden(&g, b, msg);
+        lz_blit(0, Y_HEAD);
+        return;
+    }
     tc = hud_cap(tc);
     if (!ui.menu) {                                     /* (0.8.9) the track's box, as the 0.6 had it */
         char n[2] = {(char)('1' + song.sel % NTRK), 0};
@@ -365,10 +419,10 @@ static void draw_head(void)
         cv_text_in(HEAD_TK_X, HEAD_XY, 13, &AF_X, n, T_INK, T_ACCENT);
         cv_halo = h;
     }
-    head_transport();
+    head_transport(HEAD_TR_X);
     if (!ui.roll[ROLL_BPM].from[0])
         GFX_HOOK_ALIGN(0, 0, 0, HEAD_RULE_Y, AL_V, "header text on its middle");
-    roll_text(ROLL_BPM, g.bx, HEAD_BMY, b, ui.bpm_t ? T_ACCENT : T_THEME);
+    roll_text(ROLL_BPM, g.bx, HEAD_BMY, b, ui.bpm_t ? T_ACCENT : T_THEME, &AF_M);
     lx = g.bx + g.b[2];                                /* the right end of the BPM's ink (and what follows it) */
     if (ui_prefs & PREF_BPM_LOCK) {                    /* BPM LOCK ON (#58): the lock right of the BPM */
         int32_t x = lx + HEAD_GAP;                     /* (0.8.5: drawn) a shackle over a body, 8 x 10 */
@@ -434,26 +488,41 @@ static void draw_rules(uint32_t y, uint32_t h)
 }
 /* full redraw: the strips (header, cards, panel, footer) cover the rest; only the BG between them is filled.
  * (0.8.5, the mock-up's skin) the cards RAISE boxes: no dividers between them (LINE: its rules) */
+/* the BG between the strips (GARDEN: the garden there, as under them) */
+static void fr_fill(uint32_t x, uint32_t y, uint32_t w, uint32_t h)
+{
+    if (!w || !h)
+        return;
+    if (!gd_back()) {
+        lcd_fill(x, y, w, h, T_BG);
+        return;
+    }
+    cv_begin(w, h, T_BG);
+    gd_scene((int32_t)x, (int32_t)y);
+    cv_blit(x, y);
+}
 static void draw_frame(void)
 {
     uint32_t i, ch = card_h(), gy = graph_y(), gh = graph_h(), cy = card_y(), fy = foot_y();   /* (MENU > LARGE: tall
                                                          * cards, a strip; 0.8.5 a lens page: the mock-up's) */
     if (hud_home())                                     /* (0.8.9) HUD's HOME: its strips cover the screen */
         return;
+    if (gd_back() && !gd_plain)                         /* (GARDEN) the garden round the panel, kept for its redraws */
+        gd_edges((int32_t)gy, (int32_t)gh, 0);
     if (cy > gy) {                                      /* (0.8.9) BOTTOM, HUD: the panel, then the knobs' row */
-        lcd_fill(0, H_HEAD, 240, gy - H_HEAD, T_BG);
-        lcd_fill(0, gy + gh, 240, cy - gy - gh, T_BG);
-        lcd_fill(0, cy + ch, 240, fy - cy - ch, T_BG);
+        fr_fill(0, H_HEAD, 240, gy - H_HEAD);
+        fr_fill(0, gy + gh, 240, cy - gy - gh);
+        fr_fill(0, cy + ch, 240, fy - cy - ch);
     } else {
-        lcd_fill(0, H_HEAD, 240, cy - H_HEAD, T_BG);
-        lcd_fill(0, cy + ch, 240, gy - cy - ch, T_BG);
-        lcd_fill(0, gy + gh, 240, fy - gy - gh, T_BG);
+        fr_fill(0, H_HEAD, 240, cy - H_HEAD);
+        fr_fill(0, cy + ch, 240, gy - cy - ch);
+        fr_fill(0, gy + gh, 240, fy - gy - gh);
     }
-    lcd_fill(0, cy, (uint32_t)CARD_X(0), ch, T_BG);
+    fr_fill(0, cy, (uint32_t)CARD_X(0), ch);
     for (i = 0; i < 4u; i++)                            /* right of each card */
-        lcd_fill((uint32_t)(CARD_X(i) + CARD_W), cy, i < 3u ? (uint32_t)(CARD_X(i + 1u) - CARD_X(i) - CARD_W) :
-                 240u - (uint32_t)(CARD_X(i) + CARD_W), ch, T_BG);
-    if (ux.style)                                       /* LINE: the dividers in the gaps */
+        fr_fill((uint32_t)(CARD_X(i) + CARD_W), cy, i < 3u ? (uint32_t)(CARD_X(i + 1u) - CARD_X(i) - CARD_W) :
+                 240u - (uint32_t)(CARD_X(i) + CARD_W), ch);
+    if (UX_STYLE)                                       /* LINE: the dividers in the gaps */
         draw_rules(cy, ch);
 }
 
@@ -490,13 +559,13 @@ static void card_mot_of(const int16_t *vp)
 static uint8_t card_bip;                                /* the card being drawn: a bipolar parameter (ratio_of) */
 static uint16_t gauge_col(int32_t ratio)
 {
-    return heat_on(ratio) ? card_heat(ratio, card_bip) : T_THEME;
+    return T_THEME;
 }
 static uint16_t value_col(uint16_t vc, int32_t ratio)
 {
     if (vc != T_THEME)
         return vc;
-    return heat_on(ratio) ? ux_mix(gauge_col(ratio), T_TEXT, 20) : T_TEXT;
+    return T_TEXT;
 }
 static uint8_t card_free_next;                          /* (0.8.5) the next draw_column's value is a name: free text */
 static uint8_t card_arm_next;                           /* (0.8.5) the next draw_column is an action armed (OCT+ does it):
@@ -570,7 +639,7 @@ static void draw_column_tall(uint32_t c, const char *label, const char *val, con
     }
     if (ratio >= 0) {
         int32_t gw = COL_W - 10, fx = ratio * gw / 1000;
-        cv_rrect(5, LG_GY, gw, 3, 1, ux.style ? T_LINE : T_BG, T_SURF);
+        cv_rrect(5, LG_GY, gw, 3, 1, UX_STYLE ? T_LINE : T_BG, T_SURF);
         cv_rrect(5, LG_GY, fx < 3 ? 3 : fx, 3, 1, hot ? T_ACCENT : vc == T_DIM ? T_DIM : gauge_col(ratio), T_BG);
     }
     cv_blit((uint32_t)CARD_X(c), card_y());
@@ -682,10 +751,9 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
     uint8_t sig;
     uint16_t lc = hot ? T_ACCENT : arm || mot ? T_THEME : T_MID, cb = arm ? T_TINT : CARD_BG, gk = 0;
     int low = lz_low(), hud = hud_home();
-    uint32_t fd = hud_fade();                           /* (0.8.9) HUD: the row faded while the knobs rest */
     int32_t ox = hud ? CARD_X(c) - (int32_t)c * 60 : 0, cw = hud ? 60 : COL_W;   /* (HUD's HOME: the row whole, 4 x 60) */
     int32_t x, lx = 5 + ox, uw, room = COL_W - 8, ch = (int32_t)card_h(), ry = ROLL_Y;
-    const aafont_t *vf = &AF_M;
+    const aafont_t *vf = low ? &AF_V : &AF_M;          /* (GARDEN, the owner: the pods' values 15 % smaller) */
     uint32_t n, kn, hk;
     int32_t kid = kc_tag(val, &kn);
     /* (0.8.9, the skins: the 0.6 colours) a lens card's value and gauge in its knob's colour (the knob turned: its card
@@ -694,18 +762,13 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
     if (lz_on() && kind != LK_TALL) {
         if (kid < 0 && (vc == T_THEME || vc == T_ACCENT)) {
             gk = knob_col(c, ratio, card_bip);          /* (the gauge's, the frame's) */
-            vc = heat_on(ratio) ? ux_mix(gk, T_TEXT, 20) : gk;
+            vc = gk;
         }
-        lc = arm || mot ? T_THEME : low && !hot && !hud ? T_MID : T_TEXT;   /* (0.9.0 HUD's HOME: TEXT, over the beings) */
+        lc = low ? GD_SURF : arm || mot ? T_THEME : T_TEXT;   /* (GARDEN: on the pod's burnt cap) */
     }
     if (!gk)
         vc = value_col(vc, ratio);
-    if (fd < 100u) {
-        vc = ux_mix(T_BG, vc, (int32_t)fd);
-        lc = ux_mix(T_BG, lc, (int32_t)fd);
-        if (gk)
-            gk = ux_mix(T_BG, gk, (int32_t)fd);
-    }
+    /* (GARDEN, the owner on the device: no fading while the knobs rest, it made the values illegible) */
     fmt_named = 0;                                      /* (params.c: a name, for this card only) */
     card_mot_next = 0;                                  /* (the same: MOTION, this card only) */
     card_arm_next = card_free_next = 0;
@@ -724,7 +787,8 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
     key[n + 1] = (char)('A' + ((vc >> 4) & 15u));
     key[n + 2] = (char)('A' + ((vc >> 8) & 15u));
     key[n + 3] = (char)('A' + (vc >> 12));
-    key[n + 4] = (char)(' ' + (ratio < 0 ? 0 : 1 + clamp(ratio, 0, 1000) * (COL_W - 10) / 1000));   /* (the gauge's px) */
+    key[n + 4] = (char)(' ' + (ratio < 0 ? 0 : 1 + clamp(ratio, 0, 1000) * (low ? COL_W - 20 : COL_W - 10) / 1000));   /* (the
+                                                         * gauge's px, on its own width: the pods' is 10 px narrower) */
     key[n + 5] = (char)('!' + arm + 2 * (int)lz_on());
     key[n + 6] = (char)('0' + hot + 2 * mot + 4 * (int)kind);
     {   /* (0.6.10) the gauge's colour too */
@@ -734,7 +798,7 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
         key[n + 9] = (char)('A' + ((gc >> 8) & 15u));
         key[n + 10] = (char)('A' + (gc >> 12));
     }
-    key[n + 11] = (char)('A' + fd / 13u + 8u * (uint32_t)low);
+    key[n + 11] = (char)('A' + 8u * (uint32_t)low);
     key[n + 12] = (char)(curve == DJF_NOCURVE ? '#' : 0x80 | ((curve + 64) & 127));   /* (0.9.1) the DJ FILTER's curve */
     key[n + 13] = 0;
     uw = unit[0] ? text_w(&AF_S, unit) + 3 : 0;
@@ -748,7 +812,12 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
     if (strip && !ui.roll[c].from[0])
         return;
     if (strip) {                                        /* rolling: the value strip only */
-        cv_begin(COL_W, ROLL_H, cb);
+        cv_begin(COL_W, ROLL_H, low ? T_BG : cb);       /* (GARDEN: AIR's cards have no box, as lz_begin draws them) */
+        if (low) {                                      /* (GARDEN) the garden and the pod under it */
+            gd_scene(CARD_X(c), (int32_t)card_y() + ry);
+            cv_oy = -ry;
+            cb = gd_pod(0, ch, hot);
+        }
         cv_oy = -ry;
         if (lz_on() && !low && hot && vc != T_DIM) {    /* (0.8.9 COLORS: the hot card's frame, its sides) */
             uint16_t fc = ux_mix(cb, gk ? gk : T_K(c), 70);
@@ -766,7 +835,7 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
         ov[i] = 0;
         ui.roll[c].sig = sig;
         if (!str_eq(ov, val))
-            roll_note(c, ov, val, snap || named || vf != &AF_M || kid >= 0 || kind == LK_TALL);
+            roll_note(c, ov, val, snap || named || vf == &AF_S || kid >= 0 || kind == LK_TALL);
         else if (snap)
             ui.roll[c].from[0] = 0;
         str_cpy(ui.col[c], key, sizeof ui.col[c]);
@@ -776,8 +845,8 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
         }
         if (low) {                                      /* (0.8.9) BOTTOM, HUD: no box (HUD's HOME: on the beings) */
             lz_begin((uint32_t)cw, (uint32_t)ch, hud ? c * 60u : (uint32_t)CARD_X(c), card_y());
-            if (fd < 100u)                              /* (0.9.0) faded: no outline (it cut holes in the beings) */
-                cv_halo = 0;
+            cb = gd_pod(ox, ch, hot);                   /* (GARDEN) an acorn: its cap the label's, its body the value's */
+            cv_halo = 0;
         } else {
             cv_begin(COL_W, (uint32_t)ch, T_BG);
             if (!lz_on())
@@ -798,8 +867,8 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
              * page or a layer (LK_LABEL): in M where it fits the card (capitals rows 4..14), else in S. A parameter
              * MOTION drives, an armed action: THEME */
             const aafont_t *lf = kind == LK_LABEL && 5 + text_w(&AF_M, label) <= COL_W - 2 ? &AF_M : lz_on() ? &AF_X : &AF_S;
-            int32_t ly = lf == &AF_M ? 0 : lf == &AF_X ? CARD_XY - low : 1;   /* (0.8.5 a lens card: AF_X, capitals rows 5..11;
-                                                         * 0.8.9 the knob row: 4..10) */
+            int32_t ly = lf == &AF_M ? 0 : lf == &AF_X ? CARD_XY - 2 * low : 1;   /* (0.8.5 a lens card: AF_X, capitals rows 5..11;
+                                                         * 0.8.9 the knob row: 4..10; GARDEN: 3..9, on the cap) */
             int32_t cy = ly + (lf == &AF_M ? AF_M_CAP_Y : lf == &AF_X ? AF_X_CAP_Y : AF_S_CAP_Y);
             int32_t chh = lf == &AF_M ? AF_M_CAP_H - 1 : lf == &AF_X ? AF_X_CAP_H : AF_S_CAP_H;   /* (0.8.9 M: Inter Tight's
                                                          * figures reach a row higher: the chip a row shorter) */
@@ -826,37 +895,40 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
         cv_scroll = 0;
         if (kid >= 0)                                   /* "[OCT+]": the keycap (accent: it would act; DIM: it would not) */
             x = cv_keycap(5 + ox, ry + 2, (uint32_t)kid, vc == T_ACCENT || vc == T_DIM ? vc : T_KEY, T_INK, cb);
-        else if (vf == &AF_M) {
+        else if (vf != &AF_S) {
             if (!ui.roll[c].from[0] && val[0])
                 GFX_HOOK_ALIGN(0, ry, cw, ry + ROLL_H, AL_V, "card value in its roll window");
-            x = roll_text(c, 5 + ox, ry - 1, val, vc);
+            x = roll_text(c, 5 + ox, ry - 1 + (vf == &AF_V ? CARD_VDY : 0), val, vc, vf);
         } else if (free)                                /* (a name: ellipsised where it must be) */
             x = cv_free_text(5 + ox, ry + 2, vf, val, vc, cb, room - uw);
         else
             x = cv_text_fit(5 + ox, ry + 2, vf, val, vc, cb, room - uw);
         if (unit[0]) {
-            GFX_HOOK_ALIGN(0, 0, 0, vf == &AF_M ? ry - 1 + AF_M.asc : ry + 2 + AF_S.asc, AL_B, "card unit on its value's baseline");
+            int32_t ub = vf == &AF_M ? ry - 1 + AF_M.asc : vf == &AF_V ? ry - 1 + CARD_VDY + AF_V.asc : ry + 2 + AF_S.asc;
+            GFX_HOOK_ALIGN(0, 0, 0, ub, AL_B, "card unit on its value's baseline");
             uint16_t uc = hud ? T_TEXT : T_MID;         /* (0.9.0 HUD's HOME: TEXT) */
-            cv_text_on(x + 3, ry + 2, &AF_S, unit, fd < 100u ? ux_mix(T_BG, uc, (int32_t)fd) : uc, cb);   /* on the value's
+            cv_text_on(x + 3, ub - AF_S.asc, &AF_S, unit, uc, cb);   /* on the value's
                                                          * baseline (S) */
         }
         if (!strip && curve != DJF_NOCURVE && kind != LK_TALL) {   /* (0.9.1) the DJ FILTER: its response (BOTTOM, HUD:
                                                          * 5 rows, under the value's strip) */
             uint16_t gc = hot && !lz_on() ? T_ACCENT : vc == T_DIM ? T_DIM : lz_on() ? (gk ? gk : vc) : gauge_col(ratio);
-            uint16_t tc = fd < 100u ? ux_mix(T_BG, T_LINE, (int32_t)fd) : T_LINE;
-            djf_curve(5 + ox, low ? ch - 5 : ch - 8, COL_W - 10, low ? 5 : 6, curve,
-                      curve ? gc : fd < 100u ? ux_mix(T_BG, T_MID, (int32_t)fd) : T_MID, tc);
+            djf_curve(5 + ox, low ? ch - 5 : ch - 8, COL_W - 10, low ? 5 : 6, curve, curve ? gc : T_MID, T_LINE);
         } else if (!strip && ratio >= 0) {              /* the gauge: a 2 px LINE track, the value THEME on it */
             int32_t gw = COL_W - 10, fx = ratio * gw / 1000;
             uint16_t gc = hot && !lz_on() ? T_ACCENT : vc == T_DIM ? T_DIM : lz_on() ? (gk ? gk : vc) : gauge_col(ratio);
-            uint16_t tc = fd < 100u ? ux_mix(T_BG, T_LINE, (int32_t)fd) : T_LINE;
-            if (low) {                                  /* (0.8.9) BOTTOM, HUD: a hairline, the value 2 px on it */
+            uint16_t tc = T_LINE;
+            if (low) {                                  /* (0.8.9) BOTTOM, HUD: a hairline, the value 2 px on it (GARDEN:
+                                                         * inside the acorn's body, clear of its round corners) */
+                gw = COL_W - 20;
+                fx = ratio * gw / 1000;
                 if (cv_halo) {                          /* (0.9.0) its outline 1 px round the line and the bar, not a band */
-                    cv_rect(4 + ox, ch - 5, gw + 2, 3, T_BG);
-                    cv_rect(4 + ox, ch - 6, (fx < 2 ? 2 : fx) + 2, 4, T_BG);
+                    cv_rect(9 + ox, ch - 5, gw + 2, 3, T_BG);
+                    cv_rect(9 + ox, ch - 6, (fx < 2 ? 2 : fx) + 2, 4, T_BG);
                 }
-                cv_rect(5 + ox, ch - 4, gw, 1, tc);
-                cv_rect(5 + ox, ch - 5, fx < 2 ? 2 : fx, 2, gc);
+                cv_rect(10 + ox, ch - 4, gw, 1, tc);    /* (rows 28, 29: under the value's rolling strip, 11 .. 27) */
+                if (fx)                                 /* (at 0 the line alone: no nub) */
+                    cv_rect(10 + ox, ch - 5, fx < 2 ? 2 : fx, 2, gc);
             } else if (lz_on() && kind != LK_TALL) {   /* COLORS: 3 px, rounded, as the 0.6's */
                 cv_rrect(5, ch - 6, gw, 3, 1, T_LINE, cb);
                 cv_rrect(5, ch - 6, fx < 3 ? 3 : fx, 3, 1, gc, T_LINE);
@@ -915,7 +987,7 @@ static void sound_name(const track_t *t, char *b)
 static void tabs_paint(uint32_t n, uint32_t lv, const char *const *nm, const char *const *tab, const uint8_t *cnt, uint32_t at)
 {
     uint32_t l, d;
-    int low = lz_low() || (ux.skin && (dlg_on() || name_on()) && !(ui_prefs & PREF_LARGE)), hud = hud_home();   /* (0.9.0:
+    int low = lz_low() || (UX_SKIN && (dlg_on() || name_on()) && !(ui_prefs & PREF_LARGE)), hud = hud_home();   /* (0.9.0:
                                                          * NAME too, as the dialogs) */
     int32_t y = hud ? H_HEAD : LT_Y, h = hud ? (int32_t)(card_y() < graph_y() ? card_y() : graph_y()) - H_HEAD : low ? LB_TAB_H : LT_H;
     int32_t o = LT_Y - y;                               /* (0.9.7 AIR's HOME: down to its knobs' row) */
@@ -926,18 +998,21 @@ static void tabs_paint(uint32_t n, uint32_t lv, const char *const *nm, const cha
         const char *s = nm[l];
         if (tab && tab[l] && text_w(&AF_X, s) > w - 4)
             s = tab[l];
-        if (low) {
+        if (low) {                                      /* (GARDEN) a pebble each, the lit one orange */
+            uint16_t pc = l == lv ? GD_ORANGE : T_SURF;
+            uint8_t h0 = cv_halo;
+            gd_pebble(x + 1, o, w - 2, LB_TAB_H - 1, l, pc);
+            cv_halo = 0;
             GFX_HOOK_ALIGN(x, 0, x + w, 0, AL_H, "group tab word centred on its slot");
-            cv_text_in(x, o + 2 - AF_X_CAP_Y, w, &AF_X, s, l == lv ? T_THEME : hud_cap(T_MID), T_BG);
-            dy = o + 12;
-            if (cv_halo && nd)
-                cv_rect(dx - 1, dy - 1, nd * 4, 3, T_BG);
+            cv_text_in(x, o + 2 - AF_X_CAP_Y, w, &AF_X, s, l == lv ? T_TEXT : T_MID, pc);
+            cv_halo = h0;
+            dy = o + 11;
             for (d = 0; d < (uint32_t)nd; d++) {
                 int32_t px = dx + (int32_t)d * 4;
                 if (l == lv && d == at)
-                    cv_rect(px - 1, dy, 4, 1, T_THEME);
+                    cv_rect(px - 1, dy, 4, 1, T_TEXT);
                 else
-                    cv_rect(px, dy, 2, 1, l == lv ? hud_cap(T_MID) : T_DIM);
+                    cv_rect(px, dy, 2, 1, l == lv ? T_MID : T_DIM);
             }
             continue;
         }
@@ -991,7 +1066,7 @@ static void draw_tabs(void)
     const char *nm[8], *tab[8];
     uint8_t cnt[8];
     uint32_t lv, at, n = tabs_now(nm, tab, cnt, &lv, &at), k,
-             sig = (lv + 1u) * 2654435761u + at * 40503u + ux.gen * 977u + ux.style * 7u + lz_fam() * 131u + 1u +
+             sig = (lv + 1u) * 2654435761u + at * 40503u + ux.gen * 977u + UX_STYLE * 7u + lz_fam() * 131u + 1u +
                    (uint32_t)hud_home() * 31u + n * 7919u;
     for (k = 0; k < n; k++)
         sig = (sig ^ str_hash(cnt[k], nm[k])) * 16777619u;
@@ -1098,12 +1173,23 @@ static int32_t crumb_count(char *b)
 static __attribute__((noinline)) void draw_crumbs(int32_t y, uint16_t fg, uint16_t last)
 {
     char cnt[8];
-    int32_t cw = crumb_count(cnt), mx = cw ? 234 - cw - 8 : 234;
+    int32_t cw = crumb_mx ? 0 : crumb_count(cnt), mx = crumb_mx ? crumb_mx : cw ? 234 - cw - 8 : 234;
     char b[48];
     uint32_t i, k = 0;
     int32_t x;
     const aafont_t *f = lz_on() ? &AF_X : &AF_S;        /* (0.8.5: a lens page, the mock-up's small mono) */
     foot_crumbs(b, sizeof b);
+    if (crumb_mx) {                                     /* (GARDEN: the line's, as the mockups': its first part and its
+                                                         * last, "EDIT . OSC", "HOME . ECO") */
+        for (i = 0; b[i] && (uint8_t)b[i] != 0xB7u; i++)
+            ;
+        for (k = i; b[k]; k++)
+            if ((uint8_t)b[k] == 0xB7u)
+                x = (int32_t)k;
+        if (b[i] && (uint32_t)x != i)
+            str_cpy(b + i, b + x, sizeof b - i);
+        k = 0;
+    }
     for (i = 0; b[i]; i++)                              /* (the last part: after the last dot) */
         if ((uint8_t)b[i] == 0xB7u)
             k = i + 2u;
@@ -1179,6 +1265,10 @@ static void draw_foot(void)
         sig += str_hash(str_hash(act_ready() ? 7u : 3u, ha), hb);
     }
     sig += (uint32_t)accw * 977u;
+    if (lz) {                                           /* (GARDEN: the track and its sound) */
+        char tt[40];
+        sig += str_hash(head_title(tt), tt) + (uint32_t)gd_back() * 31u + (uint32_t)hud_home() * 7u;
+    }
     if (!ui.force && sig == ui.foot_sig)
         return;
     ui.foot_sig = sig;
@@ -1212,6 +1302,16 @@ static void draw_foot(void)
                 cv_rect(sx, 14, 9, 2, T_TEXT);          /* the step sounding */
         }
     }
+    if (lz && (hud_home() || gd_back())) {             /* (GARDEN) the breadcrumb is the header's: here the track and its
+                                                         * sound (the header's centre before), the page's count */
+        char cnt[8];
+        int32_t cw = crumb_count(cnt);
+        head_title(s);
+        GFX_HOOK_ALIGN(0, ry + AF_X_CAP_Y, 0, ry + AF_X_CAP_Y + AF_X_CAP_H, AL_V, "footer breadcrumb on its line");
+        cv_free_text(6, ry, &AF_X, s, T_TEXT, T_BG, 226 - cw - 6);
+        if (cw)
+            cv_text_r(234, ry, &AF_X, cnt, T_TEXT, T_BG);
+    } else
     draw_crumbs(ry, hud_cap(T_DIM), accw ? T_ACCENT : hud_cap(T_DIM));   /* (0.9.0 HUD's HOME: TEXT, over the beings) */   /* (0.8.5) row 2: the breadcrumb (the track's engine and sound:
                                                          * the header's centre) */
     lz_blit(0, foot_y());
@@ -1778,160 +1878,146 @@ static void draw_columns(void)
 }
 
 
-/* The power-on splash (main.c fm1_main, web/emu felucca_web.c; JIANT 0.5): the maker's signature ("Jiant FM1",
- * tools/gen_signature.py: 24 strokes, 214 points) written in the thermal colours, stroke by stroke as the hand went:
- * the line cold (cyan) where the pen started, hotter along its way (violet, red, orange) to yellow white where it
- * ended, the pen's tip a white point while it writes; under it, small, the version and "by Juan Jiant". Written over
- * SPL_WRITE ms (splash_write, main.c's splash loop; MENU > ANIM OFF: whole at once). Lines only, the canvas
- * redrawn a step (~700 short lines). In the saved palette (settings_init before it) */
-#include "ui_signature.h"
-#define SPL_WRITE 800u                              /* ms: the signature written (was 900; 0.6.51: 600 -> 800) */
-#define SPL_HOLD 900u                               /* .. then shown whole, before the UI (was 1100; 0.6.51: 500 -> 900) */
-#define SPL_SY 40                                   /* the signature's canvas on the screen (240 x SIG_H + 12) */
-#define SPL_TY 186                                  /* the two lines under it */
-static const char *const SPLASH_LINES[] = {FELUCCA_VERSION, "by Juan Jiant"};
-static uint8_t spl_anim;                            /* main.c: 1 = the signature to be written (splash_write) */
-static int32_t sig_seg(uint32_t i)                  /* segment i -> i + 1's length, px (0: a stroke starts at i + 1) */
+/* The power-on splash (main.c fm1_main, web/emu felucca_web.c; GARDEN, the owner's pick "seed to bloom"): in the
+ * garden (ui_garden.c's scene, the sails turning), a seed drops and hops, kicks up the soil and grows into a tulip in
+ * four spurts, each past its height and back with a springy sway, on an uneven stem of pixel blocks; its leaves pop
+ * open as it passes them, its bud swells and bursts open with a bounce. GARDEN's letters grow up out of the ground one
+ * after another, each with a bounce, then "ft. JIANT" comes in under it; the version small on the soil. Over SPL_WRITE
+ * ms (60 steps; MENU > ANIM OFF: the end at once), then held SPL_HOLD (the signature's splash until GARDEN) */
+#define SPL_WRITE 2600u                             /* ms: the bloom (was 800, the signature) */
+#define SPL_HOLD 500u                               /* .. then held, before the UI (was 900) */
+#define SPL_N 60                                    /* its steps */
+static const char *const SPLASH_LINES[] = {"GARDEN", "ft. JIANT", FELUCCA_VERSION};
+static uint8_t spl_anim;                            /* main.c: 1 = the bloom to be played (splash_write) */
+static int32_t spl_rmp(int32_t f, int32_t a, int32_t b) { return f <= a ? 0 : f >= b ? 256 : (f - a) * 256 / (b - a); }
+static int32_t spl_eob(int32_t p, int32_t k)        /* an ease out past the end and back (k: how far, Q8): 0..256 */
 {
-    int32_t dx = SIG_PTS[2u * i + 2u] - SIG_PTS[2u * i], dy = (SIG_PTS[2u * i + 3u] & 127) - (SIG_PTS[2u * i + 1u] & 127);
-    if (SIG_PTS[2u * i + 3u] & 128u)                /* (y's bit 7: a stroke starts) */
-        return 0;
-    dx = dx < 0 ? -dx : dx;
-    dy = dy < 0 ? -dy : dy;
-    return dx > dy ? dx + dy / 2 : dy + dx / 2;
+    int32_t q = p - 256;
+    return 256 + (q * q / 256) * (((k + 256) * q / 256) + k) / 256;
 }
-static int32_t sig_len(void)
+static int32_t spl_spring(int32_t f, int32_t f0, int32_t a)   /* a damped sway after a jolt at f0 (Q4 px) */
 {
-    static int32_t n;
-    uint32_t i;
-    if (!n)
-        for (i = 0; i + 1u < SIG_N; i++)
-            n += sig_seg(i);
-    return n;
+    int32_t d = f - f0;
+    return d < 0 || d > 24 ? 0 : a * (256 - d * 256 / 24) / 256 * gd_s((uint32_t)d * 9000u) / 256;
 }
-/* (0.5.2) the stroke point j of the signature, smoothed (1 4 6 4 1 over its neighbours inside its stroke [s, e],
- * the ends kept), Q4 */
-static void sig_pt(uint32_t j, uint32_t s, uint32_t e, int32_t *x, int32_t *y)
-{
-    static const uint8_t W[5] = {1, 4, 6, 4, 1};
-    int32_t k, sx = 0, sy = 0;
-    if (j == s || j == e) {
-        *x = SIG_PTS[2u * j] * 16;
-        *y = (SIG_PTS[2u * j + 1u] & 127) * 16;
-        return;
-    }
-    for (k = -2; k <= 2; k++) {
-        int32_t i = (int32_t)j + k;
-        uint32_t m = (uint32_t)(i < (int32_t)s ? (int32_t)s : i > (int32_t)e ? (int32_t)e : i);
-        sx += W[k + 2] * SIG_PTS[2u * m];
-        sy += W[k + 2] * (SIG_PTS[2u * m + 1u] & 127);
-    }
-    *x = sx;                                            /* (/16 x 16: Q4) */
-    *y = sy;
+static void spl_txt(int32_t x, int32_t y, const aafont_t *af, const char *t, uint16_t fg, int32_t y0)
+{                                                   /* a text, in the strips it reaches only (drawn once) */
+    if (y < y0 + (int32_t)cv_h && y + af->h > y0)
+        cv_text_flags(x, y, af, t, fg, GD_SURF, 0);
 }
-/* (0.5.2) the splash's creatures: three beings swimming in from outside, round the signature, warmer as it is
- * written (w 0..256), pulsing once it is; granules of cytoplasm drifting. Nothing kept: all from ms */
-static void splash_beings(uint32_t ms, int32_t w)
+/* the strip of rows y0 .. y0 + cv_h - 1 at step f (0 .. SPL_N) */
+static void splash_strip(int32_t f, int32_t y0)
 {
-    static const uint8_t SP[3] = {0, 1, 7};
-    uint32_t k, in = ms < 500u ? ms * 256u / 500u : 256u;
-    int32_t pulse = ms > SPL_WRITE ? bg_sin((ms - SPL_WRITE) * 200u) >> 8 : 0;   /* (+-128 once written) */
-    for (k = 0; k < 18u; k++) {                         /* the cytoplasm */
-        uint32_t h = k * 2654435761u;
-        int32_t gx = (int32_t)(((h >> 8) % 240u + ms * (1u + (h >> 29)) / 40u) % 240u);
-        int32_t gy = 4 + (int32_t)(((h >> 16) % 112u) + (uint32_t)(bg_sin(ms * 90u + h) >> 13) + 8u) % 116;
-        cv_rect(gx, gy, 1 + (int32_t)(h >> 31), 1 + (int32_t)(h >> 31), ux_mix(T_BG, T_THEME, 18 + (int32_t)(h >> 29) * 4));
-    }
-    for (k = 0; k < 3u; k++) {
-        const genome_t *g = &GENOME[SP[k]];
-        uint32_t a = ms * (44u + k * 9u) + k * 21845u;  /* (round the signature, each its own speed) */
-        int32_t far = 256 + (int32_t)(256u - in) * 3 / 2;   /* (from outside the screen, in the first 0.5 s) */
-        int32_t cx = 120 * 16 + ((((108 * 16) * bg_sin(a + 0x4000u)) >> 15) * far >> 8);   /* (round the edges) */
-        int32_t cy = 62 * 16 + ((((54 * 16) * bg_sin(a)) >> 15) * far >> 8) + (bg_sin(ms * 260u + k * 9000u) >> 11);
-        int32_t r = (6 + (int32_t)k) * 16, en = w * 60 / 256 + (pulse > 0 ? pulse / 2 : 0);   /* (small, cool: behind) */
-        bfeat_t f = {g->k0 + g->kk / 2, 110 + pulse / 3, 90, g->lob, 1 + (int32_t)(k & 1u), 90, 0, 40};
-        r = r * (256 + (bg_sin(ms * 180u + k * 15000u) >> 10) + en / 3) / 256;   /* (it breathes, it swells) */
-        being_lines(g, &f, cx, cy, r, en, ms * 220u + k * 20000u);
-    }
-}
-/* the signature up to px of its length (>= sig_len(): whole) at ms after the start: beings behind it; each stroke a
- * smooth curve (Catmull-Rom through its smoothed points, 4 steps a span), the pen round, thin at a stroke's ends and
- * full in its middle; the pen's tip a glowing nucleus (0.5.2: it was straight segments of a 2 px pen) */
-static void splash_sig(int32_t px, uint32_t ms)
-{
-    int32_t tot = sig_len(), acc = 0, x0 = (240 - SIG_W) / 2 * 16, y0 = 6 * 16, tipx = -1, tipy = 0;
-    uint32_t s = 0, e, j, q;
-    int mono = ux.mono || settings.palette == UI_BW_INDEX;
-    cv_begin(240, SIG_H + 12, T_BG);
-    if (!mono)
-        splash_beings(ms, px >= tot ? 256 : px * 256 / (tot ? tot : 1));
-    while (s < SIG_N && acc < px) {
-        for (e = s + 1u; e < SIG_N && !(SIG_PTS[2u * e + 1u] & 128u); e++) {}
-        e--;                                            /* the stroke: points s .. e */
-        for (j = s; j < e && acc < px; j++) {
-            int32_t L = sig_seg(j), p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y, lx, ly;
-            sig_pt(j > s ? j - 1u : j, s, e, &p0x, &p0y);
-            sig_pt(j, s, e, &p1x, &p1y);
-            sig_pt(j + 1u, s, e, &p2x, &p2y);
-            sig_pt(j + 2u <= e ? j + 2u : e, s, e, &p3x, &p3y);
-            lx = p1x;
-            ly = p1y;
-            for (q = 1; q <= 4u; q++) {                  /* Catmull-Rom, t = q / 4 (Q8) */
-                int32_t t = (int32_t)q * 64, t2 = t * t >> 8, t3 = t2 * t >> 8, part = acc + L * (int32_t)q / 4;
-                int32_t cxp = (2 * p1x * 256 + (p2x - p0x) * t + (2 * p0x - 5 * p1x + 4 * p2x - p3x) * t2 +
-                               (3 * p1x - p0x - 3 * p2x + p3x) * t3) >> 9;
-                int32_t cyp = (2 * p1y * 256 + (p2y - p0y) * t + (2 * p0y - 5 * p1y + 4 * p2y - p3y) * t2 +
-                               (3 * p1y - p0y - 3 * p2y + p3y) * t3) >> 9;
-                int32_t u = (int32_t)(j - s) * 256 / (int32_t)(e - s ? e - s : 1u) + (int32_t)q * 64 / (int32_t)(e - s ? e - s : 1u);
-                int32_t wd = 6 + (bg_sin((uint32_t)u * 128u) * 13 >> 15);   /* (half width, Q4: thin ends, full middle) */
-                int32_t dx = cxp - lx, dy = cyp - ly, dl = (dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy);
-                uint16_t c = mono ? T_TEXT : heat_col(24 + (part < px ? part : px) * 220 / (tot ? tot : 1));
-                if (part > px)                          /* (the pen is here) */
-                    q = 4u;
-                if (dl) {
-                    int32_t nx = -dy * wd / dl, ny = dx * wd / dl;
-                    og_line(x0 + lx, y0 + ly, x0 + cxp, y0 + cyp, c);
-                    if (wd > 3) {
-                        og_line(x0 + lx + nx, y0 + ly + ny, x0 + cxp + nx, y0 + cyp + ny, c);
-                        og_line(x0 + lx - nx, y0 + ly - ny, x0 + cxp - nx, y0 + cyp - ny, c);
-                    }
-                }
-                lx = cxp;
-                ly = cyp;
-            }
-            acc += L;
-            if (acc > px) {
-                tipx = x0 + lx;
-                tipy = y0 + ly;
+    static const uint8_t SP[4][3] = {{14, 21, 90}, {23, 29, 170}, {31, 36, 240}, {40, 44, 255}};   /* the spurts: from, to, height */
+    int32_t X = 74, gy, H = 46, h = 6, i, lean = 0, bend = 0, px = X, v;
+    char c[2] = {0, 0};
+    gd.t = (uint32_t)f * 68u;                           /* (the scene's clock: the sails turning slowly, no music) */
+    gd.b = 0;
+    gd.e = 0;
+    gd_gp = 128;
+    gd_mill = gd.t;
+    gd_scene(0, y0);
+    gy = gd_gy(X) / 16 + 1;
+    cv_oy = -y0;
+    if (f < 13) {                                       /* the seed falling, then a hop on landing */
+        int32_t sy = f < 10 ? 20 + (gy - 22) * f * f / 100 : gy - 2 - (f == 11 ? 5 : f == 12 ? 2 : 0);
+        gd_blob(X * 16, sy * 16, 44, 6, GD_BURNT, 2, 256, 300);
+    } else {
+        if (f < 18)                                     /* the soil kicked up */
+            for (i = 0; i < 6; i++)
+                cv_rect(X + (i & 1 ? 1 : -1) * (3 + i) * (f - 12) / 2, gy - (f - 13) * (2 + i % 3) + (f - 13) * (f - 13) / 2,
+                        2, 2, GD_C[GC_DIRTDK]);
+        for (i = 0; i < 4; i++) {
+            int32_t p = spl_rmp(f, SP[i][0], SP[i][1]), prev = i ? SP[i - 1][2] : 20;
+            if (p > 0)
+                h = H * (prev + (SP[i][2] - prev) * spl_eob(p, 400) / 256) / 256;
+            lean += spl_spring(f, SP[i][1], 56 - i * 8);
+        }
+        for (v = 0; v < h; v += 3) {                    /* the stem: 3 px blocks, each a little off, thicker at the foot */
+            uint32_t r = gd_h(v * 7 + 3, 41);
+            int32_t jx = (r >> 14 & 3u) == 0u ? -1 : (r >> 14 & 3u) == 3u ? 1 : 0, w = v < h / 4 ? 5 : (r & 1u) ? 4 : 3;
+            bend = (v * v / (h + 1)) * lean / 16 / (h + 1) + gd_s((uint32_t)v * 1900u + 9000u) * 2 / 256;
+            px = X + bend + jx;
+            cv_rect(px - w / 2, gy - v - 3, w, 3, GD_INK);
+            if ((r >> 9 & 7u) == 0u && v > 6 && v < h - 6)   /* (a node now and then) */
+                cv_rect(px - w / 2 - 1, gy - v - 1, w + 2, 1, GD_INK);
+        }
+        for (i = 0; i < 3; i++) {                       /* the leaves, popping open as the stem passes them */
+            int32_t lv = H * (22 + i * 20) / 100, p = spl_rmp(f, 16 + i * 8, 22 + i * 8);
+            if (h < lv || !p)
+                continue;
+            bend = (lv * lv / (h + 1)) * lean / 16 / (h + 1);
+            gd_leaf((X + bend) * 16, (gy - lv) * 16, i & 1 ? 49152u + 7000u : 49152u - 10000u,
+                    (12 + (i == 1 ? 5 : 0)) * 16 * spl_eob(p, 600) / 256, 6 * 16 * p / 256, i & 1 ? GD_BURNT : GD_BLUE);
+        }
+        {                                               /* the head: a bud swelling, then the cup bursting open */
+            int32_t bx = px * 16, by = (gy - h - 2) * 16, bud = spl_rmp(f, 18, 36), op = spl_rmp(f, 38, 46), w, top, pt[10];
+            if (!op) {
+                int32_t r = 32 + 64 * bud / 256 + (f > 30 ? 6 * gd_s((uint32_t)f * 14000u) / 256 : 0);
+                gd_blob(bx, by - r / 2, r, 7, GD_BLUE, 5, 230, 300);
+            } else {
+                op = spl_eob(op, 900);
+                w = 4 * 560 * (128 + op / 2) / 256 / 16;
+                top = by - 6 * 560 * (128 + op / 2) / 256 / 16;
+                pt[0] = bx - w; pt[1] = by;
+                pt[2] = bx - w * (5 + op / 128) / 5; pt[3] = top;
+                pt[4] = bx; pt[5] = top - w * 3 / 4 * op / 256;
+                pt[6] = bx + w * (5 + op / 128) / 5; pt[7] = top;
+                pt[8] = bx + w; pt[9] = by;
+                gd_poly(pt, 5, 2, GD_ORANGE);
+                pt[0] = bx - w * 2 / 5; pt[2] = bx; pt[3] = top + 16; pt[4] = bx + w * 2 / 5; pt[5] = by;
+                gd_poly(pt, 3, 2, GD_BURNT);
             }
         }
-        s = e + 1u;
     }
-    if (tipx >= 0 && !mono) {                           /* the pen's tip: a nucleus, glowing */
-        bg_ring(tipx, tipy, 48, heat_col(200));
-        bg_ring(tipx, tipy, 24, heat_col(250));
-    } else if (tipx >= 0) {
-        cv_rrect(tipx / 16 - 2, tipy / 16 - 2, 5, 5, 2, T_TEXT, T_BG);
+    if (f >= 43) {                                      /* GARDEN whole (its letters all up) */
+        spl_txt(120 - text_w(&AF_L, SPLASH_LINES[0]) / 2, 74, &AF_L, SPLASH_LINES[0], GD_INK, y0);
+    } else {                                            /* .. its letters growing up out of the ground, each with a bounce */
+        int32_t x = 120 - text_w(&AF_L, SPLASH_LINES[0]) / 2;
+        int16_t c1 = cv_cy1;
+        cv_cy1 = (int16_t)clamp(gy - 22 - y0, 0, (int32_t)cv_h);  /* (under the ground: hidden) */
+        for (i = 0; i < 6; i++) {
+            int32_t r = spl_rmp(f, 28 + i * 3, 36 + i * 3);
+            c[0] = SPLASH_LINES[0][i];
+            if (r > 0)
+                spl_txt(x, 74 + 90 - 90 * spl_eob(r, 500) / 256, &AF_L, c, GD_INK, y0);
+            x += text_w(&AF_L, c);
+        }
+        cv_cy1 = c1;
     }
-    cv_blit(0, SPL_SY);
+    if (f >= 46)                                        /* ft. JIANT, coming in */
+        spl_txt(120 - text_w(&AF_M, SPLASH_LINES[1]) / 2, 104, &AF_M, SPLASH_LINES[1],
+                ux_mix(gd_sky(110), GD_BURNT, spl_rmp(f, 46, 53) * 100 / 256), y0);
+    if (f >= SPL_N)                                     /* the version, small on the soil */
+        if (220 < y0 + (int32_t)cv_h && 220 + AF_S.h > y0)
+            cv_text_flags(120 - text_w(&AF_S, SPLASH_LINES[2]) / 2, 220, &AF_S, SPLASH_LINES[2], GD_SURF, GD_C[GC_S2], 0);
+    cv_oy = 0;
+}
+static void splash_at(int32_t f)
+{
+    int32_t y0;
+    static const uint8_t ROWS[3] = {100, 120, 20};      /* (GARDEN's line, ft. JIANT's, the version's: each in one strip) */
+    uint32_t k;
+    for (y0 = 0, k = 0; k < 3u; y0 += ROWS[k++]) {
+        cv_begin(240, ROWS[k], T_BG);
+        splash_strip(f, y0);
+        cv_blit(0, (uint32_t)y0);
+    }
 }
 static void draw_splash(void)
 {
-    uint32_t k;
-    lcd_fill(0, 0, 240, 240, T_BG);
-    cv_begin(240, 36, T_BG);
-    for (k = 0; k < 2u; k++)
-        cv_text_in(0, (int32_t)k * 16, 240, &AF_S, SPLASH_LINES[k], k ? T_DIM : T_MID, T_BG);
-    cv_blit(0, SPL_TY);
-    splash_sig(spl_anim && !(ui_prefs & PREF_ANIM_OFF) ? 0 : 0x7FFFFFFF, SPL_WRITE);
+    splash_at(spl_anim && !(ui_prefs & PREF_ANIM_OFF) ? 0 : SPL_N);
     lcd_sync();
 }
-/* main.c's splash loop: the signature as written ms after the start */
+/* main.c's splash loop: the bloom as it is ms after the start */
 static void splash_write(uint32_t ms)
 {
-    if (!spl_anim || (ui_prefs & PREF_ANIM_OFF))
+    static int32_t last = -1;
+    int32_t f = ms >= SPL_WRITE ? SPL_N : (int32_t)(ms * SPL_N / SPL_WRITE);
+    if (!spl_anim || (ui_prefs & PREF_ANIM_OFF) || f == last)   /* (a step drawn once) */
         return;
-    splash_sig(ms >= SPL_WRITE ? 0x7FFFFFFF : (int32_t)((int64_t)sig_len() * ms / SPL_WRITE), ms);
+    last = f;
+    splash_at(f);
     lcd_sync();
 }
 
@@ -1993,7 +2079,7 @@ static void draw_countin(void)
         char d[2] = {(char)('4' - j), 0};
         int now = j == e % 4u, gone = j < e % 4u;
         uint16_t fill = now ? T_THEME : T_SURF;
-        if (ux.style && !now) {                       /* LINE: no SURF card, a 1 px rule round it */
+        if (UX_STYLE && !now) {                       /* LINE: no SURF card, a 1 px rule round it */
             cv_rrect(x, 0, 48, CI_H, 8, T_RULE, T_BG);
             cv_rrect(x + 1, 1, 46, CI_H - 2, 7, T_BG, T_RULE);
         } else
@@ -2150,7 +2236,7 @@ static void fill_around(const int16_t (*r)[4], uint32_t n)
         }
     }
 }
-#define DLG_TAB_H (ux.skin && !(ui_prefs & PREF_LARGE) ? LB_TAB_H : LT_H)   /* the dialogs' tabs (tabs_paint) */
+#define DLG_TAB_H (UX_SKIN && !(ui_prefs & PREF_LARGE) ? LB_TAB_H : LT_H)   /* the dialogs' tabs (tabs_paint) */
 static void dlg_tabs(uint32_t lv)
 {
     static const char *const DN[3] = {"NOTICE", "DICE", "NAME"};
@@ -2171,7 +2257,7 @@ static void dlg_crumb(const char *a, const char *b)     /* "SAVE . NOTICE . CONF
 /* (0.8.9) a dialog's card: COLORS rounded, its top THEME; BOTTOM / HUD none (a THEME line over it) */
 static uint16_t dlg_card(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t under)
 {
-    if (ux.skin) {
+    if (UX_SKIN) {
         cv_rect(x, y, w, 1, T_THEME);
         return under;
     }
@@ -2181,8 +2267,8 @@ static uint16_t dlg_card(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t un
 }
 static void dlg_button(int32_t x, int32_t y, int32_t w, const char *k, const char *a, int yes, uint16_t under)
 {
-    uint16_t bg = ux.skin ? under : T_SURF;
-    if (!ux.skin)
+    uint16_t bg = UX_SKIN ? under : T_SURF;
+    if (!UX_SKIN)
         cv_rrect(x, y, w, 34, 4, T_SURF, under);
     cv_text_on(x + 6, y + 5 - AF_X_CAP_Y, &AF_X, k, T_DIM, bg);
     cv_text_on(x + 6, y + 16 - AF_M_CAP_Y, &AF_M, a, yes ? T_ACCENT : T_TEXT, bg);
@@ -2207,10 +2293,10 @@ static void draw_confirm(void)
         uint16_t cb, kb;
         cv_begin(240, 30, T_BG);
         cb = dlg_card(4, 0, 232, 30, T_BG);
-        kb = ux.skin ? cb : T_SURF;
+        kb = UX_SKIN ? cb : T_SURF;
         cv_text_on(10, 7 - AF_S_CAP_Y, &AF_S, a, T_TEXT, cb);
         cv_text_on(10, 20 - AF_X_CAP_Y, &AF_X, b, T_DIM, cb);
-        if (!ux.skin) {
+        if (!UX_SKIN) {
             cv_rrect(148, 4, 40, 23, 3, T_SURF, cb);
             cv_rrect(192, 4, 40, 23, 3, T_SURF, cb);
         }
@@ -2243,23 +2329,6 @@ static void draw_confirm(void)
     dlg_crumb("NOTICE", "CONFIRM");
 }
 
-/* the stored STYLE (ui_style: the menu, a settings import, a restore) and SKIN (0.8.9, ui_skin) into gfx.c's copies: the
- * tokens again, all redrawn */
-static void style_apply(void)
-{
-    if (ui_style > ST_LINE)                             /* 2, the retired PIXEL: LINE; unknown: FLAT */
-        ui_style = ui_style == 2u ? ST_LINE : ST_FLAT;
-    if (ui_skin >= SKIN_N)                              /* (0.8.9) SKIN: unknown, COLORS */
-        ui_skin = SKIN_COLORS;
-    else if (ui_skin == SKIN_BOTTOM_OLD)                /* (0.9.17) BOTTOM, retired: AIR */
-        ui_skin = SKIN_AIR;
-    if (ux.style != ui_style || ux.skin != ui_skin) {
-        ux.style = ui_style;
-        ux.skin = ui_skin;
-        palette_set(settings.palette);
-        ui.force = 1;
-    }
-}
 
 /* (0.8.5) the end of a lens screen drawn outside the page path (GEN): the second message, the timers, the footer and the
  * tabs */
@@ -2285,8 +2354,13 @@ static void ui_draw_page(uint32_t counting);
 static void ui_draw(void)
 {
     static uint8_t counting;
-    style_apply();
-    ui.frame++;
+    {   /* MENU > MOTION: the frame advances by its share of normal speed (ui.c MOTION_Q8); 100% is one frame a draw */
+        static uint16_t frame_acc;
+        frame_acc += MOTION_Q8[ui_motion & 3u];
+        ui.frame += frame_acc >> 8;
+        frame_acc &= 255u;
+        gd_tick();                                      /* (GARDEN: the scene's clock, ui_garden.c) */
+    }
     if (counting != (uint8_t)seq_counting()) {          /* a count-in began or ended: the page drawn again after it */
         counting = (uint8_t)seq_counting();
         ui.force = 1;
@@ -2421,6 +2495,10 @@ static void ui_draw_body(uint32_t counting)
             dc_frame(ui.force);
             ui.force = 1;
         }
+    }
+    if (eco_xy_on()) {                                  /* (JIANT, DYN) ECO's X-Y view: the whole screen, the compressor */
+        draw_xy();
+        skip = 1;
     }
     if (ui.force && !skip)
         draw_frame();

@@ -38,14 +38,14 @@ static void gen_reset(void)
     ui_power_on();
     ui_rec_prefs |= PREF_SIX >> 8; rp_apply();          /* TRACKS 6 */
     cpt_res = gt_cpt; cpt_cores = gt_cpt ? 2u : 0u;
-    settings.palette = UI_JIANT_INDEX; palette_set(UI_JIANT_INDEX);
+    settings.palette = 0u; palette_set(0u);   /* (GARDEN, the one palette) */
 }
 static void gen_with(uint32_t genre, uint32_t seed, uint32_t energy, uint32_t form)
 {
     uint32_t k;
     gp.genre = (uint8_t)genre; gp.seed = (uint16_t)seed; gp.energy = (uint8_t)energy; gp.form = (uint8_t)form;
     for (k = 0; k < GP_N; k++) gp.amt[k] = GA_AUTO;
-    gp.complex = 50; gp.swing = GA_AUTO; gp.human = 30;
+    gp.complex = 50; gp.swing = GA_AUTO;
     gen_go();
 }
 static uint32_t all_sig(void)
@@ -206,11 +206,11 @@ int main(void)
         uint32_t ls = 0, lct = 0, liv = 0, lrep = 0, lstep = 0, loct = 0, l5 = 0, l5r = 0, lend = 0, lend_ok = 0, lbars = 0, lbars_r = 0;
         uint32_t pmov = 0, pmot = 0, bch = 0, broot = 0;
         for (g = 0; g < NGENRE; g++)
-            for (s = 0; s < 12u; s++) {
+            for (s = 0; s < 40u; s++) {
                 uint32_t pd;
                 gp.genre = (uint8_t)(g + 1u); gp.seed = (uint16_t)(2000u + 41u * s + g); gp.energy = (uint8_t)(15u + (s * 23u) % 80u); gp.form = 0;
                 for (k = 0; k < GP_N; k++) gp.amt[k] = GA_AUTO;
-                gp.complex = (uint8_t)(10u + (s * 31u) % 85u); gp.swing = GA_AUTO; gp.human = 30;
+                gp.complex = (uint8_t)(10u + (s * 31u) % 85u); gp.swing = GA_AUTO;
                 gen_go();
                 for (k = 0; k < GEN_NT; k++) {            /* the SCALE page */
                     const track_t *t = &trk[k];
@@ -336,7 +336,7 @@ int main(void)
         for (seeds = 1; seeds <= 6u; seeds++) {
             uint32_t bs, a0, b0;
             gen_reset();
-            gen_with(15, seeds, 50, 1);                 /* SYNTH POP, PARTS: A B A C */
+            gen_with(5, seeds, 50, 1);                  /* SYNTH POP, PARTS: A B A C */
             bs = gs.trk_of[RL_BASS];
             if (!proj_import(&pa, &proj_slot[0], sizeof(project_store_t)) || !proj_import(&pb, &proj_slot[1], sizeof(project_store_t)) ||
                 !proj_import(&pc, &proj_slot[2], sizeof(project_store_t))) continue;
@@ -364,7 +364,7 @@ int main(void)
                 rot_ok += a0 && b0 && a0 != b0;
             }
             gen_reset();
-            gen_with(6, seeds, 50, 1);                  /* TECHNO: one key, the loop kept */
+            gen_with(3, seeds, 50, 1);                  /* TECHNO: one key, the loop kept */
             if (proj_import(&pa, &proj_slot[0], sizeof(project_store_t)) && proj_import(&pc, &proj_slot[2], sizeof(project_store_t)))
                 loop_ok += pa.t[gs.trk_of[RL_BASS]].p[P_ROOT] == pc.t[gs.trk_of[RL_BASS]].p[P_ROOT];
         }
@@ -377,7 +377,7 @@ int main(void)
     {
         uint32_t h0, h1, h2, k0, k2;
         gen_reset();
-        gp.genre = 1; gp.seed = 77; gp.energy = 50; gp.form = 0; gp.complex = 50; gp.swing = GA_AUTO; gp.human = 30;
+        gp.genre = 1; gp.seed = 77; gp.energy = 50; gp.form = 0; gp.complex = 50; gp.swing = GA_AUTO;
         for (k = 0; k < GP_N; k++) gp.amt[k] = GA_AUTO;
         gp.amt[GP_DRUMS] = 20; gen_go(); h0 = hits_all(&trk[gs.trk_of[RL_DRUM]]); k0 = hits_of(&trk[gs.trk_of[RL_DRUM]], 0);
         gp.amt[GP_DRUMS] = 60; gen_go(); h1 = hits_all(&trk[gs.trk_of[RL_DRUM]]);
@@ -400,7 +400,7 @@ int main(void)
         gen_reset();
         gp.genre = 2; gp.seed = 9; gp.energy = 50; gp.form = 0;
         for (k = 0; k < GP_N; k++) gp.amt[k] = GA_AUTO;
-        gp.amt[GP_LEAD] = 0; gp.amt[GP_ARP] = 0; gp.complex = 50; gp.swing = GA_AUTO; gp.human = 30;
+        gp.amt[GP_LEAD] = 0; gp.amt[GP_ARP] = 0; gp.complex = 50; gp.swing = GA_AUTO;
         gen_go();
         {
             uint32_t on = 0;
@@ -456,15 +456,15 @@ int main(void)
         gen_with(1, 3, 50, 0);
         bad += gcheck("the kit's snare and clap into the reverb (SEND bus 3, 6..63)", DXS_BUS(dx_snd[DV_SNARE]) == 3u && DXS_AMT(dx_snd[DV_SNARE]) >= 6 &&
                       DXS_BUS(dx_snd[DV_CLAP]) == 3u);
-        for (seeds = 1; seeds <= 4u; seeds++) {         /* POST PUNK: the bass high on the neck, never below E2 nor above A3 */
-            gen_with(17, seeds, 50, 0);
+        for (seeds = 1; seeds <= 4u; seeds++) {         /* SYNTH POP (HOOK's bass, high on the neck): the bass high on the neck */
+            gen_with(5, seeds, 50, 0);
             bs = gs.trk_of[RL_BASS];
             for (i2 = 0; i2 < dlen(&trk[bs]); i2++)
                 if (trk[bs].step[i2].time == ST_NOTE) { if (trk[bs].step[i2].note[0] < lo) lo = trk[bs].step[i2].note[0]; if (trk[bs].step[i2].note[0] > hi) hi = trk[bs].step[i2].note[0]; }
             if (gs.act[RL_LEAD]) { leads++; sus_lt += trk[gs.trk_of[RL_LEAD]].p[P_SUS] < 95; }
         }
-        if (lo < 40u || hi > 70u) printf("  post punk bass %u..%u\n", lo, hi);
-        bad += gcheck("POST PUNK x 4: the bass between E2 and A#4 (Hook's neck), its tempo 118..148", lo >= 40u && hi <= 70u && song.g[G_BPM] >= 118 && song.g[G_BPM] <= 148);
+        if (lo < 36u || hi > 70u) printf("  synth pop bass %u..%u\n", lo, hi);
+        bad += gcheck("SYNTH POP x 4: the bass on Hook's neck, down to its bass_lo (36), up to A#4, its tempo 112..128", lo >= 36u && hi <= 70u && song.g[G_BPM] >= 112 && song.g[G_BPM] <= 128);
         bad += gcheck("  the leads not all at full sustain", !leads || sus_lt > 0u);
     }
     /* ---- (0.6.96) a new piece: MUTATE off on every track (a reroll kept the lanes), the anchor the piece */
@@ -570,7 +570,7 @@ int main(void)
             gp.genre = (uint8_t)GEN_EXPLORE; gp.seed = (uint16_t)(sd * 163u + 7u); gp.energy = (uint8_t)(10u + (sd * 37u) % 85u);
             gp.form = 0;
             for (k = 0; k < GP_N; k++) gp.amt[k] = GA_AUTO;
-            gp.complex = (uint8_t)((sd * 29u) % 100u); gp.swing = GA_AUTO; gp.human = 30;
+            gp.complex = (uint8_t)((sd * 29u) % 100u); gp.swing = GA_AUTO;
             gen_go();
             if (strncmp(ui.msg, "GEN: EXPLORE ", 13) || strcmp(gs.g->name, "EXPLORE")) name_bad++;
             for (k = 0; k < GEN_NT; k++) {
@@ -672,7 +672,7 @@ int main(void)
                     gen_reset();
                     gp.genre = (uint8_t)GEN_EXPLORE; gp.seed = (uint16_t)(sd * 41u + 3u); gp.energy = 50; gp.form = 0;
                     for (k = 0; k < GP_N; k++) gp.amt[k] = GA_AUTO;
-                    gp.complex = (uint8_t)(cx * 50u); gp.swing = GA_AUTO; gp.human = 30;
+                    gp.complex = (uint8_t)(cx * 50u); gp.swing = GA_AUTO;
                     gen_go();
                     for (k = 0; k < GEN_NT; k++) {
                         uint32_t h;
@@ -718,7 +718,7 @@ int main(void)
                     gen_reset();
                     gp.genre = (uint8_t)GEN_EXPLORE; gp.seed = (uint16_t)(sd * 53u + 11u); gp.energy = 50; gp.form = 0;
                     for (k = 0; k < GP_N; k++) gp.amt[k] = GA_AUTO;
-                    gp.complex = 50; gp.swing = GA_AUTO; gp.human = 30;
+                    gp.complex = 50; gp.swing = GA_AUTO;
                     gen_go();
                     est[f] += gc_cost(1);
                 }
@@ -827,7 +827,7 @@ int main(void)
          * piece not the same every session; SEQ + SELECT on the piece's harmony, never the same twice running; EDIT +
          * SELECT never the same preset twice running; the lead in the key, by steps, few leaps, a few syncopations; its
          * envelope seldom held at the top */
-        static const uint8_t GG[6] = {3, 1, 6, 14, 27, 40};   /* (MICRO HOUSE, HOUSE, TECHNO, SYNTH POP, BOOM BAP, AMBIENT) */
+        static const uint8_t GG[6] = {2, 1, 3, 5, 7, 11};   /* (DEEP HOUSE, HOUSE, TECHNO, SYNTH POP, FUNK, AMBIENT) */
         static int16_t prev[GEN_NT][NSTEP];
         uint32_t gi, pr, near = 0, parts = 0, sndrep = 0, snd = 0, ml_pre[24], nml = 0, liv = 0, lstep = 0, lleap = 0, lon = 0,
                  loff = 0, lflat = 0, lfull = 0, nl = 0, seq_ct = 0, seq_st = 0, seq_same = 0, sd_rep = 0, po_same = 0;
@@ -875,10 +875,10 @@ int main(void)
             }
         }
         printf("gen: (0.9.17) 6 genres x 24 presses: a part near the press before's in %u of %u, the press before's sound in %u of %u;"
-               " MICRO HOUSE's lead %u sounds; the lead: steps %u %%, leaps past a fifth %u %%, off the eighths %u %%, held at the top %u of %u\n",
+               " DEEP HOUSE's lead %u sounds; the lead: steps %u %%, leaps past a fifth %u %%, off the eighths %u %%, held at the top %u of %u\n",
                near, parts, sndrep, snd, nml, liv ? lstep * 100u / liv : 0u, liv ? lleap * 100u / liv : 0u, lon ? loff * 100u / lon : 0u, lfull, nl);
         bad += gcheck("(0.9.17) DICE: a part near the press before's under 8 %, its sound the press before's under 25 %", near * 100u < parts * 8u && sndrep * 4u < snd);
-        bad += gcheck("  MICRO HOUSE's lead: 8 sounds at least in 24 presses (0.9.17: 7 in 40)", nml >= 8u);
+        bad += gcheck("  DEEP HOUSE's lead: 8 sounds at least in 24 presses (0.9.17: 7 in 40)", nml >= 8u);
         bad += gcheck("  the lead by steps (40 % at least), leaps past a fifth under 5 %, 12 % at least off the eighths", lstep * 100u >= liv * 40u && lleap * 100u < liv * 5u && loff * 100u >= lon * 12u);
         bad += gcheck("  the lead's envelope: no release at full sustain never, held at 79 % or more under 15 %", !lflat && lfull * 100u < nl * 15u);
         {   /* the power-on: the first OCT+ of two sessions */

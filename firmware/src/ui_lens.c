@@ -46,20 +46,22 @@ static const nv_t CE_HOME[] = {NV(0, "ECO", 0, 0), NV(0, "MACROS", 0, 0), NV(0, 
 static const ng_t CG_HOME[] = {{"ECO", 0}, {"BEING", 0}, {"GEN", 0}};
 static const nv_t CE_SYN[] = {NV("EDIT 1", 0, 0, 0), NV("EDIT 2", 0, 0, 0), NV("FILTER", 0, 1, 1), NV("MORPH", 0, 1, 1),
                               NV("RETRIG", 0, 1, 1), NV("ROTOR", 0, 1, 1), NV("VOICE", 0, 1, 1), NV("VOICE 2", 0, 1, 1),
-                              NV("WORDS", 0, 1, 1), NV("FOCUS", 0, 2, 2)};
-static const ng_t CG_SYN[] = {{"SOUND", 0}, {"TONE", 0}, {"FOCUS", 0}};
+                              NV("WORDS", 0, 1, 1), NV("FOCUS", 0, 2, 2),
+                              NV("COMP", 0, 3, 1), NV("COMP 2", 0, 3, 1)};
+static const ng_t CG_SYN[] = {{"SOUND", 0}, {"TONE", 0}, {"FOCUS", 0}, {"COMP", 0}};
 static const nv_t CE_FM6[] = {NV("EDIT 1", 0, 0, 0), NV("EDIT 2", 0, 0, 0), NV("FILTER", 0, 1, 1), NV("VOICE", 0, 1, 1),
-                              NV("VOICE 2", 0, 1, 1), NV("OPERATOR", 0, 2, 2), NV("OP ENV", 0, 2, 2), NV("OPERATOR 2", 0, 2, 2)};
-static const ng_t CG_FM6[] = {{"SOUND", 0}, {"TONE", 0}, {"OPERATOR", "OPS"}};
+                              NV("VOICE 2", 0, 1, 1), NV("OPERATOR", 0, 2, 2), NV("OP ENV", 0, 2, 2), NV("OPERATOR 2", 0, 2, 2),
+                              NV("COMP", 0, 3, 1), NV("COMP 2", 0, 3, 1)};
+static const ng_t CG_FM6[] = {{"SOUND", 0}, {"TONE", 0}, {"OPERATOR", "OPS"}, {"COMP", 0}};
 static const nv_t CE_DRM[] = {NV("EDIT 1", "KIT", 0, 0), NV("EDIT 2", "KIT 2", 0, 0), NV("KIT 3", 0, 0, 0),
                               NV("SOUND", 0, 1, 2), NV("SOUND 2", 0, 1, 2), NV("SOUND 3", 0, 1, 2), NV("SOUND 4", 0, 1, 2),
                               NV("LEVELS", 0, 2, 1), NV("LEVELS 2", 0, 2, 1), NV("X-MOD", 0, 3, 1), NV("FILTER", 0, 3, 1),
-                              NV("STEREO", 0, 3, 1), NV("VOICE", 0, 3, 1)};
-static const ng_t CG_DRM[] = {{"KIT", 0}, {"SOUND", 0}, {"LEVELS", "LEVEL"}, {"TONE", 0}};
+                              NV("STEREO", 0, 3, 1), NV("VOICE", 0, 3, 1), NV("COMP", 0, 4, 1), NV("COMP 2", 0, 4, 1)};
+static const ng_t CG_DRM[] = {{"KIT", 0}, {"SOUND", 0}, {"LEVELS", "LEVEL"}, {"TONE", 0}, {"COMP", 0}};
 static const nv_t CE_DIG[] = {NV("EDIT 1", 0, 0, 0), NV("EDIT 2", 0, 0, 0), NV("FILTER", 0, 1, 1), NV("VOICE", 0, 1, 1),
                               NV("VOICE 2", 0, 1, 1), NV("OP1 ENV", 0, 2, 2), NV("OP2 ENV", 0, 2, 2), NV("OP3 ENV", 0, 2, 2),
-                              NV("OP4 ENV", 0, 2, 2), NV("OP LEVEL", 0, 2, 2)};
-static const ng_t CG_DIG[] = {{"SOUND", 0}, {"TONE", 0}, {"OPERATOR", "OPS"}};
+                              NV("OP4 ENV", 0, 2, 2), NV("OP LEVEL", 0, 2, 2), NV("COMP", 0, 3, 1), NV("COMP 2", 0, 3, 1)};
+static const ng_t CG_DIG[] = {{"SOUND", 0}, {"TONE", 0}, {"OPERATOR", "OPS"}, {"COMP", 0}};
 enum { LV_PAT, LV_BAR, LV_STEP, LV_N };                 /* SEQ's pictures: the bars, the roll, the step large */
 static const nv_t CE_SEQ[] = {NV("PATTERN", 0, 0, LV_PAT), NV("STRETCH", 0, 0, LV_PAT), NV("PLAYHEADS", 0, 0, LV_PAT),
                               NV("TRACK", 0, 1, LV_PAT), NV("MUTATE", 0, 1, LV_PAT),   /* (0.9.18: no BAR page) */
@@ -71,7 +73,8 @@ static const nv_t CE_FX[] = {NV("FX", "SENDS", 0, FXL_TRACK), NV("DIST", 0, 0, F
                              NV("BUSES", 0, 1, FXL_BUSES), NV("DLY", 0, 2, FXL_EFFECT), NV("DLY 2", 0, 2, FXL_EFFECT),
                              NV("DLY 3", 0, 2, FXL_EFFECT), NV("REVERB", 0, 3, FXL_EFFECT), NV("REVERB 2", 0, 3, FXL_EFFECT),
                              NV("CHORUS", 0, 4, FXL_EFFECT), NV("SLICER", 0, 5, FXL_EFFECT), NV("SL BUS", 0, 5, FXL_EFFECT),
-                             NV("SL BUS 2", 0, 5, FXL_EFFECT), NV("SL PITCH", 0, 5, FXL_EFFECT), NV("MASTER", 0, 6, FXL_EFFECT),
+                             NV("SL BUS 2", 0, 5, FXL_EFFECT), NV("SL BUS 3", 0, 5, FXL_EFFECT),
+                             NV("SL PITCH", 0, 5, FXL_EFFECT), NV("MASTER", 0, 6, FXL_EFFECT),
                              NV("PUNCH", 0, 7, FXL_EFFECT)};
 static const ng_t CG_FX[] = {{"TRACK", "TRK"}, {"BUSES", "BUS"}, {"DELAY", "DLY"}, {"REVERB", "REV"}, {"CHORUS", "CHO"},
                              {"SLICER", "SLC"}, {"MASTER", "MST"}, {"PUNCH", "PCH"}};
@@ -203,6 +206,7 @@ static void nav_go(uint32_t sec, uint32_t e, int outside)
         return;
     e = k;
     nav_mem_put(key, e);
+    ui.xy = 0;
     if (sec == SEC_HOME) {
         if (e >= 4u) {                                  /* GEN: the generator's screen, HOME's last group */
             if (!gen_on()) {
@@ -266,6 +270,16 @@ static void nav_select(int32_t s)
     if (at < 0) {                                       /* (the entry left is not here: the nearest that is) */
         for (i = 0; i < n && v[i] < e; i++) {}
         at = (int32_t)i - (s > 0 ? 1 : 0);
+    }
+    if (ui.xy) {                                        /* (GARDEN, Phase 6) the X-Y view: SELECT either way back to ECO */
+        ui.xy = 0;
+        ui.force = 1;
+        return;
+    }
+    if (sec == SEC_HOME && ui.home && !gen_on() && e == 0u && s < 0) {   /* .. ECO, SELECT left: the X-Y view */
+        ui.xy = 1;
+        ui.force = 1;
+        return;
     }
     to = clamp(at + s, 0, (int32_t)n - 1);
     if (n && (to != at || v[to] != e))

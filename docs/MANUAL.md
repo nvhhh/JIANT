@@ -88,7 +88,7 @@ The names below are the ones the firmware uses (the HARDWARE CALIBRATION screen 
 | Control | What it does |
 | --- | --- |
 | **SELECT** (encoder) | Alone (0.9.2): **walks the section's pages**, one page a detent, as one chain, stopping at its first and last page (no levels, no zoom; see [How navigation works](#how-navigation-works-six-rules-092)). In the MENU: its pages. With a button held: **HOME** + SELECT **GEN**, **EDIT / SEQ / LFO / FX** + SELECT that part's **dice**, **GLO** + SELECT the **tempo**, **ENV / SCL / ARP / SAVE** + SELECT walk that section's chain from wherever you are. |
-| **ALGORITHM** (encoder) | Selects the track from any page: T1–T6 (T1–T4 with TRACKS 4). The track is always ALGORITHM's (0.9.2: PRESETS no longer picks it on ENV, LFO, CHORD, ARP). In the MENU: the next / previous tab. With a layer held: its view, MAP ↔ KNOBS ↔ STATE. |
+| **ALGORITHM** (encoder) | Selects the track from any page: T1–T8 (T1–T4 with TRACKS 4, T1–T6 with TRACKS 6). The track is always ALGORITHM's (0.9.2: PRESETS no longer picks it on ENV, LFO, CHORD, ARP). In the MENU: the next / previous tab. With a layer held: its view, MAP ↔ KNOBS ↔ STATE. |
 | **PRESETS** (encoder) | **Always presets** (0.9.2): the selected track's sounds (every engine's factory presets, then your user presets) on every page; on the **SEQ** pages the **patterns** (it opens the PHRASES loader with the next pattern picked: OCT+ loads it, OCT− back to the SEQ page); on **GEN** the GENRE. In the MENU and with a button held it does nothing. It never changes page, track, module or row. |
 | **KNOB 1–4** | The four cards (columns) on screen. A page that picks something picks it with **KNOB 1** (the step, the bar, the slot, the stage, the operator, the kit's sound, the row). With a layer held, the layer's own knobs. Turning fast sweeps the whole range, slowly fine-tunes (MENU › SYSTEM › KNOB SPEEDUP turns this off). In the MENU: KNOB n the setting on card n. |
 | **MASTER** | The output volume. |
@@ -140,81 +140,36 @@ layer's shortcuts; on the DRUM grid they are steps and lanes; on the NAME screen
 
 ## 2. The screen
 
-### Skins: AIR, COLORS, HUD (0.8.9, AIR 0.9.7)
+### The look: GARDEN (stems-10)
 
-**MENU › SCREEN › SKIN** picks how the lenses are dressed (the approved mock-up "skin aireado", options 1, 3 and 4;
-0.9.7: AIR, the approved option); every page, every palette, FLAT and LINE. The menu steps them AIR, COLORS, HUD
-(0.9.17: BOTTOM, the knob row at the foot on every page, is retired; a BOTTOM saved in the settings, or set by the
-editor or a restore, opens as AIR):
+Every page stands in **the garden**, a pixel scene drawn by code: a sky from pale blue to cream, a spiky sun, clouds
+drifting, rain (more drops the louder the music; they fall with the tempo), the horizon's dots, a windmill and a house,
+a fence, the ground (soil in five tones, grass, blue tufts that bounce with the level). The scene **moves on the
+music's clock**: slowly in silence (never frozen), up to twice as fast at full level, times **MENU › SCREEN › MOTION**
+(100 %, 50 %, 150 %, 200 %); **ANIMATION OFF** stills it. On HOME the whole garden lives; behind the other pages it
+stands still, and only the page's own plants and creatures move.
 
-- **AIR** (0.9.7; the default of new settings: a new FM-1, or its settings erased; settings saved before keep the
-  skin they had): HUD's look on **every** page, with the **knob row on top**, right under the tabs: no cards and no
-  panel box, the words light with a 2 px dark outline, the middle of the screen free for the picture and the footer
-  the breadcrumb alone. On HOME
-  the beings swim over the whole screen under the header, the tabs, the knob row and the breadcrumb, as on HUD (the knob
-  row fading there a few seconds after the last turn); every layer, dialog and menu in the same dress. The group's word
-  is underlined by a dash.
-- **COLORS** (settings saved before 0.9.7 with no other skin chosen load as it): the LENTE layout in the **0.6 colours**. Black, near-black
-  rounded cards with a small mark and the knob's name, **each knob its colour** on its value and its bar (JIANT,
-  0.9.5 as the 0.6: each parameter's own colour **moves with its amount** as heat, violet when low to yellow and cream
-  when high, a centred one such as PAN or DETUNE cold in the middle and hot at either end; the other palettes their
-  four knob colours), the knob you turn framed in its colour; the
-  group's tab filled violet; the selected track's number in an orange box, a violet ▶ and a big violet BPM in the header;
-  a near-black rounded panel; the beings in the 0.6 heat (violet spikes, red and orange rings, cream nuclei).
-- **HUD**: the tabs are the groups' words (a dot a page under each), no cards and no panel box: the middle of the
-  screen is the picture, the screen's width, and the four knobs are a slim row over the breadcrumb (mark and name, the
-  value in its colour, a hairline bar); on the SEQ pages the row is on top under the tabs, as AIR's (0.9.17: the values
-  over the roll). On HOME the beings swim **under everything, over the whole screen**: the header, the tabs,
-  the knobs and the breadcrumb float over them as light words with a 2 px dark outline (0.9.0). There the knob row
-  fades to a fifth a few seconds after you last turned a knob, and comes back at the next turn or when you change page;
-  on every other page it stays lit. The group's word is underlined by a dash.
+- **Header**: the breadcrumb at the left (**EDIT · OSC**), at the right REC, the lock, the track's pebble, the play
+  state, the BPM (it rolls as it changes), the load meter and the battery.
+- **Tabs**: the groups as pebbles along the top, the one you are on orange.
+- **Panel**: a cream card with a burnt edge in the middle of the garden. ENV, LFO, FX and PATTERN have a scene instead
+  (see below), BEING stands in the garden with no card.
+- **Pods**: KNOB 1–4 are small acorns along the bottom: a burnt cap with the knob's name, the body with the value and
+  its bar; the knob you turn has an orange body.
+- **Footer**: the track and its sound at the left, the page's place in its chain at the right.
 
-Values (cards, the header's BPM) are set in a rounded sans again (Inter Tight SemiBold), as in 0.6; names, tabs and the
-breadcrumb stay in the 5 x 7 pixel letters. **MENU > LARGE** keeps its big cards on top in every skin (the skin keeps
-its tabs and colours; on AIR they sit where AIR's knob row does, under the tabs), so LARGE reads the same whatever the
-skin.
+**MENU › LARGE** keeps its big cards (an accessibility option). COLOR, SKIN, STYLE and ECO STYLE are retired: GARDEN
+is the one look (settings saved with other values load as GARDEN; nothing else in them changes).
 
-Since 0.8.5 every page wears the skin of the design the owner approved (the HTML mock-up "LENTE"):
+**Page scenes.** **ENV**: one large tulip growing through the envelope of the voice playing. **LFO**: a row of six
+tulips swaying with the LFO. **FX**: a stream of two wavy ribbons with an apple, an orange and cherries hopping on the
+beat. **PATTERN**: sixteen dirt mounds in two rows, a tulip on each step that plays and a seed on each one that rests,
+the playhead's mound orange. DRUM-X's **KIT** and **SOUND** pages: a ring of eight mushroom caps, each jumping on its
+lane's hit. FM6's **OPERATOR** pages: a fern, a pair of fronds an operator, each frond as long as its operator's level.
 
-- **Header (top)**: one quiet line over a thin rule. At the left the play state (a grey square stopped, an orange
-  triangle playing, violet while counting in) and the **BPM** (violet; orange while it changes), then BPM LOCK's lock
-  and the REC dot (filled: the selected track armed; a ring: another track). In the middle what the page is of:
-  **T1 · ANALOG ACID** (the track, its engine and its sound); on the song's pages (SAVE, ARRANGE, TOOLS, GLOBAL)
-  **P1 NAME** (the project); on FX **T1** in orange. At the right the octave (**OCT +2**, or the song row while a song
-  plays), the **load meter** (five small bars, violet as the sound takes more of the audio time) and the battery
-  (violet when USB powers it). Messages appear in the middle ("SAVED", "T1 CLEARED"...), sometimes with a second line.
-- **Cards**: the four boxes under the header are KNOB 1–4: the name small and grey on top, the value under it in white,
-  and a thin violet bar under the value. The one you are turning lights orange, so it is the only colour on the cards.
-  A value that is automated or locked has its name in violet; a dim card means "nothing here now". An action armed
-  (SAVE, LOAD, ERASE, CLEAR...) is a violet-tinted card with its name violet and **OCT+** as its value. The cards have
-  no icons since 0.8.5, and nothing else does (MENU > LARGE's cards: a violet dot for a value that moves on its own;
-  the header: "!" before a NO FILE message, a drawn lock and song disc).
-- **Page name**: changing page (or track) by hand shows the page's name over the footer for a moment, with the track and
-  its engine at the right; on HOME the track's engine, "T1 HOME" small (on a lens page its breadcrumb lights up instead).
-  The header, the cards and the graph stay in sight.
-- **Granules**: a few dots drift behind the panel's graph, as on HOME (LOAD FULL with ANIM ON). They move only when the panel redraws anyway
-  (a knob, the LFO, the envelope), so they cost no CPU.
-- **Panel (middle)**: the page's graph — the engine's creature, an envelope, the LFO running, the step grid, a list...
-- **Footer**: the step bars of the bar you edit (four under each card) or key hints, and under them a small grey
-  **breadcrumb**: **SECTION · GROUP · page** and the page's place in the section's chain at the right (0.9.2; e.g.
-  **FX · DELAY · DLY 2  6/16**, **ENV · TRACKS · TRACKS DEST  2/5**).
-- **The tabs** (0.9.2): under the header, the section's **groups** (FX: TRK · BUS · DLY · REV · CHO · SLC · MST · PCH;
-  SEQ: PATT · TRACK · BAR · STEP · AUTO), the one you are on lit (COLORS: filled violet; HUD and AIR:
-  a dash), and **a dot a page** under each, the page shown lit. The cards under them, a taller panel, and the footer is
-  the breadcrumb alone.
-
-- **The small letters** (since 0.8.5): the cards' names, the tabs, the breadcrumb, the header's middle words and
-  the panels' small captions and chips are set in a crisp 5 x 7 pixel face, the mock-up's small mono capitals; values
-  stay in the larger rounded face.
-
-**Colours** work like a thermal camera: cold (indigo, violet) is little, hot (red, orange, cream, white) is a lot (0.8.9: the 0.6 ramp). Violet is
-what's selected, orange what's active.
-
-**HOME** is the ecosystem: one creature per track, its species from its engine, its shape from its four knobs, swelling
-and heating up with its own audio (0.8.8: swimming free over the whole screen by themselves, as before 0.8.5; see
-[the sections](#the-sections-and-their-chains)). (0.9.7) Each being wears a small **face**: its eyes shut on a hit, its
-mouth opens with its level. The selected track is drawn bigger, its number in violet, a muted one falls **asleep** (a dim
-outline, its eyes shut), a track asleep (TRACKS 4) is drawn as muted. On the **MIXER**, asleep tracks are greyed and say OFF.
+**The letters**: names, tabs, the breadcrumb and the small captions are in a crisp 5 x 7 pixel face; values are in a
+larger rounded face. **HOME** is the garden's own page: ECO (the standby), BEING (the track's creature) and GEN (see
+[the sections](#the-sections-and-their-chains)). On the **MIXER**, asleep tracks are greyed and say OFF.
 
 **Dialogs** ask before anything destructive: **OCT− NO**, **OCT+ YES**. (0.8.5, as the mock-up) They carry the
 tabs **NOTICE · DICE · NAME**: a question is a card under a violet rule with its two buttons (YES in the accent); a
@@ -296,7 +251,7 @@ it was in 0.9.1, with its knobs and its picture (the ones 0.8.5's lenses drew).
 | **EDIT** (FM6) | **SOUND**: EDIT 1 · EDIT 2 — **TONE**: FILTER · VOICE · VOICE 2 — **OPERATOR**: OPERATOR · OP ENV · OPERATOR 2 | 8 |
 | **EDIT** (DRUM) | **KIT**: KIT · KIT 2 · KIT 3 — **SOUND**: SOUND · SOUND 2 · SOUND 3 · SOUND 4 — **LEVELS**: LEVELS · LEVELS 2 — **TONE**: X-MOD · FILTER · STEREO · VOICE | 13 |
 | **SEQ** | **PATTERN**: PATTERN · STRETCH · PLAYHEADS — **TRACK**: TRACK · MUTATE — **BAR**: BAR · STEP · NOTE — **STEP**: COMP · COMP 2 — **AUTO**: AUTOMATION · AUTO LIST | 12 |
-| **FX** | **TRACK**: SENDS · DIST · AUTO PAN — **BUSES**: BUSES — **DELAY**: DLY · DLY 2 · DLY 3 — **REVERB**: REVERB · REVERB 2 — **CHORUS**: CHORUS — **SLICER**: SLICER · SL BUS · SL BUS 2 · SL PITCH — **MASTER**: MASTER — **PUNCH**: PUNCH | 16 |
+| **FX** | **TRACK**: SENDS · DIST · AUTO PAN — **BUSES**: BUSES — **DELAY**: DLY · DLY 2 · DLY 3 — **REVERB**: REVERB · REVERB 2 — **CHORUS**: CHORUS — **SLICER**: SLICER · SL BUS · SL BUS 2 · SL BUS 3 · SL PITCH — **MASTER**: MASTER — **PUNCH**: PUNCH | 16 |
 | **GLO** | **LIVE**: MANO · RIELES — **MIX**: MIXER · SENDS — **GLOBAL**: GLOBAL — **SYSTEM**: SYSTEM | 6 |
 | **ENV** | **TRACKS**: TRACKS · TRACKS DEST — **ENV**: ENV · ENV DEST — **STAGE**: STAGE | 5 |
 | **LFO** | **MOD**: MOD — **LFO**: LFO · LFO DEST — **MSEQ**: MSEQ · MSEQ 2 | 5 |
@@ -310,19 +265,16 @@ COMP's); FX's **SENDS** is the FX page; SAVE's PROJECT page is **SECTIONS** (the
 LIBRARY level); the DRUM kit's EDIT 1 / EDIT 2 are **KIT** / **KIT 2**. The new **BAR** page is PATTERN's picture of
 the bars with KNOB 1 the bar and KNOB 2 LEN.
 
-- **ECO**: the six tracks' beings swimming free over the whole panel by themselves (0.8.8: as before 0.8.5), each
-  swelling with its sound (a hit kicks it on), its number under it; the selected one larger, its number violet.
-  (0.9.7, "today's being with a face") Each being is its species' spiky outline (the spikes as it sounds) in **three
-  isotherms**, coloured by **its own level** like a thermal camera (quiet: cyan and blue; loud: red, orange and
-  yellow; the inner lines warmer), and where its nuclei were a **face**: two eyes that **shut on a hit**, a mouth that
-  **opens with the level**. A muted track's being sleeps (a dim outline, its eyes shut). When **MUTATE** changes a
-  track, its being **looks up**, its number lights **white** and one ring in the accent opens round it. The cytoplasm's
-  granules drift behind them (drawn by the screen alone: nothing of the sound's time). **MACROS**:
-  KNOB 1–4 are **M1–M4** (the macros, as LFO held), the routes counted at the top left, LATCH at the right.
-- **BEING**: the track's being large, its four HOME knobs as organs at the corners (a gauge each, its value, a vein to
-  the body), the sound's name under it. (0.9.4) A VOICE track shows its **head**, an ANIMAL track its **creature**, a DRUM-X track
-  its **kit of little beings** there (see [their pictures](#three-engines-draw-their-own-creature-094)); (0.9.6) the other six
-  engines theirs ([a cell, a colony, worms, a swarm, a snail, a caterpillar](#six-more-engines-draw-their-own-creature-096)). **ROUTES**: M1–M4 down the left with their routes drawn to where they go
+- **ECO** (GARDEN): the standby garden, the whole screen: a mushroom, a bird and a frog wandering the ground (they
+  turn back and face the way they go) and two beetles crawling; all but the mushroom hop on the beat, and all swell
+  with the music's level. **MACROS**: KNOB 1–4 are **M1–M4** (the macros, as LFO held), the routes counted at the top
+  left, LATCH at the right. **X-Y view**: on ECO turn **SELECT left**: the whole screen becomes a vectorscope (L along
+  the top-left diagonal, R the top-right, M up, L-R / L+R across), the last moment of the output as fading blue dots
+  and an orange head: a mono sound is a line up M, a wide one opens out, a sound in one side leans to its diagonal.
+  **SELECT** either way goes back to ECO.
+- **BEING**: the track's creature large in the garden (see [the creatures](#the-engines-creatures-garden)), its four
+  HOME knobs as pods at the corners ("K1 CUT" over each, a blue gauge and the value under it, a dotted vein to the
+  creature), the sound's name under it. **ROUTES**: M1–M4 down the left with their routes drawn to where they go
   (**T2 CUT+62**).
 - **ENV** › **TRACKS** / **TRACKS DEST**: the six tracks' envelopes as tiles (the selected one tinted with its level now a dot; DEST:
   FILTER, PITCH and SHAPE as bars under each), the knobs the selected track's — **ALGORITHM** picks the
@@ -388,7 +340,8 @@ the bars with KNOB 1 the bar and KNOB 2 LEN.
 | BUSES (0.8.5) | MIX (the delay's) | SIZE (the reverb's) | DEPTH (the chorus') | DEPTH (the SLICER's) |
 | SLICER | MODE | PAT | RATE | DEPTH |
 | SL BUS | T1 | T2 | T3 | T4 |
-| SL BUS 2 | T5 | T6 | FX | — |
+| SL BUS 2 | T5 | T6 | T7 | T8 |
+| SL BUS 3 | FX | — | — | — |
 | SL PITCH | STEP | PITCH | LEN | QUANT |
 | DLY | TIME | FEEDBK | TONE | MIX |
 | DLY 2 | WIDE | PITCH | SPRAY | MOD |
@@ -508,7 +461,7 @@ breadcrumb, **FX · MAP**. The keys and knobs do exactly what they did.
 | E5 | ARP |
 | F5 | RANDOM |
 | G5 | erases the punch-in lane |
-| Black keys 1–6 (F#3 G#3 A#3 C#4 D#4 F#4) | mute T1–T6 while held |
+| Black keys 1–6 (F#3 G#3 A#3 C#4 D#4 F#4) | mute T1–T6 while held (T3–T8 while T7 or T8 is selected) |
 | G#4 | FREEZE (0.9.17): the eighth after the press held as grains |
 | A#4 | which tracks the note effects touch: ALL / SYN / DRM |
 | C#5 | SHUFFLE (0.9.17): the last bar's 1/16s in another order (the FILTER sweep's key until 0.9.16) |
@@ -519,9 +472,9 @@ breadcrumb, **FX · MAP**. The keys and knobs do exactly what they did.
 
 | Keys | Action |
 | --- | --- |
-| Black keys 1–6 | MUTE T1–T6 (latched: press again to unmute) |
+| Black keys 1–6 | MUTE T1–T6, or T3–T8 while T7 or T8 is selected (latched: press again to unmute) |
 | Black keys 7–10 (G#4 A#4 C#5 D#5) | DRUM-X group mutes: KICK, SNARE, HAT, PERC |
-| F3–D4 | SOLO T1–T6 while held |
+| F3–D4 | SOLO T1–T6 (T3–T8 while T7 or T8 is selected) while held |
 | E4 | unmute everything (tracks and drum groups) |
 | F4 | TAP tempo (from the third tap; internal clock only) |
 | G4 | **UNDO** (again: redo) |
@@ -776,99 +729,28 @@ Japanese read best (their spelling is regular); English depends on the dictionar
 of flash (the English dictionary is most of it); about +9 % CPU over VOICE's vowels, so four voices singing still cost
 well under ANALOG's eight.
 
-### Three engines draw their own creature (0.9.4)
+### The engines' creatures (GARDEN)
 
-Where every engine shows its being (EDIT › SOUND on the left, HOME › BEING large), three engines draw something of their
-own, in the same thermal line art (the colder the line, the less dense or quieter; white is hottest), moving only
-while the track sounds and resting in silence:
+Each engine has its creature on its EDIT pages (with SCOPE OFF the whole panel, centred) and on HOME › BEING, drawn in
+2 px blocks in the garden's colours. They move on the music's clock (slow in silence, faster and pulsing with the
+level and the beat):
 
-- **VOICE: the vocal tract, alive** (0.9.9), seen close, the mouth and the neck filling the panel: the head's outline is
-  a faint ghost (the brow, the nose, the lips, the chin, the throat) and the vocal tract a glowing tube of two walls,
-  from the lips over the palate and the velum down the pharynx to the glottis, the trachea under it. **It sings what you
-  hear**: the tongue (the tube's floor) rises and falls with the vowel's F1 and moves forward and back with F2, the jaw
-  opens downward with F1, the lips round for o, u, w and sh and close for p, b, m, the lower lip touches the teeth for f
-  and v, the tongue's tip, blade or body goes to the place of each consonant (t d n l r at the ridge, k g ng on the
-  velum ..) and the tube narrows and heats there, with a hot mark where it closes; for m, n and ng the velum drops and a
-  branch to the nose opens. Each glottal pulse is a bulge travelling up the tube (through the nose for m, n, ng), the
-  vocal folds open and shut as a V with the voicing, and sound waves leave the mouth (the nose for the nasals); a jet of
-  turbulence comes out of the constriction for s, sh, f, x and the bursts, and breath rises at the glottis for h and
-  BREATH. The head nods a little at each vowel's onset and sways and breathes slowly with the level. With WORDS on it
-  follows the syllable being sung (the phoneme, its formants and gains); without, VOWEL → VOWEL2 over TALK and BREATH
-  (the nod at each note).
-- **ANIMAL: a creature between a bird, an insect and a mammal.** Its outline, legs, wing, antennae and eye are the same
-  points in the three animals, mixed: MODE sets the animal (CMOS and WHSTL a bird, PULSE and WING an insect, GLOTT a
-  mammal) and the creature **metamorphoses** to it in about half a second; **SIZE** leans it along insect – bird –
-  mammal (well past the presets' sizes: PULSE turned up grows into a bird, GLOTT turned down into a bat-like bird),
-  and CHAOS stirs it. With each call: the beak or jaw opens and the throat (syrinx, larynx) swells, song arcs leave the
-  mouth, an insect's wings buzz (PULSE: stridulating, its hind leg rubbing; WING: flapping in a blur) and its abdomen's
-  segments pulse, a mammal's ribs breathe.
-- **DRUM-X: the kit as little beings ("BICHOS")**, on **EDIT › KIT** (the first KIT page: the sound last struck named
-  at the top right), on **EDIT › SOUND 1–4** (the sound being edited lit and named) and on **HOME › BEING**; KIT 2,
-  KIT 3 and X-MOD keep the colony (a being per sound in two rows). Each drum is a small being with eyes and a mouth,
-  standing as a kit does: the **kick** large in the middle (its core hot orange), the **snare** flat on its stand, the
-  **toms** on little legs (the floor tom on longer ones), the **hi-hat** two shells on a stand (together on CH, the top
-  one lifting with its mouth open on OH), the **crash** on a long stem and the **cowbell** a small head over the kick
-  (both BELL), the **clap** two little ones that clap together, the **rim** (RS) a spark on the snare's edge. On each
-  hit the drum's being **squashes, shuts its eyes and shouts** (its mouth opens), as hard as the hit sounds (the lane's
-  own envelope: the velocity, the accent) and springing back as the sound decays (DECAY); a **GHOST** squashes a
-  little, a **FLAM** twice (its hit to come a shadow under the drum), a **ratchet** (x2 x4 x8) over and over.
+| Engine | Creature | What moves |
+| --- | --- | --- |
+| DRUM-X | a drum kit: hi-hat, crash on its stand, two toms, snare, a kick with its logo | each piece jumps on its lane's hit, the hi-hat closes |
+| VOICE | a singing flower with a face | its mouth opens with the level |
+| ANIMAL | a beetle | its legs step, it hops on the beat |
+| LOFI | an apple orbiting on a dotted path | its size and squash as it turns |
+| ANALOG | an orange being with a face, a smile and blush | its dots orbit unevenly, it swells with the level |
+| FM6 | a band of five small flowers | each bobs on its own phase |
+| PHASE | a black hole: an orange ring, a black core, four tilted rings | each ring turns its own way; rings and core pulse |
+| WHEEL | a barn wheel | it rolls along the ground, its spokes turning with the distance |
+| NOISE | a spiral galaxy with a sun and planets | the arms turn, the planets orbit |
+| SHRUB | pixel bushes with berries | they swell with the music only (still in silence) |
 
-They cost about what a being costs to draw (host: the EDIT panel ~113 µs against ~122 µs for ANALOG's being; the
-whole KIT screen with the kit's beings ~167 µs, as ANALOG's EDIT screen) and ~10 KB of flash for the three, 160 bytes
-of RAM; nothing in the sound.
-
-### Six more engines draw their own creature (0.9.6)
-
-With 0.9.6 every engine has its own picture: ANALOG, FM6, WHEEL, NOISE, PHASE and LOFI draw theirs on **EDIT › SOUND**
-(on the left; the scope and the chips on the right as before; 0.9.7: with **MENU › SCREEN 2 › SCOPE** ON — OFF, the default,
-gives the creature the whole panel, centred, the sound's name a small caption in a corner) and on **HOME › BEING** (HOME's ecosystem keeps its
-beings), in the same thermal line art, the bichos' face shared with DRUM-X's beings, moving only while the track sounds:
-
-- **ANALOG: a cell.** Its membrane (three isotherms, the outer cold) is two cycles of the oscillators through the
-  filter and the drive, drawn round in polar form: WAVE (and MORPH), DETUNE, MIX, NOISE and INT shape it, CUT on the
-  note softens it, RES rings it; a SAW turns it into a pinwheel, a SQR into battlements. Where **DRIVE** clips the wave
-  short spikes come out; a ring at **CUT** glows and spreads as much as **RES**; NOISE grows cilia; the two oscillators
-  orbit inside at DETUNE's beat; the face shouts with the level and blinks on each note.
-- **FM6: a colony of operators.** The six operators are little beings wired as the algorithm (the 32 charts' cells and
-  routes: carriers standing on the output's floor, modulators above, a pulse down each wire as fast as its modulator's
-  RATIO). Each one is as big and hot as its **LEVEL times its envelope now**, has as many spikes as its **RATIO**, and
-  the feedback operator curls a tail as long as **FB**. On **OPERATOR** and **OPERATOR 2** the colony fills the panel
-  with the operator picked lit (DETUNE makes it shimmer), "ALG 05 PAT" on the left and its frequency ("OP3 x1.50") on
-  the right, the cards as before; on **OP ENV** the envelope as the patch has it (the stage KNOB 3 / 4 edit lit) and the
-  operator's bicho **rides it** where its envelope is now: up the attack, along the hold, down the release.
-- **WHEEL: nine tube worms**, one per drawbar, as tall as its level (the registration's digits under them), each with a
-  crown of as many tentacles as its harmonic; the **rotor is a current** that bends them (SLOW, FAST, its DEPTH), PERC
-  makes its worm leap and shout, CLICK lets bubbles out of their mouths, DUST drifts motes.
-- **NOISE: a swarm** of protozoa round a queen: **COLOR** is how they walk (white: jittering in place; brown: drifting),
-  **FREQ** how they swirl and how wide a ring they keep, **PEAK** how tight; in DUST each impulse makes some flare and
-  jump; in LFSR and META they march in columns, one per bit of the register.
-- **PHASE: a snail.** The shell's chambers sit at the **bent phase** (even at DCW 0; as DCW rises they crowd where the
-  phase rushes, which is what phase distortion does), coloured by the output; **the foot's sole is the wave** (WAVE and
-  WAVE2 alternating); FB frays the spiral, SUB makes the outer whorl breathe, the eyestalks pull in on each note; with
-  DETUNE or RING a little snail follows (RING: a thread between them).
-- **LOFI: a caterpillar** whose two skins are the **last 256 samples out** (the scope's own: nothing more is taken from
-  the sound), held steps on BYTE, smooth on FLOAT. Its 8 segments are the **byte's bits** (the highest next to the
-  head), each lit and lifting its legs with its bit; the antennae are tipped by the two lowest; the head is a bicho
-  shouting with the level. On FLOAT and the chip waves (PLS TRI SAW NOIS WRAM) the same caterpillar, its skin the
-  waveform and its segments lit by the wave's level.
-  (0.9.10) **CHIP turns it into a chip**, gliding there in about 0.6 s: on 8BIT (FLOAT's FULL) the caterpillar, on
-  4BIT and STEP half way, on 4B/2 nearly, on 1BIT a **DIP seen from above**. Its back and belly become the package's
-  long edges, the back legs the top row of pins and the front ones the bottom row (each pin jutting with its bit),
-  the rings the die's pads, the head folds into the notch with pin 1's dot, and the wave keeps running as two traces
-  on the die; the skins are stair-stepped to the bits (smooth, 7 levels, 5 levels, ±1). The other knobs show too:
-  **DUTY** the rings' width; **ALGO** the formula's bits printed on the back (a ROM on the chip); **WAV#** the table as
-  spines; **CRUSH** / **GRIT** a stutter (the drawing held 1 to 6 frames) and flat steps in the skin; **VAR** the
-  segments scrambled; **DECAY** (STEP) the rings dimming from the tail with the 4-bit volume; **MOTION** the crawl's
-  speed and the legs' sway; **VIB** a deeper wave and a shiver; **FEEDBK** two echoes of older samples trailing
-  behind; **BEND** the segments (the pins) crowding to the head; **MASK** the picture torn in horizontal bands;
-  **LOOP** the segments' pattern repeating and the tail curling up. On the FILTER page: **TYPE** HP only the edges,
-  with cilia growing as **CUT** opens, BP only the body's middle, COMB a double skin; a closed CUT blurs and swells it
-  into a fat smooth larva; **RES** rings contours outside the skin and lights the peak's segment; **DIST** clips the
-  skin with spikes and swells it; **MORPH** changes the head's species. Still in silence, moving with the sound.
-
-Each draws into whatever rectangle it is given (EDIT's left panel, HOME's middle, the whole panel). About 14 KB of flash
-for the six, 1.4 KB of RAM (the pool); each page draws no dearer than ANALOG's EDIT page with its being did; nothing
-in the sound.
+The other engines show the nearest family's creature. (Until stems-10 the engines drew thermal line pictures: VOICE's
+vocal tract, ANIMAL's bird and mammal, LOFI's caterpillar and its DIP, DRUM-X's little beings and its colony; they are
+retired with the old look.)
 
 ### FILTER (every engine)
 
@@ -1587,7 +1469,7 @@ sounds picked with PRESETS, SEQ TOOLS actions, or ordinary knob turns. It is not
 
 (0.9.2) FX is one flat chain of 16 pages in eight groups, its tabs **TRK · BUS · DLY · REV · CHO · SLC · MST · PCH**:
 **SELECT** walks every page (SENDS → DIST → AUTO PAN → BUSES → DLY → DLY 2 → DLY 3 → REVERB → REVERB 2 → CHORUS →
-SLICER → SL BUS → SL BUS 2 → SL PITCH → MASTER → PUNCH), an **FX** tap jumps to the next module (round), and there is
+SLICER → SL BUS → SL BUS 2 → SL BUS 3 → SL PITCH → MASTER → PUNCH), an **FX** tap jumps to the next module (round), and there is
 no module picker any more (until 0.9.1 SELECT zoomed TRACK ↔ BUSES ↔ EFFECT, PRESETS picked the module and the FX tap
 its page). PRESETS loads the track's sounds, as everywhere. The pages, their knobs and their pictures are the same.
 
@@ -1595,7 +1477,7 @@ its page). PRESETS loads the track's sounds, as everywhere. The pages, their kno
 | --- | --- | --- |
 | **TRACK** | SENDS (the FX page: DIST CHORUS DLY REV) · DIST · AUTO PAN | The track's set: its picture (the four sends as bars, DIST's curve with TYPE and TONE, AUTO PAN's swing with WAVE and RATE) and DIST's curve small under it. |
 | **BUSES** | BUSES | The six modules as tiles, each its picture small: **DELAY** (its echoes), **REVERB** (its decay), **CHORUS** (three waves), **SLICER** (its 16 steps, the one playing framed), **MASTER** (the output now, the duck's curve), **PUNCH** (the lane); with LOAD ECO CHORUS and SLICER are dark ("ECO"). Knobs: **DLY MIX, REV SIZE, CHORUS DEPTH, SLICER DEPTH**. |
-| **DELAY · REVERB · CHORUS · SLICER · MASTER · PUNCH** | DLY · DLY 2 · DLY 3 — REVERB · REVERB 2 — CHORUS — SLICER · SL BUS · SL BUS 2 · SL PITCH — MASTER — PUNCH | The module large: its picture, "DELAY 2/3" (its page) in the title. With LOAD ECO the chain skips CHORUS and SLICER. |
+| **DELAY · REVERB · CHORUS · SLICER · MASTER · PUNCH** | DLY · DLY 2 · DLY 3 — REVERB · REVERB 2 — CHORUS — SLICER · SL BUS · SL BUS 2 · SL BUS 3 · SL PITCH — MASTER — PUNCH | The module large: its picture, "DELAY 2/3" (its page) in the title. With LOAD ECO the chain skips CHORUS and SLICER. |
 
 - **FX from another page** comes back to the FX page you left.
 - The footer says **FX · DELAY · DLY 2  6/16**; the header shows the track, **T1**, in orange.
@@ -1618,7 +1500,7 @@ its page). PRESETS loads the track's sounds, as everywhere. The pages, their kno
 ### SLICER (one, on a bus)
 
 - **SLICER**: **MODE** OFF, GATE, STUT; **PAT** 1–16; **RATE** 1/8 … 32T; **DEPTH**.
-- **SL BUS / SL BUS 2**: ON / OFF for what goes in: **T1–T6** and **FX** (the delay, reverb and chorus returns).
+- **SL BUS / SL BUS 2 / SL BUS 3**: ON / OFF for what goes in: **T1–T8** and **FX** (the delay, reverb and chorus returns).
   Everything on chops the whole mix after the effects; with FX off the tails ring free.
 - **SL PITCH**: the repeats follow a 16-step pitch sequence (±24 semitones). KNOB 1 the step, KNOB 2 its pitch, LEN,
   QUANT (CHR or SCL: the song's scale).
@@ -1672,7 +1554,7 @@ its page). PRESETS loads the track's sounds, as everywhere. The pages, their kno
 | **ROOM** | Classic room | DAMP | PRE (pre-delay, ms) |
 | **SPRING** | Amp spring tank | DAMP | PRE |
 | **SHIMR** (shimmer) | Rises an octave on every pass | DAMP | **AIR** (±24 st: darker and lower / airier and higher) |
-| **RESO** | Four strings tuned to the song's scale | **FOLLOW** (OFF / T1–T6: the chord follows the lowest note that track plays) | **PITCH** (the chord 0–14 steps up the scale) |
+| **RESO** | Four strings tuned to the song's scale | **FOLLOW** (OFF / T1–T8: the chord follows the lowest note that track plays) | **PITCH** (the chord 0–14 steps up the scale) |
 | **CLOUD** | Granular wash; SIZE at max freezes it | DAMP | **AIR** |
 
 **REVERB 2**: **MOD** (modulation depth), **RATE**, **FILT** (input tone: darker / brighter; 0.6.86 resonant, a band at the cutoff to carve the room's place), **WIDE**.
@@ -2093,7 +1975,7 @@ device settings, not part of a project.
 
 ### ROUTE (GLO > SYSTEM, KNOB 3)
 
-**CH1-6**: MIDI channels 1–6 play tracks 1–6, channels 7–16 are ignored. **SEL**: every channel plays the selected
+**CH1-8**: MIDI channels 1–8 play tracks 1–8, channels 9–16 are ignored. **SEL**: every channel plays the selected
 track.
 
 ### GLOBAL (GLO > GLOBAL)
@@ -2118,16 +2000,13 @@ every setting, its values and its meaning: nothing changes in the saved settings
 
 | Tab › page | KNOB | Setting | Values |
 | --- | --- | --- | --- |
-| SCREEN › SCREEN | 1 | COLOR | GREY, GREEN, AMBER, ICE, VIOLET, ROSE, PAPER, HI-CON, NIGHT, MONO, **JIANT** (default) |
-| | 2 | SKIN | **AIR** (default of new settings), COLORS, HUD — (0.8.9; AIR 0.9.7; BOTTOM retired in 0.9.17: opens as AIR) see [Skins](#skins-air-colors-hud-089-air-097) |
-| | 3 | STYLE | FLAT, LINE |
-| | 4 | LARGE | OFF, ON (big labels and values) |
+| SCREEN › SCREEN | 1 | LARGE | OFF, ON (big labels and values) — (GARDEN) COLOR, SKIN and STYLE are retired: one look |
 | SCREEN › SCREEN 2 | 1 | SCOPE | **OFF** (default), ON — (0.9.7) an engine's EDIT pages: OFF the creature on the whole panel, centred, the page's name and the sound's name small in its corners; ON the creature on the left, the SCOPE card and the chips as before. Settings saved before 0.9.7 load as OFF |
-| | 2 | ANIMATION | ON, OFF (values snap; the power-on signature appears whole) — was ANIM |
+| | 2 | ANIMATION | ON, OFF (values snap, the garden still; the power-on signature appears whole) — was ANIM |
 | | 3 | SCREEN SLEEP | **NEVER** (default), 5 MIN, 15 MIN, 30 MIN, 60 MIN — the screen dark after that long without a touch (was SCREEN OFF) |
-| | 4 | ECO STYLE | **OG** (default, the beings), GOOBERS — ECO STYLE: OG (the beings) or GOOBERS (mushroom goobers in a forest, one per track). Settings saved before it load as OG |
 | SCREEN › LEDS | 1 | LED GLOW | OFF, LOW, **HIGH** (default), INVERT — how the idle keys and buttons glow (was LEDS: OFF, DIM LO, DIM HI, INV); (0.7.3) the glow's LEDs take turns frame to frame, so it no longer hums through the speaker once the music stops |
 | | 2 | SCALE LEDS | OFF, ON — the keys of the scale glow, the root brighter |
+| SCREEN › MOTION | 1 | MOTION | **100%** (default), 50%, 150%, 200% — (GARDEN) how fast the garden and its creatures move |
 | AUDIO › AUDIO | 1 | SPEAKER EQ | FLAT, LOWCUT, BASS+ (an EQ on the master for the small speaker; also reaches the outputs and USB) |
 | | 2 | TRACKS | **4** (default), 6 — the same as GLO › SYSTEM KNOB 1 |
 | | 3 | LOAD | ECO, LITE, **FULL** (default) — the same as GLO › SYSTEM KNOB 2 |
@@ -2233,7 +2112,7 @@ Any knob of a track's sound to any CC of your controller, on the device (from Fe
   38 / 96–101 (data entry, RPN), CC11 (expression), CC64 (sustain), CC120–127 (channel modes) and every CC of the
   standard map above (CC5 7 10 16–23 71–75 91 93 94 102–105). So a learned CC and the map never meet.
 - **Kept with the settings** (not in a project; a settings backup carries it); **MENU › MIDI › LEARN CLEAR** forgets
-  them all. ROUTE still decides which channels are heard (CH1-6 ignores channels 7–16).
+  them all. ROUTE still decides which channels are heard (CH1-8 ignores channels 9–16).
 - Bluetooth MIDI does not exist on the FM-1 with JIANT (see above), so learning works on USB and TRS.
 
 ### Stems (0.7.1)

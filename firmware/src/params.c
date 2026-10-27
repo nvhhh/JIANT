@@ -44,6 +44,11 @@ static const char *const N_PFXRES[] = {"1/8", "1/16", "1/32"};     /* (0.6.99) F
 /* seq.c kb_map; 1 = SNAP (stored projects: the former ON); 3 = SEQ: SNAP, and the sequencer's notes snap too as
  * they play (seq.c seq_step; the steps keep what was written). Append-only: older projects hold 0..2 */
 static const char *const N_QUANT[] = {"OFF", "SNAP", "WHITE", "SEQ"};
+static const char *const N_DYN[] = {"OFF", "DBX", "LA-2A", "FAIR"};   /* (JIANT) fx.c track_dyn, 0 OFF */
+static const char *const N_DBXR[] = {"1:1", "1.5:1", "2:1", "3:1", "4:1", "6:1", "10:1", "20:1", "INF:1"};   /* (JIANT) the dbx
+                                                         * 160's COMPRESSION detents (fx.c DBX_RAT) */
+static const char *const N_LAMODE[] = {"COMP", "LIMIT"};               /* (JIANT) the LA-2A's switch */
+static const char *const N_FATC[] = {"1", "2", "3", "4", "5", "6"};    /* (JIANT) the 670's TIME CONSTANT (fx.c FA_TC) */
 static const char *const N_DTYPE[] = {"SOFT", "HARD", "FOLD", "CRUSH", "RECT", "AMP"};   /* (JIANT) fx.c DT_*; 0.7.8 AMP */
 static const char *const N_FTYPE[] = {"LP", "HP", "BP", "COMB"};   /* (JIANT 0.5) P_FTYPE: eng_analog.c FT_* */
 static const char *const N_VOICE[] = {"POLY", "MONO", "LEG", "UNI"};   /* V_POLY .. V_UNISON */
@@ -53,7 +58,7 @@ static const char *const N_ALLOC[] = {"ROT", "REUSE"};
 static const char *const N_ORDER[] = {"NOTE", "PLAY"};
 static const char *const N_CLOCK[] = {"INT", "USB", "TRS"};
 static const char *const N_MIDI_INPUT[] = {"USB", "TRS"};
-static const char *const N_ROUTE[] = {"CH1-6", "SEL"};   /* MIDI IN (seq.c): 1..6 -> parts, 7..16 ignored / all -> selected */
+static const char *const N_ROUTE[] = {"CH1-8", "SEL"};   /* MIDI IN (seq.c): 1..8 -> parts, 9..16 ignored / all -> selected */
 static const char *const N_NOTE[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 static const char *const N_DASH[] = {"--"};
 static const char *const N_RTYPE[] = {"ROOM", "SPRING", "SHIMR", "RESO", "CLOUD"};   /* (JIANT 0.5: + 3) */   /* G_RTYPE: the reverb bus's model (fx.c) */
@@ -73,12 +78,13 @@ static const char *const N_MDST[] = {"OFF", "PITCH", "CUT", "SHP", "AMP", "PAN",
                                                          * globals (DELAY TIME FDBK TONE MIX, REVERB SIZE DAMP, CHORUS RATE
                                                          * DEPTH): mod.c macro_master, fx.c GFX() */
 static const char *const N_ENGNAME[] = {"ANALOG", FELUCCA_FM4 ? "DIGITAL" : "-", "PHASE", "LOFI", "-", "VOICE", "-", "WHEEL", "-", "-",
-                                             "DRUM", "NOISE", "FM6", "-", "ANIMAL"};   /* (JIANT: SAMPLE 4, GRAIN 8, SLICE 13 retired; 0.8.3 ANIMAL) */
+                                             "DRUM", "NOISE", "FM6", "-", "ANIMAL", "SHRUB", "MONK"};   /* (JIANT: SAMPLE 4, GRAIN 8, SLICE 13 retired;
+                                                         * 0.8.3 ANIMAL; 0.9.10 SHRUB: the editor's engine list reaches it; 0.9.20 MONK) */
 
 #define PD(l, f, mn, mx, df) {l, f, mn, mx, df, 0, 0}
 #define PE(l, n, df) {l, F_ENUM, 0, (int16_t)(sizeof(n) / sizeof(n[0]) - 1), df, n, 0}
 
-static const param_desc_t TP[P_COUNT] = {
+static const param_desc_t TP[P_NALL] = {
     [P_LEVEL] = PD("LEVEL", F_DB, 0, 127, 104),
     [P_ATK] = PD("ATK", F_TIME, 0, 127, 10),
     [P_DEC] = PD("DEC", F_TIME, 0, 127, 70),
@@ -152,6 +158,18 @@ static const param_desc_t TP[P_COUNT] = {
 #undef LANE
     [P_DTYPE] = PE("TYPE", N_DTYPE, 0),         /* (JIANT) DIST: SOFT (as before) HARD FOLD CRUSH RECT AMP */
     [P_DTONE] = PD("TONE", F_BIPCT, -64, 63, 0),   /* .. its tone: darker / brighter */
+    [P_CTYPE] = PE("COMP", N_DYN, 0),          /* (JIANT) OFF, DBX 160, LA-2A, FAIR 670 (fx.c track_dyn) */
+    [P_DBX_THR] = PD("THRESH", F_CDB40, 0, 127, 70),      /* (JIANT, DYN) DBX 160: -40 .. 0 dB (-18 dB) */
+    [P_DBX_RAT] = PE("RATIO", N_DBXR, 4),               /* .. its COMPRESSION, 1:1 .. INF:1 (4:1) */
+    [P_DBX_OUT] = PD("OUTPUT", F_CDBS, 0, 40, 20),       /* .. its OUTPUT GAIN, -20 .. +20 dB (0 dB) */
+    [P_LA_PR] = PD("PEAK RED", F_INT, 0, 100, 40),        /* LA-2A: PEAK REDUCTION, the panel's 0 .. 100 */
+    [P_LA_GAIN] = PD("GAIN", F_INT, 0, 100, 20),          /* .. GAIN, 0 .. 100 (0 .. +30 dB) */
+    [P_LA_MODE] = PE("MODE", N_LAMODE, 0),               /* .. COMP / LIMIT */
+    [P_LA_HF] = PD("HF", F_INT, 0, 100, 0),               /* .. HF: the detector's high-frequency emphasis */
+    [P_LA_MIX] = PD("MIX", F_PCT, 0, 100, 100),           /* .. MIX: the compressed share (100 %: all of it) */
+    [P_FA_IN] = PD("INPUT", F_INT, 0, 20, 10),            /* FAIRCHILD 670: INPUT GAIN, the panel's 0 .. 20 (10: 0 dB) */
+    [P_FA_THR] = PD("THRESH", F_CTEN, 0, 100, 50),        /* .. THRESHOLD, 0.0 .. 10.0 */
+    [P_FA_TC] = PE("TIME", N_FATC, 1),                   /* .. TIME CONSTANT 1 .. 6 */
     [P_MSLEN] = PD("LEN", F_STEPS, 1, 16, 16),  /* (JIANT) the modulation sequence (mod.c MS_STEP) */
     [P_MSDIV] = PE("DIV", N_DIV, 2),
     [P_MSSLW] = PD("SLEW", F_PCT, 0, 127, 0),
@@ -230,6 +248,7 @@ static const param_desc_t GP[G_COUNT] = {
     [G_SLP0 + 10] = PD("PITCH", F_SEMI, -24, 24, 0), [G_SLP0 + 11] = PD("PITCH", F_SEMI, -24, 24, 0),
     [G_SLP0 + 12] = PD("PITCH", F_SEMI, -24, 24, 0), [G_SLP0 + 13] = PD("PITCH", F_SEMI, -24, 24, 0),
     [G_SLP0 + 14] = PD("PITCH", F_SEMI, -24, 24, 0), [G_SLP15] = PD("PITCH", F_SEMI, -24, 24, 0),
+    [G_SLT7] = PE("T7", N_ONOFF, 1), [G_SLT8] = PE("T8", N_ONOFF, 1),   /* (0.9.20) the SLICER's T7 T8 (slicer.c sl_trk_g) */
 };
 
 static const param_desc_t LOFI_RTRG = {"RTRG", F_ONOFF, 0, 1, 0, 0, 0};   /* (0.6.12) P_LRTRG on a LOFI track */
@@ -468,6 +487,23 @@ static void param_format(const param_desc_t *d, int32_t v, char *val, const char
         }
         break;
     }
+    case F_CDB40:                                   /* (JIANT, DYN) -40 .. 0 dB */
+        fmt_fix(val, (int32_t)v * 400 / 127 - 400, 1);
+        *unit = "dB";
+        break;
+    case F_CDBS:                                    /* a signed dB, its 0 in the middle of the range */
+        fmt_int(val, v - (d->max + d->min) / 2);
+        if (v > (d->max + d->min) / 2) {
+            char t[8];
+            fmt_int(t, v - (d->max + d->min) / 2);
+            val[0] = '+';
+            str_cpy(val + 1, t, 6);
+        }
+        *unit = "dB";
+        break;
+    case F_CTEN:                                    /* tenths: 0.0 .. 10.0 */
+        fmt_fix(val, v, 1);
+        break;
     case F_DB:
         if (v <= 0) {
             str_cpy(val, "OFF", 6);
@@ -586,7 +622,8 @@ static const page_t PAGES[] = {
     /* (0.6.81) the SLICER after the buses, before MASTER: DELAY, REVERB and CHORUS nearer at hand */
     {"SLICER", FAM_FX, SC_GLOBAL, GR_SLCR, {G_SLMODE, G_SLPAT, G_SLRATE, G_SLDEP}},   /* (0.6.3) one, on a bus */
     {"SL BUS", FAM_FX, SC_GLOBAL, GR_SLCR, {G_SLT1, G_SLT1 + 1, G_SLT1 + 2, G_SLT1 + 3}},   /* what goes in */
-    {"SL BUS 2", FAM_FX, SC_GLOBAL, GR_SLCR, {G_SLT1 + 4, G_SLT6, G_SLFX, 0xFF}},
+    {"SL BUS 2", FAM_FX, SC_GLOBAL, GR_SLCR, {G_SLT1 + 4, G_SLT6, G_SLT7, G_SLT8}},   /* (0.9.20: T7 T8; FX its own page) */
+    {"SL BUS 3", FAM_FX, SC_GLOBAL, GR_SLCR, {G_SLFX, 0xFF, 0xFF, 0xFF}},
     {"SL PITCH", FAM_FX, SC_GLOBAL, GR_SLPIT, {0xFF, G_SLP0, G_SLPLEN, G_SLPQ}},   /* KNOB 1 the step (sl_ui_step) */
     {"PUNCH", FAM_FX, SC_GLOBAL, GR_PUNCH, {G_PFXLEN, G_PFXRES, 0xFF, 0xFF}},   /* (0.6.99) the punch-in lane: LEN RES, REC, CLEAR */
     {"SCL", FAM_SCL, SC_TRACK, GR_SCALE, {P_ROOT, P_SCALE, P_QUANT, ID_ALLTR}},   /* (JIANT: ROOT, SCALE every melodic track's;
@@ -612,6 +649,11 @@ static const page_t PAGES[] = {
     {"FILTER", FAM_EDIT, SC_TRACK, GR_NONE, {P_FTYPE, P_E4, P_E5, P_E6}},   /* (JIANT 0.5) ANALOG: TYPE CUT RES DRV */
     {"FILTER", FAM_EDIT, SC_TRACK, GR_NONE, {P_FTYPE, P_FCUT, P_FRES, P_DIST}},   /* .. every other engine's (on the part;
                                                          * DRV: the part's DIST, after it) */
+    {"COMP", FAM_EDIT, SC_TRACK, GR_NONE, {P_CTYPE, 0xFF, 0xFF, 0xFF}},   /* (JIANT, DYN) the track's compressor: OFF, the */
+    {"COMP", FAM_EDIT, SC_TRACK, GR_NONE, {P_CTYPE, P_DBX_THR, P_DBX_RAT, P_DBX_OUT}},   /* model alone; each model its own */
+    {"COMP", FAM_EDIT, SC_TRACK, GR_NONE, {P_CTYPE, P_LA_PR, P_LA_GAIN, P_LA_MODE}},     /* front panel (ui.c page_visible: */
+    {"COMP 2", FAM_EDIT, SC_TRACK, GR_NONE, {P_LA_HF, P_LA_MIX, 0xFF, 0xFF}},           /* the selected model's pages) */
+    {"COMP", FAM_EDIT, SC_TRACK, GR_NONE, {P_CTYPE, P_FA_IN, P_FA_THR, P_FA_TC}},
     {"SOUND", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* DRUM: a sound of the kit (ui_dx.c) */
     {"SOUND 2", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"SOUND 3", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (JIANT 0.4) MODE, the pitch modulation, DRIVE */
@@ -678,7 +720,7 @@ static const page_t PAGES[] = {
 #define NPAGES (sizeof(PAGES) / sizeof(PAGES[0]))
 static uint8_t mod_ui_slot;      /* the MOD page: the matrix slot (0..3) KNOB 2..4 edit */
 static uint8_t ms_ui_step;       /* (JIANT) the MSEQ page: the step (0..15) KNOB 2 edits */
-static const char *const N_RFOLW[] = {"OFF", "T1", "T2", "T3", "T4", "T5", "T6"};
+static const char *const N_RFOLW[] = {"OFF", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};   /* (0.9.20: T7 T8) */
 static const param_desc_t RESO_PITCH = PD("PITCH", F_INT, 0, 14, 0);   /* (0.6.5) RESO: the chord's steps up the scale (G_RPRE) */
 static const param_desc_t RESO_FOLW = PE("FOLLOW", N_RFOLW, 0);          /* .. the track whose notes it follows (G_RDAMP) */
 static const param_desc_t REV_PRE = PD("PRE", F_INT, 0, 100, 0);       /* ROOM / SPRING: the pre-delay, ms (G_RPRE) */

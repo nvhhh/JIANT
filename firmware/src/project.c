@@ -832,6 +832,8 @@ static uint32_t proj_bits(uint32_t m)
         n += m & 1u;
     return n;
 }
+/* (0.9.20) the SLICER's T7 T8 switches stored ('S' '8'): only when one is not ON, the default */
+static int proj_s8(const project_t *q) { return q->g[G_SLT7] != GP[G_SLT7].def || q->g[G_SLT8] != GP[G_SLT8].def; }
 static uint32_t proj_packed_size(const project_t *q)
 {
     uint32_t n = 68u + sizeof q->chain + 4u + q->motion.count * sizeof q->motion.event[0] + 2u + G_SL_N, t, i;
@@ -843,6 +845,8 @@ static uint32_t proj_packed_size(const project_t *q)
         uint32_t ns, m = proj_sx_tracks(q, &ns);
         if (m) n += 3u + 8u * proj_bits(m) + 2u * ns;
     }
+    if (proj_s8(q))                                     /* (0.9.20) 'S' '8': the SLICER's T7 T8, when not the default */
+        n += 4u;
     if (q->g[G_DMOD] != GP[G_DMOD].def)                 /* (0.6.86) the delay's MOD's, when not the default */
         n += 3u;
     if (q->g[G_DTYPE] || q->g[G_DPING])                 /* (0.6.90) its TYPE and PING-PONG's */
@@ -1018,6 +1022,10 @@ static int proj_pack_nt(project_store_t *out, const project_t *q, uint32_t nt, u
                 b[pos++] = 0;
             }
         }
+    }
+    if (proj_s8(q)) {                                   /* (0.9.20) 'S' '8' after it: the SLICER's T7 T8 switches */
+        b[pos++] = 'S'; b[pos++] = '8';
+        b[pos++] = (uint8_t)(q->g[G_SLT7] != 0); b[pos++] = (uint8_t)(q->g[G_SLT8] != 0);
     }
     memcpy(b + PROJC_PFX_OFF, q->pfx_lane, sizeof q->pfx_lane);
     b[PROJC_PFX_OFF + sizeof q->pfx_lane] = q->pfx_ltgt > 2u ? 0u : q->pfx_ltgt;
@@ -1310,6 +1318,12 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
                 if (s->comp2 == CP_ECHO) s->carg2 = (uint8_t)(s->carg2 | (x0 & 0x38u));
             }
         }
+    }
+    if (pos + 4u <= room && b[pos] == 'S' && b[pos + 1u] == '8') {   /* (0.9.20) the SLICER's T7 T8 (else ON, the
+                                                         * default) */
+        q->g[G_SLT7] = (int16_t)(b[pos + 2u] & 1u);
+        q->g[G_SLT8] = (int16_t)(b[pos + 3u] & 1u);
+        pos += 4u;
     }
     proj_new_tracks(q, nt);                             /* (a FUNC of fewer tracks: the rest at power-on) */
     for (t = nt; t < NTRK; t++)
@@ -1610,6 +1624,76 @@ static void project_capture(project_t *p)
 
 /* the music as it is now -> slot, named `name` (0: the current name; "" none); 0 saved, nonzero refused or failed.
  * The current name becomes the saved one */
+/* (JIANT, DYN) the compressor settings are per project: OBJ_COMP holds one entry per project slot and song section (32,
+ * 12 bytes x 4 tracks: the model and every model's controls). They are not in the project block, which is full. An entry is copied into
+ * the tracks when its section loads (comp_apply), taken from them when the section is stored (comp_store), and written to
+ * flash with the sections (comp_flush). The track values are the ones on screen; the table is the saved truth. */
+#define COMP_N 32u
+#define COMP_BYTES 12u
+static const uint8_t COMP_P[COMP_BYTES] = {P_CTYPE, P_DBX_THR, P_DBX_RAT, P_DBX_OUT, P_LA_PR, P_LA_GAIN, P_LA_MODE,
+                                           P_LA_HF, P_LA_MIX, P_FA_IN, P_FA_THR, P_FA_TC};
+#if FELUCCA_FLASH
+static uint8_t comp_tab[COMP_N][NTRK][COMP_BYTES];
+static uint8_t comp_dirty;
+static int dyn_slot_key(uint32_t slot)                     /* the entry of section `slot` of the current song (proj_obj's order) */
+{
+    return song_cur ? 4 + (song_cur - 1) * 4 + (int)(slot & 3u) : (int)(slot & 3u);
+}
+static void comp_reset_key(int o)                      /* an entry to the defaults (the params' OFF, THRESH, RATIO) */
+{
+    uint32_t t, k;
+    if (o < 0 || o >= (int)COMP_N) return;
+    for (t = 0; t < NTRK; t++)
+        for (k = 0; k < COMP_BYTES; k++)
+            comp_tab[o][t][k] = (uint8_t)TP[COMP_P[k]].def;
+    comp_dirty = 1;
+}
+static void comp_load(void)                            /* power-on: the flash table, else the defaults */
+{
+    uint32_t o;
+    if (flash_ok && st_load(OBJ_COMP, comp_tab, sizeof comp_tab) == (int)sizeof comp_tab) {
+        comp_dirty = 0;
+        return;
+    }
+    for (o = 0; o < COMP_N; o++)
+        comp_reset_key((int)o);
+    comp_dirty = 0;
+}
+static void comp_apply(uint32_t slot)                  /* the tracks take the entry of section slot (a section loaded) */
+{
+    int o = dyn_slot_key(slot);
+    uint32_t t, k;
+    if (o < 0 || o >= (int)COMP_N) return;
+    for (t = 0; t < NTRK; t++)
+        for (k = 0; k < COMP_BYTES; k++)
+            trk[t].p[COMP_P[k]] = (int16_t)clamp(comp_tab[o][t][k], TP[COMP_P[k]].min, TP[COMP_P[k]].max);
+}
+static void comp_store(uint32_t slot)                  /* the entry of section slot from the tracks (it is stored) */
+{
+    int o = dyn_slot_key(slot);
+    uint32_t t, k;
+    if (o < 0 || o >= (int)COMP_N) return;
+    for (t = 0; t < NTRK; t++)
+        for (k = 0; k < COMP_BYTES; k++)
+            comp_tab[o][t][k] = (uint8_t)trk[t].p[COMP_P[k]];
+    comp_dirty = 1;
+}
+static void comp_reset(uint32_t slot) { comp_reset_key(dyn_slot_key(slot)); }   /* an empty section: the defaults */
+static int comp_flush(void)                            /* the table into flash if it changed: 0 done or none, 1 flash */
+{
+    if (!comp_dirty || !flash_ok) return 0;
+    if (st_save(OBJ_COMP, comp_tab, sizeof comp_tab)) return 1;
+    comp_dirty = 0;
+    return 0;
+}
+#else
+static void comp_load(void) {}                         /* (no flash: the tracks keep their values) */
+static void comp_apply(uint32_t slot) { (void)slot; }
+static void comp_store(uint32_t slot) { (void)slot; }
+static void comp_reset(uint32_t slot) { (void)slot; }
+static int comp_flush(void) { return 0; }
+#endif
+
 static int project_save_as(uint32_t slot, const char *name)
 {
     project_t *p = &proj_scratch;
@@ -1632,6 +1716,11 @@ static int project_save_as(uint32_t slot, const char *name)
             return 2;
         }
         memcpy(&proj_slot[slot & 3u], &proj_wire, sizeof proj_wire);
+        comp_store(slot);
+        if (comp_flush()) {
+            ui_message("SAVE ERROR");
+            return 2;
+        }
         proj_name_get(proj_name, (const uint8_t *)p->name);
         proj_cur = (uint8_t)(slot & 3u);
         live.cur = (int8_t)(slot & 3u);                 /* (0.6.12: the section playing, SAVE > PROJECT shows it) */
@@ -1641,6 +1730,7 @@ static int project_save_as(uint32_t slot, const char *name)
     }
 #endif
     memcpy(&proj_slot[slot & 3u], &proj_wire, sizeof proj_wire);
+    comp_store(slot);
     proj_name_get(proj_name, (const uint8_t *)p->name);
     proj_cur = (uint8_t)(slot & 3u);
     live.cur = (int8_t)(slot & 3u);
@@ -2257,6 +2347,7 @@ static void project_load(uint32_t slot)
         proj_cur = (uint8_t)(slot & 3u);
         live.cur = (int8_t)(slot & 3u);                 /* (0.6.12: the section playing) */
     }
+    comp_apply(slot & 3u);
 }
 
 /* settings + learned panel table: one flash object. The flash copy wins at

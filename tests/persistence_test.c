@@ -513,22 +513,24 @@ int main(void)
     reset();
     settings_init();
     {
-        const uint8_t amber[] = {0, 2};
+        const uint8_t amber[] = {0, 0};                 /* (GARDEN: the one palette, over an old id saved: 2, AMBER) */
+        persist_saved.palette = 2u;
         song.playing = 1;
         bad += check("editor display change while playing is applied and reports deferred saving",
-                      ed_ui_set(amber, sizeof amber) == 4 && settings.palette == 2u && persist_pending == 1 && !erases);
+                      ed_ui_set(amber, sizeof amber) == 4 && settings.palette == 0u && persist_pending == 1 && !erases);
         song.playing = 0;
         settings_poll();
         bad += check("STOP commits the deferred palette setting",
-                      !persist_pending && erases == 1 && persist_saved.palette == palette_to_stored(2));
+                      !persist_pending && erases == 1 && persist_saved.palette == palette_to_stored(0));
         before = erases;
         bad += check("repeating an unchanged editor preference succeeds without erasing",
                       ed_ui_set(amber, sizeof amber) == 0 && erases == before);
         erase_error = 1;
         const uint8_t mono[] = {0, 0};
+        persist_saved.palette = 2u;                     /* (GARDEN: an old id saved again, so that setting GARDEN changes it) */
         bad += check("editor reports failed saving while preserving the previous flash setting",
                       ed_ui_set(mono, sizeof mono) == 3 && settings.palette == 0u && persist_pending == 2 &&
-                      persist_saved.palette == palette_to_stored(2));
+                      persist_saved.palette == 2u);
         erase_error = 0;
         fm1_ms += 1000;
         settings_poll();
@@ -606,7 +608,7 @@ int main(void)
                   !memcmp(&p.panel, &panel, sizeof panel));
     settings_save();
     bad += check("unchanged settings do not erase", !persist_pending && erases == 1u);
-    settings.palette = 1;
+    settings.lowcut = 1;                              /* (GARDEN: one palette, every palette stored alike: LOWCUT changes) */
     erase_error = 1;
     fm1_ms = 0xFFFFFF00u;
     settings_save();
@@ -615,12 +617,12 @@ int main(void)
     fm1_ms += 999u;
     settings_poll();
     bad += check("failed settings retry waits through clock wrap", persist_pending && erases == before &&
-                  persist_saved.palette == palette_to_stored(2) && settings.palette == 1u);
+                  persist_saved.lowcut == 2u && settings.lowcut == 1u);
     erase_error = 0;
     fm1_ms++;
     settings_poll();
     bad += check("settings retry succeeds after 1000 ms", !persist_pending && erases == before + 1u &&
-                  st_load(OBJ_SETTINGS, &p, sizeof p) == (int)sizeof p && p.palette == palette_to_stored(1));
+                  st_load(OBJ_SETTINGS, &p, sizeof p) == (int)sizeof p && p.lowcut == 1u);
 
     reset();
     trk[0].step[0] = (step_t){{60}, 1, ST_NOTE, 0, 96, 0, 0};

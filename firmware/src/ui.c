@@ -67,6 +67,11 @@ static uint32_t up_gen;                      /* bumped on every user bank change
  * every engine's presets of that type, after Skiff by illuminus5), the type in a byte no engine uses (engine 15's
  * favourite byte 18: 0 in older settings, ALL / FAV as they were) */
 #define list_type (favorites.factory[15][18])
+/* (GARDEN) MENU > SCREEN > MOTION: how fast the animations run. 0 100% (the default, and every older setting: byte 13
+ * was never used), 1 50%, 2 150%, 3 200%. The hints keep bytes 0..3; 4..12 held the layer buttons' counts, kept unused.
+ * MOTION_Q8: the frame step in 1/256ths per draw (ui_draw.c ui_draw; 256 = one frame, as before) */
+#define ui_motion (favorites.factory[15][13])
+static const uint16_t MOTION_Q8[4] = {256, 128, 384, 512};
 _Static_assert(PT_N == 10, "settings_persist.c checks the LIST type against 10");
 static const char *const N_LIST[PT_N + 1] = {"ALL", "FAV", "BASS", "LEAD", "PAD", "KEYS", "PLUCK", "BELL", "VOX", "DRUM",
                                               "FX"};
@@ -182,22 +187,12 @@ static void rp_put(uint32_t f, uint32_t v)
     ui_rec_prefs = (uint8_t)((ui_rec_prefs & ~(3u << (2u * f))) | st << (2u * f));
     rp_apply();
 }
-/* MENU > STYLE (ui_menu.c): ST_FLAT ST_LINE (gfx.c) in another byte no engine uses, saved with the settings;
- * 0 in older ones = FLAT; 2, the retired PIXEL (1.0.1), reads as LINE; anything else unknown as FLAT (settings_persist.c). gfx.c draws from its copy, ux.style
- * (ui_draw.c style_apply) */
-#define ui_style (favorites.factory[15][29])
-/* (0.8.9) MENU > DISPLAY > SKIN (ui_menu.c): SKIN_COLORS SKIN_HUD SKIN_AIR (gfx.c; 0.9.17 BOTTOM's 1 reads as AIR) in a byte no engine uses (engine 15,
- * byte 20), saved with the settings; 0 in older ones = COLORS, unknown = COLORS (settings_persist.c). gfx.c draws from its
- * copy, ux.skin (ui_draw.c style_apply) */
-#define ui_skin (favorites.factory[15][20])
+/* (GARDEN) MENU > STYLE and > SKIN are retired: favorites.factory[15][29] and [15][20] are no longer read or written */
 /* (0.9.7) MENU > DISPLAY > SCOPE (ui_lzedit.c graph_sound_lz): 1 ON, an engine's EDIT pages as before (the creature on the left,
  * the SCOPE card, the chips); 0 OFF (the default: new settings and older ones, which never held it), the creature on the
  * whole panel, centred, the page's and the sound's names in its corners. A byte no engine uses (engine 15) */
 #define ui_scope (favorites.factory[15][19])
-/* MENU > SCREEN 2 > ECO STYLE (menu_items.c MI_ECO; the HOME ECO view): 0 OG, the beings (the default: new settings and older
- * ones, which never held it); 1 GOOBERS, mushroom goobers in a forest, one per track. A byte no engine uses (engine 15, byte
- * 14: 0..3 are the hints, 15 and 16 the CPU TEST); unknown = OG (settings_persist.c) */
-#define ui_eco_style (favorites.factory[15][14])
+/* (GARDEN) MENU > SCREEN 2 > ECO STYLE (OG / GOOBERS) retired: favorites.factory[15][14] kept as saved, not read */
 static void draw_rules(uint32_t y, uint32_t h);       /* (ui_draw.c) */
 
 static uint8_t sync_reload;                  /* engine / preset / project / user preset loaded: editor RELOAD push */
@@ -281,6 +276,7 @@ static struct {
     uint8_t nmem[13];            /* (0.9.2) each section's page last shown, its chain's entry ^ its default (ui_lens.c
                                   * nav_mem: EDIT one per kind of track) */
     uint8_t fxmod;               /* (0.8.5) FX: the effect last shown (BUSES' tile lit) */
+    uint8_t xy;                  /* (GARDEN, Phase 6) ECO's X-Y view shown (SELECT left on ECO) */
     uint8_t hlv, hset[2];        /* .. HOME: ECO (0) or BEING (1), each one's page (HOME / MACROS, HOME / ROUTES) */
     uint8_t focus;               /* .. EDIT > FOCUS: the parameter (E1..E8: 0..7) */
     uint8_t stage;               /* .. ENV > STAGE: the stage (ATK DEC SUS REL: 0..3) */
@@ -525,7 +521,7 @@ static uint32_t large_kind(void)
 /* the geometry of the page shown: the cards' height, the panel's top and height. (0.8.5) A lens page (lz_on): the
  * mock-up's (LZ_*), under its level tabs; a layer's map over it: the usual layout */
 /* (0.8.9) a lens page in SKIN BOTTOM / HUD's layout (LARGE: COLORS'); HUD's HOME (ECO): the beings full screen */
-static int lz_low(void) { return ux.skin && lz_on() && !(ui_prefs & PREF_LARGE); }
+static int lz_low(void) { return UX_SKIN && lz_on() && !(ui_prefs & PREF_LARGE); }
 /* (0.9.17) .. with the knobs' row on top, under the tabs: AIR; HUD on the SEQ pages (the values over the pattern's pictures,
  * as AIR and COLORS: the owner's "parameters on top") */
 static int lz_top(void);
@@ -603,6 +599,11 @@ static int page_visible(uint32_t i)
         return trk_engp(TSEL) == &ENG_WHEEL;
     if (PAGES[i].id[0] == P_LRTRG && PAGES[i].id[1] == 0xFFu)   /* (0.6.12) RETRIG: LOFI BYTE / FLOAT's */
         return trk_engp(TSEL) == &ENG_LOFI && TSEL->p[P_E1] >= RW_BYTE;
+    if (PAGES[i].fam == FAM_EDIT && (PAGES[i].id[0] == P_CTYPE || PAGES[i].id[0] == P_LA_HF)) {   /* (JIANT, DYN) COMP,
+                                                         * COMP 2: the selected model's front panel only */
+        uint32_t m = (uint32_t)TSEL->p[P_CTYPE], k = PAGES[i].id[0] == P_LA_HF ? P_LA_PR : PAGES[i].id[1];
+        return m == (k == P_DBX_THR ? 1u : k == P_LA_PR ? 2u : k == P_FA_IN ? 3u : 0u);
+    }
     if (PAGES[i].scope == SC_TRACK && PAGES[i].id[0] == P_FTYPE)   /* (JIANT 0.5) FILTER: ANALOG's, or the part's */
         return (trk_eng(TSEL) == ENGI_ANALOG) == (PAGES[i].id[1] == P_E4);
     return !(PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] >= P_FM1_ATK &&
@@ -694,13 +695,16 @@ static uint32_t lz_fam(void)                            /* which lens */
     return save_on() ? LZ_SAVE : fx_on() ? LZ_FX : LZ_SEQ;
 }
 static int lz_mock_cards(void) { return lz_on() && lz_fam() <= LZ_FX; }
-static int lz_top(void) { return lz_low() && (ux.skin == SKIN_AIR || lz_fam() == LZ_SEQ); }   /* (0.9.17, card_y) */
+static int lz_top(void) { return 0; }                  /* (0.9.17, card_y; GARDEN: the pods along the bottom, as the mockups) */
 /* (MENU > LARGE: their cards as they are; 0.9.0: not under the count-in or UPDATE MODE's countdown, which cover the page:
  * their header on BG, as every other page's) */
 static int hud_home(void)
 {
-    return skin_hud() && !ui.uboot && !seq_counting() && lz_low() && lz_fam() == LZ_HOME && home_level() == 0u;   /* (0.9.7 AIR too) */
+    return skin_hud() && !ui.uboot && !seq_counting() && lz_low() && lz_fam() == LZ_HOME && home_level() == 0u && !ui.xy;   /* (0.9.7 AIR too; not the X-Y view) */
 }
+/* (GARDEN, Phase 3) every other lens page on the scene too: its header, tabs, pods and footer on the garden (still), its
+ * panel a rounded BG card over it */
+static int gd_back(void) { return !ui.uboot && !seq_counting() && lz_low() && !hud_home(); }
 /* the tab lit: the section's group shown, the menu's tab, a layer's view */
 static uint32_t menu_tab(void);
 static uint32_t menu_page(void);                        /* (0.9.18) the MENU's page (ui_menu.c) */
@@ -1085,6 +1089,7 @@ static void open_family(uint32_t fam) { nav_button(sec_of_fam(fam)); }
 static void go_home(void)
 {
     ui.home = 1;
+    ui.xy = 0;
     ui.plk_src = 0;                              /* (parameter locks: HOME's four) */
     ui.entry_open = 0;
     ui.hot_t = 0;
@@ -1327,7 +1332,7 @@ static void fm4_apply(track_t *t, int16_t *p)
     uint32_t pr = fm4_convert(p, v), tr = trk_index(t), f;
     fm6_set_patch(tr, v);
     f = motion_guard();                               /* the audio ISR sees the old sound or the new one */
-    memcpy(t->p, p, sizeof t->p);
+    memcpy(t->p, p, P_COUNT * sizeof t->p[0]);          /* (the compressor values stay: P_COUNT of them) */
     t->eng_req = ENGI_FM6;
     t->preset = (uint8_t)pr;
     motion_unguard(f);

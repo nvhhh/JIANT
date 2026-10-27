@@ -193,13 +193,13 @@ int main(void)
     memset(&ps, 0, sizeof ps);
     settings_export(&ps);
     ps.lowcut = 2;                                       /* SPEAKER BASS+ */
-    ps.palette = palette_to_stored(6);
+    ps.palette = UI_PAL_TAG + 6u;                        /* (GARDEN) a backup of the firmware before it: its PAPER, tagged */
     bad += check("settings with SPEAKER BASS+ restore", put_all(1, &ps, sizeof ps, st_crc32(&ps, sizeof ps)) == 0 &&
-                 settings.lowcut == 2u && fx_lowcut == 2u && settings.palette == 6u);
+                 settings.lowcut == 2u && fx_lowcut == 2u && settings.palette == 0u);
     ps.palette = 13;                                     /* an older backup: its PAPER (old id 13) */
-    bad += check("settings of an older backup restore with the palette migrated",
-                 put_all(1, &ps, sizeof ps, st_crc32(&ps, sizeof ps)) == 0 && settings.palette == 6u);
-    ps.palette = palette_to_stored(6);
+    bad += check("settings of an older backup restore with the palette migrated (GARDEN)",
+                 put_all(1, &ps, sizeof ps, st_crc32(&ps, sizeof ps)) == 0 && settings.palette == 0u);
+    ps.palette = palette_to_stored(0);
     before = erases;
     ps.lowcut = 3;
     bad += check("settings with an unknown SPEAKER value are refused, nothing written",

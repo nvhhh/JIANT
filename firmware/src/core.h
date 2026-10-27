@@ -12,14 +12,14 @@
 #define NVOICE 8                 /* voices per part, and the budget shared by all parts */
 #define NPART 8                  /* synth parts: tracks 1..8 (JIANT 0.6: was 4; 0.9.19: 6 -> 8) */
 #define NTRK NPART               /* tracks (the formats and the protocol count these): every track is a part */
-#define NROUTE_CH 6u             /* (0.9.19) MIDI IN ROUT CH1-6: channels 1..6 play tracks 1..6; 7..16 are ignored (or SEL's): the label, the manual */
+#define NROUTE_CH 8u             /* MIDI IN ROUT CH1-8 (0.9.20; 0.9.19: CH1-6): channels 1..8 play tracks 1..8; 9..16 are ignored (or SEL's) */
 #define NSTEP 64
 #define HALF_FRAMES 128          /* I2S half buffer: 2.9 ms at 44.1 kHz (a key waits 0..1 half, then plays 1 half later) */
 #ifndef FELUCCA_FM4
 #define FELUCCA_FM4 0            /* the DIGITAL engine (eng_digital.c, four-operator FM): kept in the tree, not built
                                   * by default; replaced by FM6, its sounds convert (fm4_convert.c) */
 #endif
-#define NENGINES 16              /* the stores' engine numbers 0..15 (engines.c ENGINES[], append-only; 0.8.3: 14 ANIMAL,
+#define NENGINES 17              /* the stores' engine numbers 0..15 (engines.c ENGINES[], append-only; 0.8.3: 14 ANIMAL,
                                   * 15 SHRUB (JIANT 0.9.10): its favourites in favorites.factory[4], not [15]: favorites.c FAV_ROW) */
 #define ENGI_DIGITAL 1u          /* reserved without FELUCCA_FM4: never selectable (eng_ok), its sounds load as FM6 */
 #define NENG_SHOWN (NENGINES - !FELUCCA_FM4 - 5)   /* the engines one can pick: PRESETS, the EDIT layer, the editor,
@@ -51,7 +51,8 @@ static uint8_t mc_host, mc_host_cpu;     /* tests: 1 = jobs handed over (run at 
 enum {
     F_INT, F_PCT, F_BIPCT, F_TIME, F_LFOHZ, F_CUTOFF, F_DB, F_SEMI, F_ENUM, F_BPM, F_NOTE,
     F_ONOFF, F_OCT, F_STEPS,
-    F_PCTINV                     /* (JIANT 0.6.37) a share of 127 shown and turned the other way: 0 is 100 % */
+    F_PCTINV,                    /* (JIANT 0.6.37) a share of 127 shown and turned the other way: 0 is 100 % */
+    F_CDB40, F_CDBS, F_CTEN      /* (JIANT, DYN) the compressor: -40 .. 0 dB, a signed dB, tenths (0.0 .. 10.0) */
 };
 
 typedef struct {
@@ -93,6 +94,15 @@ enum {                          /* per-track parameters */
     P_FCUT, P_FRES,                            /* .. every other engine's: a filter on the part's sum (voice.c track_filter) */
     P_E0, P_E1, P_E2, P_E3, P_E4, P_E5, P_E6, P_E7,
     P_COUNT
+};
+enum {                          /* (JIANT, DYN) past P_COUNT: the compressor settings. Not in the project block, a user preset,
+                                 * the motion or the MIDI learn: the comp table (project.c comp_*) keeps them per project slot and
+                                 * song section; the tracks hold them (track_t.p has P_NALL) */
+    P_CTYPE = P_COUNT,                         /* the dynamics model (fx.c track_dyn), then each model's front panel: */
+    P_DBX_THR, P_DBX_RAT, P_DBX_OUT,           /* DBX 160: THRESHOLD, COMPRESSION, OUTPUT GAIN */
+    P_LA_PR, P_LA_GAIN, P_LA_MODE, P_LA_HF, P_LA_MIX,   /* LA-2A: PEAK REDUCTION, GAIN, COMP / LIMIT, HF, MIX */
+    P_FA_IN, P_FA_THR, P_FA_TC,                /* FAIRCHILD 670: INPUT GAIN, THRESHOLD, TIME CONSTANT */
+    P_NALL
 };
 #define P_LRTRG P_FM1_ATK              /* (JIANT 0.6.12) LOFI BYTE / FLOAT's RTRG: a note restarts the formula's time (voice.c
                                          * voice_start), in a slot of the retired DIGITAL's (0: OFF, its default) */
@@ -178,6 +188,8 @@ enum {                          /* global parameters */
     G_DTYPE, G_DPING,           /* (0.6.90) the delay's TYPE (ANALOG / DIGITAL) and PING-PONG (project.c: block 'DT') */
     G_PFXLEN, G_PFXRES,         /* (0.6.99) the punch-in lane's length (1..64 steps) and resolution (1/8 1/16 1/32)
                                  * (pfx.c; project.c: block 'PX') */
+    G_SLT7, G_SLT8,             /* (0.9.20) the SLICER's T7 and T8 switches (slicer.c sl_trk_g; G_SLT1..G_SLT6 are the
+                                 * first six's, their block's; project.c: block 'S8') */
     G_COUNT
 };
 #define G_SL_N (G_SLP15 + 1 - G_SLMODE)     /* the SLICER's globals (stored together: project.c, song_chain.c) */
@@ -208,7 +220,8 @@ static void params_by_count(int16_t *out, const int16_t *in, uint32_t np, const 
 #define ENGI_SLICE 13u
 #define ENGI_SAMPLE 4u
 #define ENGI_ANIMAL 14u          /* (JIANT 0.8.3) eng_animal.c */
-#define ENGI_SHRUB 15u           /* (JIANT 0.9.10) eng_shrub.c: last in the display order (PROGRAM CHANGE numbers unchanged) */
+#define ENGI_MONK 16u            /* (JIANT 0.9.20) eng_formant.c ENG_MONK: the VOICE render with MonkSynth's five presets */
+#define ENGI_SHRUB 15u          /* (JIANT 0.9.10) eng_shrub.c: last in the display order (PROGRAM CHANGE numbers unchanged) */
 #define ENGI_PHASE 2u            /* (0.9.9: named for the power-on parts and the display order, engines.c) */
 #define ENGI_LOFI 3u
 #define ENGI_VOICE 5u            /* eng_formant.c ENG_FORMANT */
@@ -588,7 +601,7 @@ typedef struct {
 } chain_config_t;
 
 typedef struct track {
-    int16_t p[P_COUNT];
+    int16_t p[P_NALL];
     uint8_t engine, preset;      /* engine: what the audio ISR renders */
     uint8_t eng_req;             /* engine the UI asked for (the ISR switches at a block start) */
     uint8_t user;                /* user preset slot + 1 the sound came from (UI), 0 = none */
@@ -698,6 +711,7 @@ typedef struct track {
     uint8_t pfx_si;              /* ARP: the next of them */
     uint32_t pfx_sc;             /* samples since the last repeat */
 } track_t;
+int32_t dyn_curve_db10(const track_t *t, int32_t in10);   /* (fx.c) the static curve: output dB x10 at input in10 */
 enum { PFX_RND = 1, PFX_HALF = 2, PFX_REP = 4, PFX_DEC = 8, PFX_ATK = 16 };   /* (track_t.pfx) */
 
 typedef struct {

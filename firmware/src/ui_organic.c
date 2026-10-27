@@ -239,7 +239,6 @@ static void og_tip(const og_shape_t *sh, const og_xf_t *f, int32_t m, int32_t *x
  * the plates' colours; on another palette blends of its own; on GREY / MONO greys */
 static uint16_t og_role(uint32_t k)
 {
-    static const uint16_t JIANT[8] = {0, 0, 0x04B1, 0, 0x072B, 0xFF20, 0xFBC0, 0x985F};   /* teal green yellow orange violet */
     k &= 7u;
     if (k == 0u)
         return T_TEXT;
@@ -249,102 +248,7 @@ static uint16_t og_role(uint32_t k)
         return T_THEME;
     if (og_neutral(T_ACCENT))
         return T_MID;
-    if (settings.palette == UI_JIANT_INDEX)
-        return JIANT[k];
     return k == 2u ? ux_mix(T_THEME, T_SURF, 40) : k == 4u ? og_col(OG_MINT) : k == 5u ? og_col(OG_MUSTARD) :
            k == 6u ? ux_mix(T_ACCENT, 0xFE60u, 35) : ux_mix(T_THEME, T_ACCENT, 50);
 }
-/* ux_mix kept neutral on GREY / MONO (their greys on the RGB565 gray axis: G = 2 R, B = R) */
-static uint16_t og_mix(uint16_t a, uint16_t b, int32_t pct)
-{
-    uint16_t c = ux_mix(a, b, pct);
-    if (og_neutral(T_ACCENT)) {
-        uint32_t r = c >> 11;
-        c = (uint16_t)(r << 11 | r << 6 | r);
-    }
-    return c;
-}
-/* a plate (og_ill's bytes) alive: glow[k] (-256..256, 0 none) takes role k toward white (+) or into the surface (-);
- * lit[i] (0..256) lights the i-th dot of role dot_role (a hit, a voice: its own size up to 2 px more); sway (Q4 px)
- * bends every point sideways by its height, a wave of 64 units at phase ph (16 bits a turn); u Q4 per unit */
-static void og_plate(const uint8_t *b, uint32_t len, int32_t cx, int32_t cy, int32_t u, const int16_t *glow,
-                     const uint8_t *lit, uint32_t dot_role, int32_t sway, uint32_t ph)
-{
-    uint32_t i = 0, nd = 0;
-    while (i + 3u <= len) {
-        uint32_t head = b[i], k = head & 7u;
-        int32_t g = glow ? glow[k] : 0;
-        uint16_t c = og_role(k);
-        c = g > 0 ? og_mix(c, T_TEXT, g * 60 / 256) : g < 0 ? og_mix(c, T_SURF, -g * 85 / 256) : c;
-        if (head >> 4 == 2u) {                           /* a polyline */
-            uint32_t n = b[i + 1] | (uint32_t)b[i + 2] << 8, s;
-            const int8_t *p = (const int8_t *)(b + i + 3u);
-            int32_t px, py, qx, qy;
-            if (i + 3u + 2u * n > len)
-                return;
-            px = cx + p[0] * u + (sway ? (sway * og_sin(ph + (uint32_t)(p[1] * 1024))) >> 15 : 0);
-            py = cy + p[1] * u;
-            for (s = 1; s < n; s++, px = qx, py = qy) {
-                p += 2;
-                qx = cx + p[0] * u + (sway ? (sway * og_sin(ph + (uint32_t)(p[1] * 1024))) >> 15 : 0);
-                qy = cy + p[1] * u;
-                og_line(px, py, qx, qy, c);
-            }
-            i += 3u + 2u * n;
-        } else if (head >> 4) {                          /* a dot */
-            int32_t r = ((int32_t)b[i + 1] * u) >> 4, x = cx + (int8_t)b[i + 3] * u, y = cy + (int8_t)b[i + 4] * u;
-            if (sway)
-                x += (sway * og_sin(ph + (uint32_t)((int8_t)b[i + 4] * 1024))) >> 15;
-            if (lit && k == dot_role) {
-                int32_t l = lit[nd++];
-                if (l) {
-                    c = og_mix(c, T_TEXT, l * 70 / 256);
-                    r += (l * 2) >> 8;
-                } else {
-                    c = og_mix(c, T_SURF, 45);
-                }
-            }
-            og_node(x, y, (r < 1 ? 1 : r) + (g > 128), c);
-            i += 5u;
-        } else {
-            return;                                      /* (the plates are polylines and dots: tools/gen_ui_shapes.py) */
-        }
-    }
-}
-
-/* an illustration (assets/ui-shapes, an SVG without ids: tools/gen_ui_shapes.py) at (cx, cy) (Q4), u Q4 per unit;
- * col[k] the colour of role k (tools/gen_ui_shapes.py colour_class: 0 cream, 1 red, 2 teal, 3 cyan, 4 green, 5 yellow,
- * 6 orange, 7 blue / purple); parts are polylines (kind 2), dots (1) or cubic outlines (0); glow[k] (0..256) lights role k: its lines toward
- * cream, its dots a pixel larger (a hit, a value: the caller's) */
-static void og_ill(const uint8_t *b, uint32_t len, int32_t cx, int32_t cy, int32_t u, const uint16_t *col,
-                   const int32_t *glow)
-{
-    uint32_t i = 0;
-    while (i + 3u <= len) {
-        uint32_t head = b[i], k = head & 7u;
-        int32_t g = glow ? glow[k] : 0;
-        uint16_t c = g ? ux_mix(col[k], T_TEXT, g * 50 / 256) : col[k];
-        if (head >> 4 == 2u) {                           /* a polyline: n points */
-            uint32_t n = b[i + 1] | (uint32_t)b[i + 2] << 8, s;
-            const int8_t *p = (const int8_t *)(b + i + 3u);
-            if (i + 3u + 2u * n > len)
-                return;
-            for (s = 1; s < n; s++, p += 2)
-                og_line(cx + p[0] * u, cy + p[1] * u, cx + p[2] * u, cy + p[3] * u, c);
-            i += 3u + 2u * n;
-        } else if (head >> 4) {                          /* a dot: radius, centre */
-            int32_t r = ((int32_t)b[i + 1] * u) >> 4;
-            og_node(cx + (int8_t)b[i + 3] * u, cy + (int8_t)b[i + 4] * u, (r < 1 ? 1 : r) + (g > 128), c);
-            i += 5u;
-        } else {                                         /* an outline: n cubic segments */
-            uint32_t n = b[i + 1] | (uint32_t)b[i + 2] << 8, s;
-            const int8_t *p = (const int8_t *)(b + i + 3u);
-            if (i + 3u + 2u * (3u * n + 1u) > len)
-                return;
-            for (s = 0; s < n; s++, p += 6)
-                og_cubic_a(cx + p[0] * u, cy + p[1] * u, cx + p[2] * u, cy + p[3] * u, cx + p[4] * u, cy + p[5] * u,
-                           cx + p[6] * u, cy + p[7] * u, c, 6, 256);
-            i += 3u + 2u * (3u * n + 1u);
-        }
-    }
-}
+/* (GARDEN) the plates (og_plate, og_ill) and og_mix retired: nothing drew them */

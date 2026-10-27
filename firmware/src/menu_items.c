@@ -4,7 +4,7 @@
 /* MENU's rows and their settings: what ui_menu.c draws and steps, and what the editor reads and sets (editor_menu.c
  * MENU_DESC / MENU_SET). One apply path for both: menu_put. A row is a setting (its MI_* is its place in the menu's
  * tables, not stored: the editor's ids are editor_menu.c ED_MENU's). (0.9.18) On nine pages of up to four knobs in five
- * tabs (MPAGE): SCREEN (COLOR SKIN STYLE LARGE; SCOPE ANIMATION SCREEN SLEEP; LEDS: LED GLOW SCALE LEDS), AUDIO
+ * tabs (MPAGE): SCREEN (GARDEN: SCREEN: SCOPE LARGE ANIMATION MOTION; LIGHTS: SCREEN SLEEP LED GLOW SCALE LEDS), AUDIO
  * (SPEAKER EQ TRACKS LOAD BPM LOCK; CLICK CLICK LEVEL COUNT-IN), MIDI (MIDI OUT LEARN LEARN CLEAR), USB (USB AUDIO USB
  * LEVEL), SYSTEM (CONTROLS: HOLD TIME KNOB SPEEDUP FX LATCH CALIBRATION; SYSTEM: RESTORE LAST CPU CORES CPU CLOCK, what
  * a power-on does, and ABOUT). Until 0.9.17 one list in the
@@ -13,21 +13,22 @@
  * CLEAR is an action: OCT+ clears the map (ml_clear_all), its card shows how many CCs are learned. Neither is offered
  * to the editor (editor_menu.c ED_MENU); the map travels with the settings */
 #include "cpu_safe.c"        /* (0.9.12) MENU > SYSTEM > CPU CORES, CPU CLOCK; the last crash kept in the settings */
-enum { MI_COLOR, MI_SKIN, MI_SCOPE, MI_ECO, MI_STYLE, MI_LARGE, MI_ANIM, MI_LEDS, MI_SCROFF, MI_HOLD, MI_ACCEL, MI_LATCH, MI_BPMLOCK, MI_SCLLED,
+enum { MI_SCOPE, MI_LARGE, MI_ANIM, MI_LEDS, MI_SCROFF, MI_HOLD, MI_ACCEL, MI_LATCH, MI_BPMLOCK, MI_SCLLED,
        MI_LOWCUT, MI_USB,
        MI_CLICK, MI_CLKLVL, MI_COUNTIN, MI_TRACKS, MI_LOAD, MI_MIDIOUT, MI_LEARN, MI_LCLEAR, MI_SERIAL, MI_RESTORE, MI_CPU,
-       MI_CLOCK, MI_PANEL, MI_ABOUT, MI_COUNT };   /* (1.1: the metronome's rows; 1.2: RESTORE LAST, SCALE LEDS; 0.9.12: MIDI
+       MI_CLOCK, MI_MOTION, MI_PANEL, MI_ABOUT, MI_COUNT };   /* (GARDEN: MOTION, ui.c ui_motion; PANEL and ABOUT take the next numbers)
+                      * (1.1: the metronome's rows; 1.2: RESTORE LAST, SCALE LEDS; 0.9.12: MIDI
                       * OUT, LEARN, LEARN CLEAR; CPU, CPU CLOCK, cpu_safe.c; 0.9.18: INIT SYSTEM gone, SAVE > TOOLS > NEW
                       * PROJECT is the same) */
 #define MI_VALUES MI_PANEL
 #define MI_NONE 0xFFu
 static int menu_valued(uint32_t row) { return row < MI_VALUES && row != MI_LCLEAR; }   /* (a row with a value) */
 /* (0.9.18) the full names (the panel's rows, the editor's MENU_DESC; plain words, at most 12 characters) */
-static const char *const MI_NAME[MI_COUNT] = {"COLOR", "SKIN", "SCOPE", "ECO STYLE", "STYLE", "LARGE", "ANIMATION", "LED GLOW", "SCREEN SLEEP",
+static const char *const MI_NAME[MI_COUNT] = {"SCOPE", "LARGE", "ANIMATION", "LED GLOW", "SCREEN SLEEP",
                                               "HOLD TIME", "KNOB SPEEDUP", "FX LATCH", "BPM LOCK", "SCALE LEDS",
                                               "SPEAKER EQ", "USB LEVEL", "CLICK", "CLICK LEVEL", "COUNT-IN", "TRACKS", "LOAD",
                                               "MIDI OUT", "LEARN", "LEARN CLEAR", "USB AUDIO",
-                                              "RESTORE LAST", "CPU CORES", "CPU CLOCK", "CALIBRATION", "ABOUT"};
+                                              "RESTORE LAST", "CPU CORES", "CPU CLOCK", "MOTION", "CALIBRATION", "ABOUT"};
 /* (0.9.18) the MENU as the rest of the system (rule 1..6): pages of four knobs, KNOB n the page's setting n, SELECT walks
  * the pages, ALGORITHM jumps to the next / previous tab; the tabs the groups (a dot a page), the footer MENU . TAB . page
  * n/N (a page named as its tab, or its tab and a number: MENU . page). Each row on one page (tests/ui_test.c checks it); the editor gets a row's tab after its MENU_DESC reply (tab
@@ -35,12 +36,12 @@ static const char *const MI_NAME[MI_COUNT] = {"COLOR", "SKIN", "SCOPE", "ECO STY
  * OCT+ does it */
 enum { MTAB_SCREEN, MTAB_AUDIO, MTAB_MIDI, MTAB_USB, MTAB_SYSTEM, MTAB_COUNT };
 static const char *const MTAB_NAME[MTAB_COUNT] = {"SCREEN", "AUDIO", "MIDI", "USB", "SYSTEM"};
-#define MP_COUNT 9u
+#define MP_COUNT 8u
 typedef struct { char name[9]; uint8_t tab, row[4]; } menu_page_t;
 static const menu_page_t MPAGE[MP_COUNT] = {   /* (a page opens on its first setting: a value, never an action) */
-    {"SCREEN", MTAB_SCREEN, {MI_COLOR, MI_SKIN, MI_STYLE, MI_LARGE}},
-    {"SCREEN 2", MTAB_SCREEN, {MI_SCOPE, MI_ANIM, MI_SCROFF, MI_ECO}},
-    {"LEDS", MTAB_SCREEN, {MI_LEDS, MI_SCLLED, MI_NONE, MI_NONE}},
+    {"SCREEN", MTAB_SCREEN, {MI_SCOPE, MI_LARGE, MI_ANIM, MI_MOTION}},   /* (GARDEN: COLOR, SKIN, STYLE and ECO STYLE gone;
+                                                         * the owner: no page of one row, so SCREEN's four pages two) */
+    {"LIGHTS", MTAB_SCREEN, {MI_SCROFF, MI_LEDS, MI_SCLLED, MI_NONE}},
     {"AUDIO", MTAB_AUDIO, {MI_LOWCUT, MI_TRACKS, MI_LOAD, MI_BPMLOCK}},
     {"CLICK", MTAB_AUDIO, {MI_CLICK, MI_CLKLVL, MI_COUNTIN, MI_NONE}},
     {"MIDI", MTAB_MIDI, {MI_MIDIOUT, MI_LEARN, MI_LCLEAR, MI_NONE}},
@@ -72,22 +73,8 @@ static uint32_t mtab_pages(uint32_t t)                 /* .. and how many it has
         n += MPAGE[p].tab == t;
     return n;
 }
-/* STYLE (ui_style, gfx.c ST_*): FLAT the filled cards; LINE black areas divided by 1 px rules (#50, #57: the 0.9 look)
- * (1.0.2: PIXEL retired, a saved PIXEL reads as LINE) */
-static const char *const STYLE_N[2] = {"FLAT", "LINE"};
 static const char *const SCOPEOPT_N[4] = {"OFF", "ON", "BUBBLES", "ORBIT"};   /* (0.9.7) ui.c ui_scope; (0.9.18) 2, 3 */
-static const char *const ECO_N[2] = {"OG", "GOOBERS"};   /* ui.c ui_eco_style: 0 the beings, 1 the goobers */
-/* (0.8.9) SKIN (ui_skin, gfx.c SKIN_*): COLORS the lens in the 0.6 colours (older settings: 0); HUD the picture full
- * screen, the words floating over it; (0.9.7) AIR, HUD's look with the knobs' row on top (the default of new settings).
- * The menu steps them AIR COLORS HUD (SKIN_MENU: the editor's MENU_DESC lists them so too). (0.9.17) BOTTOM retired: a
- * stored BOTTOM reads as AIR (the menu's first: skin_pos of anything not listed) */
-#define SKIN_MENU_N 3u
-static const char *const SKIN_NAME[SKIN_MENU_N] = {"AIR", "COLORS", "HUD"};
-static const uint8_t SKIN_MENU[SKIN_MENU_N] = {SKIN_AIR, SKIN_COLORS, SKIN_HUD};
-static uint32_t skin_pos(uint32_t s)                   /* the menu's place of stored skin s */
-{
-    return s == SKIN_COLORS ? 1u : s == SKIN_HUD ? 2u : 0u;
-}
+static const char *const MOTION_N[4] = {"100%", "50%", "150%", "200%"};   /* (GARDEN) ui.c ui_motion, MOTION_Q8 */
 /* the two-valued rows: a bit of ui_prefs (PREF_REC: of ui_rec_prefs, ui.c PREF_SCALE_LEDS) and its names (bit clear =
  * the default, bit set). A step up (a knob right,
  * OCT+) = ON on the ON / OFF rows (the switch's knob to the right; ANIM, USB SERIAL: their bit clears), else the
@@ -166,8 +153,8 @@ static const menu_flag_t *menu_flag(uint32_t row)
 /* a row's value as 0..menu_n(row) - 1 in the order the menu steps it (LEDS: OFF DIM LO DIM HI INV, LEDS_MENU) */
 static uint32_t menu_n(uint32_t row)
 {
-    return row == MI_COLOR ? NPALETTES : row == MI_SKIN ? SKIN_MENU_N : row == MI_SCOPE ? 4u : row == MI_ECO ? 2u : row == MI_LOWCUT || (row >= MI_CLICK && row <= MI_COUNTIN) || row == MI_LOAD || row == MI_TRACKS ? 3u :
-           row == MI_HOLD || row == MI_MIDIOUT ? 4u : row == MI_USB ? 6u : row == MI_SERIAL ? 5u : row == MI_LEDS ? LEDS_COUNT : row == MI_SCROFF ? NELEM(SCROFF_N) : 2u;
+    return row == MI_SCOPE ? 4u : row == MI_LOWCUT || (row >= MI_CLICK && row <= MI_COUNTIN) || row == MI_LOAD || row == MI_TRACKS ? 3u :
+           row == MI_HOLD || row == MI_MIDIOUT ? 4u : row == MI_USB ? 6u : row == MI_SERIAL ? 5u : row == MI_LEDS ? LEDS_COUNT : row == MI_SCROFF ? NELEM(SCROFF_N) : row == MI_MOTION ? NELEM(MOTION_N) : 2u;
 }
 static uint32_t menu_get(uint32_t row)
 {
@@ -176,16 +163,13 @@ static uint32_t menu_get(uint32_t row)
     if (f)
         return ((ui_prefs | (uint32_t)ui_rec_prefs << 8) & f->bit) != 0;
     switch (row) {
-    case MI_COLOR: return settings.palette % NPALETTES;
-    case MI_SKIN: return skin_pos(ui_skin);
     case MI_SCOPE: return ui_scope % 4u;
-    case MI_ECO: return ui_eco_style & 1u;
-    case MI_STYLE: return ui_style == ST_LINE;
     case MI_LOWCUT: return settings.lowcut % 3u;
     case MI_USB: return (ui_prefs & PREF_USB_FIXED) ? 1u + usb_lvl % 5u : 0u;
     case MI_SERIAL: return usb_out == 3u ? 4u : usb_out == 2u ? 3u : usb_out ? 2u : (ui_prefs & PREF_SERIAL_OFF) ? 1u : 0u;
     case MI_HOLD: return settings_hold % 4u;
     case MI_SCROFF: return scr_get();
+    case MI_MOTION: return ui_motion % NELEM(MOTION_N);
     case MI_CLICK: case MI_CLKLVL: case MI_COUNTIN: return rp_get(row - MI_CLICK);
     case MI_LOAD: return load_get();
     case MI_TRACKS: return trks_pos();                  /* (0.9.19: 4, 6, 8) */
@@ -205,12 +189,8 @@ static const char *menu_vname(uint32_t row, uint32_t v)
     if (f)
         return f->name[v & 1u];
     switch (row) {
-    case MI_COLOR: return UI_PALETTES[v % NPALETTES].name;
-    case MI_SKIN: return SKIN_NAME[v % SKIN_MENU_N];
     case MI_SCOPE: return SCOPEOPT_N[v & 3u];
-    case MI_ECO: return ECO_N[v & 1u];
     case MI_LEARN: return SCOPEOPT_N[v & 1u];
-    case MI_STYLE: return STYLE_N[v & 1u];
     case MI_LOWCUT: return SPK_EQ[v % 3u];
     case MI_USB: return USBLVL_N[v % 6u];
     case MI_SERIAL: return USBOUT_N[v % 5u];
@@ -223,12 +203,13 @@ static const char *menu_vname(uint32_t row, uint32_t v)
     case MI_MIDIOUT: return MIDIOUT_N[v & 3u];
     case MI_CPU: case MI_CLOCK: return CPU_N[row == MI_CLOCK][v & 1u];
     case MI_SCROFF: return SCROFF_N[v % NELEM(SCROFF_N)];
+    case MI_MOTION: return MOTION_N[v % NELEM(MOTION_N)];
     case MI_LEDS: return LEDS_NAME[LEDS_MENU[v % LEDS_COUNT]];
     }
     return "";
 }
-/* set a row (v below menu_n(row)) and do what the menu does on a change: the palette, the EQ and USB LEVEL at once;
- * STYLE (ui_draw.c style_apply), LARGE, ANIM, LEDS, HOLD, the flags are read where they are used, every frame;
+/* set a row (v below menu_n(row)) and do what the menu does on a change: the EQ and USB LEVEL at once;
+ * LARGE, ANIM, LEDS, HOLD, the flags are read where they are used, every frame;
  * USB SERIAL when the menu has closed (usb_serial_apply). Saved by the caller (menu_close, the editor) */
 static void menu_put(uint32_t row, uint32_t v)
 {
@@ -242,15 +223,7 @@ static void menu_put(uint32_t row, uint32_t v)
         return;
     }
     switch (row) {
-    case MI_COLOR:
-        settings.palette = v;
-        palette_set(v);                                /* (the menu signature redraws) */
-        ui.force = 1;
-        break;
-    case MI_SKIN: ui_skin = SKIN_MENU[v % SKIN_MENU_N]; break;              /* (ui_draw.c style_apply: the next frame) */
     case MI_SCOPE: ui_scope = (uint8_t)(v & 3u); ui.force = 1; break;   /* (0.9.7) the EDIT pages so from the next frame */
-    case MI_ECO: ui_eco_style = (uint8_t)(v & 1u); ui.force = 1; break;   /* (the HOME ECO view, from the next frame) */
-    case MI_STYLE: ui_style = (uint8_t)(v ? ST_LINE : ST_FLAT); break;   /* (drawn so from the next frame) */
     case MI_LOWCUT: settings.lowcut = v; fx_lowcut = (uint8_t)v; break;
     case MI_USB:                                   /* (at once; every frame too: ui_input) */
         ui_prefs = (uint8_t)(v ? ui_prefs | PREF_USB_FIXED : ui_prefs & ~PREF_USB_FIXED);
@@ -264,6 +237,7 @@ static void menu_put(uint32_t row, uint32_t v)
         break;
     case MI_HOLD: settings_hold = (uint8_t)v; break;
     case MI_SCROFF: scr_put(v); break;                 /* (read every frame: ui.c scr_frame) */
+    case MI_MOTION: ui_motion = (uint8_t)(v % NELEM(MOTION_N)); break;   /* (GARDEN: read every frame, ui_draw.c) */
     case MI_LEDS: settings_leds = LEDS_MENU[v]; break;
     case MI_CLICK: case MI_CLKLVL: case MI_COUNTIN: rp_put(row - MI_CLICK, v); break;   /* (at once: click.c, seq.c) */
     case MI_LOAD: load_put(v % 3u); break;
@@ -274,7 +248,7 @@ static void menu_put(uint32_t row, uint32_t v)
     }
 }
 /* the menu's step, any of KNOB 1..4 or OCT+ (s > 0) / OCT- (s < 0): the next / previous value, stopping at the ends;
- * COLOR wraps round its palettes. On an ON / OFF row up is ON (MENU_FLAGS) */
+ * On an ON / OFF row up is ON (MENU_FLAGS) */
 static uint32_t menu_step(uint32_t row, int32_t s)
 {
     const menu_flag_t *f = menu_flag(row);
@@ -282,8 +256,8 @@ static uint32_t menu_step(uint32_t row, int32_t s)
     if (f && str_eq(f->name[0], "ON"))                 /* (ANIM, USB SERIAL, RESTORE LAST: ON is their value 0) */
         s = -s;
     if (s > 0)
-        return v + 1u < n ? v + 1u : row == MI_COLOR ? 0u : v;
+        return v + 1u < n ? v + 1u : v;
     if (s < 0)
-        return v ? v - 1u : row == MI_COLOR ? n - 1u : 0u;
+        return v ? v - 1u : 0u;
     return v;
 }

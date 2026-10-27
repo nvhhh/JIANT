@@ -52,8 +52,7 @@ static void graph_env_tracks(int dest)
         }
         cv_text(x + 4, y + 4 - AF_X_CAP_Y, &AF_X, n, ink);
         cv_clip_text(x + 22, y + 4 - AF_X_CAP_Y, &AF_X, trk_engp(t)->name, T_DIM, bg, 30);
-        env_mini(t, x + 5, y + 16, 46, dest ? 34 : 44, c >= trk_live ? T_DIM : settings.palette == UI_JIANT_INDEX ?
-                 heat_col(150) : T_THEME, sel ? 2 : 1);
+        env_mini(t, x + 5, y + 16, 46, dest ? 34 : 44, c >= trk_live ? T_DIM : T_THEME, sel ? 2 : 1);
         if (!dest && (lv = env_now(t)) >= 0)
             og_node((x + 50) * 16, (y + 60 - lv * 44 / 1000) * 16, 2, T_TEXT);
         for (k = 0; dest && k < 3u; k++) {              /* FILTER PITCH SHAPE: a bar each from the middle */
@@ -82,7 +81,7 @@ static void graph_stage(const track_t *t)
             y = 1000 - (int32_t)((int64_t)(1000 - q) * (1000 - q) / 1000) * (1000 - v / 2) / 1000 - (1000 - q) * v / 2000;
         y = 122 - y * 66 / 1000;
         if (x)
-            cv_line_t(10 + x - 1, py, 10 + x, y, settings.palette == UI_JIANT_INDEX ? heat_y(y, 56, 122, T_THEME) : T_THEME, 2);
+            cv_line_t(10 + x - 1, py, 10 + x, y, T_THEME, 2);
         py = y;
     }
     cv_rect(10, 124, 217, 1, T_RAISE);
@@ -190,8 +189,7 @@ static void graph_lfodest(const track_t *t, const page_t *pg)
         if (w)
             cv_rect(w < 0 ? 166 + w : 166, y + 16, w < 0 ? -w : w, 4, ux_mix(T_RAISE, T_THEME, 45));
         if (live)
-            cv_rect(live < 0 ? 166 + live : 166, y + 16, live < 0 ? -live : live, 4, settings.palette == UI_JIANT_INDEX ?
-                    heat_col(110 + (live < 0 ? -live : live) * 3) : T_THEME);
+            cv_rect(live < 0 ? 166 + live : 166, y + 16, live < 0 ? -live : live, 4, T_THEME);
     }
 }
 static void mseq_cap(const track_t *t, const page_t *pg)
@@ -343,7 +341,7 @@ static void graph_arp(const track_t *t)
         int32_t semi = TRI[k % 3u] + 12 * (int32_t)(k / 3u), x = 10 + (int32_t)i * 14 + (i & 1u ? t->p[P_ASWING] * 6 / 127 : 0);
         int32_t w = 2 + t->p[P_AGATE] * 10 / 127, y = 118 - semi * 2;
         uint32_t on = (i * 40503u >> 8) % 100u < (uint32_t)t->p[P_APROB] * 100u / 127u;
-        cv_rect(x, y, w, 4, on ? (settings.palette == UI_JIANT_INDEX ? heat_col(80 + semi * 4) : T_THEME) : T_RAISE);
+        cv_rect(x, y, w, 4, on ? (T_THEME) : T_RAISE);
     }
     cv_rect(10, 124, 220, 1, T_RAISE);
 }

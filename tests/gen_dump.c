@@ -102,7 +102,7 @@ static void dump_piece(void)
         const track_t *t = &trk[k];
         const engine_t *e = ENGINES[t->eng_req % NENGINES];
         uint32_t r = gs.role[k];
-        if (!gs.act[r] || (r == RL_TEX && k != gs.trk_of[RL_TEX])) { printf("T%u %-4s off\n", k + 1u, RLN[r]); continue; }
+        if (!gs.act[r]) { printf("T%u %-4s off\n", k + 1u, RLN[r]); continue; }
         printf("T%u %-4s %s %s  LEN %d%s\n", k + 1u, RLN[r], e->name, t->preset < e->npresets ? e->presets[t->preset].name : "-",
                t->p[P_SLEN], t->p[P_MUTE] ? "  MUTED" : "");
         dump_track(t, r, 4);
@@ -116,14 +116,14 @@ int main(int argc, char **argv)
     double secs = argc > 6 ? atof(argv[6]) : 30.0;
     uint32_t from = genre ? genre : 1, to = genre ? genre : NGENRE, g, k, s;
     ui_power_on(); go_home(); frames(4);
-    settings.palette = UI_JIANT_INDEX; palette_set(UI_JIANT_INDEX);
+    settings.palette = 0u; palette_set(0u);   /* (GARDEN, the one palette) */
     ui_rec_prefs |= PREF_SIX >> 8; rp_apply();
     song.master_q12 = 4096;
     for (g = from; g <= to; g++) {
         uint32_t pd;
         gp.genre = (uint8_t)g; gp.seed = (uint16_t)seed; gp.energy = (uint8_t)energy; gp.form = (uint8_t)form;
         for (k = 0; k < GP_N; k++) gp.amt[k] = GA_AUTO;
-        gp.complex = 50; gp.swing = GA_AUTO; gp.human = 30;
+        gp.complex = 50; gp.swing = GA_AUTO;
         gen_go();
         pd = gs.trk_of[RL_PAD];
         spell();

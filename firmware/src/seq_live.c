@@ -48,7 +48,7 @@ static struct {
     uint8_t cut[NTRK];                                  /* LV_CUT index */
     uint8_t here, rnd;                                  /* a bit per track: the window is a LOOP; DIR RND */
     uint8_t tk[16], lt[16];                             /* MANO's white keys: the tracks each acts on, held / latched */
-    uint8_t latch, tgt, byp, rkey, ob;                  /* LATCH; RIELES' K1 (0 ALL, 1..6 T1..T6, 7 SYN, 8 DRM); OCT-
+    uint8_t latch, tgt, byp, rkey, ob;                  /* LATCH; RIELES' K1 (0 ALL, 1..8 T1..T8, 9 SYN, 10 DRM); OCT-
                                                          * held; the tracks a rate key acted on last frame; OCT- / + */
     uint32_t kprev, oms;                                /* MANO's keys last frame; OCT- down since (0: not) */
     /* main loop -> ISR */

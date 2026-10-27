@@ -168,20 +168,13 @@ static void lz_mini_being(uint32_t e, int32_t cx, int32_t cy, int32_t r, uint16_
         py = y;
     }
 }
-/* SOUND: the track's being (as an engine page's: its HOME knobs, alive with its sound), the track and its sound */
+/* SOUND: the track's being (GARDEN, the owner: the engine's creature, as BEING's and EDIT's, alive with its sound), the
+ * track and its sound */
 static void lz_track_being(void)
 {
-    static uint32_t tm, f0;
     const track_t *t = TSEL;
-    const genome_t *g = &GENOME[EGEN[trk_eng(t)]];
-    int32_t en = bg_energy();
-    bfeat_t f;
     char b[20];
-    bg_feat(t, g, trk_engp(t)->knob, &f);
-    bg_excite(&f, en, 2);
-    if (en > 2) tm += (ui.frame - f0) * (uint32_t)(160 + en * 3);
-    f0 = ui.frame;
-    being_lines(g, &f, 42 * 16, 40 * 16, (8 * 16) * (256 + en / 3) / 256, en, tm);   /* (its spikes inside 4 .. 82) */
+    vx_draw(t, 4, 4, 78, 76, -1);
     b[0] = 'T'; b[1] = (char)('1' + song.sel % NTRK); b[2] = 0;
     GFX_HOOK_ALIGN(4, 0, 82, 0, AL_H | AL_PASS, "sound track centred");
     cv_text_in(4, 85, 78, &AF_X, b, T_THEME, T_SURF);

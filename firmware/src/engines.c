@@ -66,6 +66,7 @@ static const engine_t *const ENGINES[NENGINES] = {
     &ENG_GONE,                   /* 13: reserved (SLICE, retired in JIANT) */
     &ENG_ANIMAL,                 /* 14 (ENGI_ANIMAL, JIANT 0.8.3) */
     &ENG_SHRUB,                  /* 15 (ENGI_SHRUB, JIANT 0.9.10) */
+    &ENG_MONK,                   /* 16 (ENGI_MONK, JIANT 0.9.20: eng_formant.c) */
 };
 
 /* a track's engine number as an index (the audio paths: a compare, cheaper than % NENGINES; a bad number: 0) */
@@ -86,6 +87,7 @@ static const uint8_t ENGINE_ORDER[NENG_SHOWN] = {
     ENGI_PHASE, ENGI_WHEEL,      /* PHASE WHEEL */
     ENGI_NOISE,                  /* NOISE */
     ENGI_SHRUB,                  /* SHRUB (0.9.10): last, so every older PROGRAM CHANGE and PRESETS place keeps its number */
+    ENGI_MONK,                   /* MONK (0.9.20): after SHRUB, for the same reason */
 #if FELUCCA_FM4
     ENGI_DIGITAL,                /* DIGITAL (retired, FELUCCA_FM4 builds only): after the rest */
 #endif

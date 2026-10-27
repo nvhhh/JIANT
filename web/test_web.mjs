@@ -179,9 +179,9 @@ async function editorMock() {
   inp.onmidimessage = (e) => link.receive(e.data);
   const rq = async (r, o) => link.request(r, o);
   const info = E.parse[E.CMD.INFO](await rq(E.req.info()));
-  ok(info.nengines === 15 && info.engines[1] === "-" && info.engines[12] === "FM6" && info.engines[13] === "-" && info.engines[14] === "ANIMAL"
+  ok(info.nengines === 17 && info.engines[16] === "MONK" && info.engines[1] === "-" && info.engines[12] === "FM6" && info.engines[13] === "-" && info.engines[14] === "ANIMAL" && info.engines[15] === "SHRUB"
  && info.engines[5] === "VOICE" && info.engines[6] === "-" && info.engines[7] === "WHEEL" && info.engines[8] === "-" && info.engines[9] === "-" && info.engines[10] === "DRUM" && info.engines[11] === "NOISE" && info.pcount === 123 && info.pe0 === 115 && info.engines[4] === "-",
-    "editor: INFO");
+    "editor: INFO (0.9.10: SHRUB, engine 15; 0.9.20: MONK, 16)");
   let descs = 0;
   for (let i = 0; i < info.pcount; i++) if (E.parse[E.CMD.DESC](await rq(E.req.desc(0, i))).label) descs++;
   ok(descs === info.pcount, "editor: DESC for every parameter");
@@ -286,16 +286,16 @@ async function editorMock() {
   ok(!prefs.favorites[info.nengines][31] && !E.devicePresetRows(info, names, prefs).some((r) => r.user), "editor: erased slot disappears and loses star");
   {   /* the lists in the device's order (engines.c ENGINE_ORDER, 0.9.9): DRUM VOICE ANIMAL first, "-" never; the numbers stay */
     const shown = E.engineOrder(info.engines).map((i) => info.engines[i]);
-    ok(shown.join() === "DRUM,VOICE,ANIMAL,LOFI,ANALOG,FM6,PHASE,WHEEL,NOISE" &&
-       E.engineOrder(info.engines).join() === "10,5,14,3,0,12,2,7,11",
-       "editor: engines listed DRUM VOICE ANIMAL LOFI ANALOG FM6 PHASE WHEEL NOISE (0.9.9; indices kept)");
+    ok(shown.join() === "DRUM,VOICE,ANIMAL,LOFI,ANALOG,FM6,PHASE,WHEEL,NOISE,SHRUB,MONK" &&
+       E.engineOrder(info.engines).join() === "10,5,14,3,0,12,2,7,11,15,16",
+       "editor: engines listed DRUM VOICE ANIMAL LOFI ANALOG FM6 PHASE WHEEL NOISE SHRUB MONK (0.9.9, 0.9.10 SHRUB, 0.9.20 MONK last; indices kept)");
     ok(E.engineOrder(["ANALOG", "X", "-", "DRUM", "FM6"]).join() === "3,0,4,1", "editor: an unknown engine follows the known ones");
     ok(E.engineOrder(["ANALOG", "DIGITAL", "FM6", "DRUM"]).join() === "3,0,2,1", "editor: DIGITAL (FELUCCA_FM4 builds) after the others");
     m.state.favorites[10][0] = m.state.favorites[12][0] = true;
     await rq(E.req.uiSet(3, 0));
     prefs = await E.readDevicePreferences(rq, info, names, prefs);
     const rows = E.devicePresetRows(info, names, prefs).filter((r) => !r.user), eng = [...new Set(rows.map((r) => r.engine))];
-    ok(eng.join() === "10,5,14,3,0,12,2,7,11", "editor: device presets in the device's engine order (DRUM first, NOISE last)");
+    ok(eng.join() === "10,5,14,3,0,12,2,7,11,15,16", "editor: device presets in the device's engine order (DRUM first, MONK last)");
   }
   const none = await E.readDevicePreferences(() => { throw new Error("unexpected request"); }, { uiCaps: 0 }, []);
   ok(none === null, "editor: old firmware receives no unsupported preference requests");
@@ -363,12 +363,12 @@ async function editorMock() {
   const set = E.parse[E.CMD.SET](await rq(E.req.set(0, 3, 500)));
   ok(set.value === 127, "editor: SET clamps to the range");
   {
-    /* GLO > SYSTEM ROUT (G_ROUTE 14): MIDI IN CH1-6 (0, the default) / SEL (1); the id and G_COUNT unchanged */
+    /* GLO > SYSTEM ROUT (G_ROUTE 14): MIDI IN CH1-8 (0, the default; 0.9.19: CH1-6) / SEL (1); the id kept (0.9.20: G_COUNT 73, the SLICER's T7 T8) */
     const rd = E.parse[E.CMD.DESC](await rq(E.req.desc(1, 14)));
     const r1 = E.parse[E.CMD.SET](await rq(E.req.set(1, 14, 5)));
     const r0 = E.parse[E.CMD.SET](await rq(E.req.set(1, 14, 0)));
-    ok(rd.label === "ROUTE" && rd.def === 0 && eq(rd.names, ["CH1-6", "SEL"]) && r1.value === 1 && r0.value === 0 && info.gcount === 71,
-      "editor: MIDI IN routing (ROUT CH1-6 / SEL, global id 14)");
+    ok(rd.label === "ROUTE" && rd.def === 0 && eq(rd.names, ["CH1-8", "SEL"]) && r1.value === 1 && r0.value === 0 && info.gcount === 73,
+      "editor: MIDI IN routing (ROUT CH1-8 / SEL, global id 14)");
   }
   {
     /* FX > REVERB TYPE (G_RTYPE 24, the old drum channel's id): ROOM (0, the default) / SPRING (1) / SHIMR RESO CLOUD (JIANT 0.5); G_COUNT unchanged */
@@ -378,7 +378,7 @@ async function editorMock() {
     const inert = [25, 26].map(async (id) => E.parse[E.CMD.DESC](await rq(E.req.desc(1, id))));
     const [d25, d26] = await Promise.all(inert);
     ok(rd.label === "TYPE" && rd.def === 0 && eq(rd.names, ["ROOM", "SPRING", "SHIMR", "RESO", "CLOUD"]) && r1.value === 4 && r0.value === 0 &&
-       d25.label === "PUNCH" && d26.label === "DUCK" && d25.max === 100 && info.gcount === 71,
+       d25.label === "PUNCH" && d26.label === "DUCK" && d25.max === 100 && info.gcount === 73,
       "editor: REVERB TYPE (ROOM SPRING SHIMR RESO CLOUD, set 10 clamps to 4, global id 24; 25, 26 PNCH and DUCK, JIANT's master)");
   }
   const st = E.parse[E.CMD.STEP_SET](await rq(E.req.stepSet(5, { n: 2, notes: [60, 64], time: 0, flags: 1, vel: 100 })));
@@ -754,7 +754,7 @@ async function editorLibrarian() {
   const pts = [cap, { ...bass, engineName: info.engines[bass.engine], tags: ["bass", "device"] }];
   const file = JSON.parse(JSON.stringify(E.libraryFile("library", pts, ctx)));
   ok(file.format === "felucca-library" && file.version === 1 && file.pCount === 123 && file.paramLabels.length === 123 && file.paramLabels[81] === "ROTATE" && file.paramLabels[82].startsWith("PITCH#") &&
-    file.paramLabels[83] === "KICK" && file.paramLabels[90] === "BELL" && file.engines.length === 15,
+    file.paramLabels[83] === "KICK" && file.paramLabels[90] === "BELL" && file.engines.length === 17,
     "library file: versioned, with P_COUNT, labels and engines");
   const back = E.readLibraryFile(file, ctx);
   ok(back.patches.length === 2 && !back.skipped && eq(back.patches[0].p, cap.p) && eq(back.patches[1].p, bass.p)
@@ -1022,9 +1022,9 @@ async function editorTracks() {
   const { m, rq, ev, done } = attachMock({ watchMs: 1000 });
   const info = E.parse[C.INFO](await rq(E.req.info()));
   const tr = E.parse[C.TRACK](await rq(E.req.track()));
-  ok(info.ntrk === 6 && tr.sel === 0 && tr.ntrk === 6 && tr.tracks.map((t) => t.engine).join() === "10,5,14,3,0,12"
+  ok(info.ntrk === 8 && tr.sel === 0 && tr.ntrk === 8 && tr.tracks.map((t) => t.engine).join() === "10,5,14,3,0,12,0,0"
     && tr.tracks[0].preset === 0 && tr.tracks[1].preset === 9 && tr.tracks[4].preset === 14,
-    "tracks: INFO NTRK, TRACK lists 6 parts (0.9.9: DRUM-X, VOICE SINGER EN, ANIMAL, LOFI, ANALOG FAT BASS, FM6)");
+    "tracks: INFO NTRK, TRACK lists 8 parts (0.9.9: DRUM-X, VOICE SINGER EN, ANIMAL, LOFI, ANALOG FAT BASS, FM6; 0.9.19: T7, T8 ANALOG)");
   /* the v1 commands follow the selected track */
   const d0 = E.parse[C.DUMP](await rq(E.req.dump()), info);
   const t1 = E.parse[C.TRACK](await rq(E.req.track(1)));
@@ -1085,7 +1085,7 @@ async function editorMixer() {
   const info = E.parse[C.INFO](await rq(E.req.info()));
   const PAN = 39, MUTE = 40;
   const m0 = await E.mixer.read(rq, info, { pan: PAN });
-  ok(m0.ntrk === 6 && m0.tracks.length === 6 && m0.tracks[1].pan === -24 && m0.tracks[2].pan === 20 && m0.tracks[0].engine === 10
+  ok(m0.ntrk === 8 && m0.tracks.length === 8 && m0.tracks[1].pan === -24 && m0.tracks[2].pan === 20 && m0.tracks[0].engine === 10
     && m0.tracks.every((x) => Number.isInteger(x.level) && (x.mute === 0 || x.mute === 1)), "mixer: read = TRACK + pan of every track (TRACK_DUMP)");
   /* level / mute of tracks that are not selected (clamped) */
   const a = await E.mixer.setMix(rq, 2, 70, 1);
@@ -1152,8 +1152,8 @@ async function editorTrackParam() {
   ok(g.track === 1 && g.id === PAN && g.value === -24 && p2 === -40 && p1 === 63 && alg.value === 32 && lv.value === 0 && td2.p[PAN] === -40
     && sel.sel === 0 && (sent[C.TRACK] || 0) === tracks0 + 1 && ev.pushes.length === pushes,
     "v4: TRACK_PARAM get / set on other tracks (clamped as SET, selection kept, no push)");
-  const bad = await rq(E.req.trackParam(6, PAN), { timeout: 60, retries: 0, quiet: true }).then(() => "reply", () => "none");
-  ok(bad === "none", "v4: TRACK_PARAM of track 7: no reply");
+  const bad = await rq(E.req.trackParam(8, PAN), { timeout: 60, retries: 0, quiet: true }).then(() => "reply", () => "none");
+  ok(bad === "none", "v4: TRACK_PARAM of track 9 (past the eight): no reply");
   /* device-side changes: CHANGED for the selected track, TRACK_CHANGED for the others */
   m.sim.param(2, PAN, 30);
   m.sim.param(3, MUTE, 1);

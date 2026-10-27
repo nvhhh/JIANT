@@ -1,5 +1,7 @@
 # JIANT audio path CPU under valgrind (tests/cpu_vg.c, tests/cpu_vg.py): instructions per sample,
 # x86-64 gcc -O2. Exact counts; the check allows +8 %. Rewritten by BUDGET_UPDATE=1.
+# (stems-10, 8 tracks) idle/stopped and seqtick/* re-measured for NPART 8: with NPART 6 the same build measures
+# 119 / 135 / 117, the old baselines; the rise is the two extra tracks' per-block work, the same cost per track.
 dly/full 1447
 dly/half 1605
 dly/quarter 1649
@@ -28,7 +30,7 @@ fx/SCRATCH 3237
 fx/SHUFFLE 3282
 fx/SHUFFLE.max 3292
 fx/TAPE 3246
-idle/stopped 120
+idle/stopped 142
 mix/full 2666
 mix/v12 3925
 mix/v12.c0 1949
@@ -41,7 +43,7 @@ rev/SHIMR 1483
 rev/SPRING 1429
 seq/heavy 2736
 seq/plain 2335
-seqtick/live 135
-seqtick/plain 121
+seqtick/live 172
+seqtick/plain 148
 song/cputest 3046
 song/cputest.djf 3098

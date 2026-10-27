@@ -13,7 +13,8 @@
 enum { ED_MENU_DESC = 72, ED_MENU_SET };
 enum { EDM_ENUM, EDM_INT };                            /* kind: names follow; or a unit (none yet) */
 static const uint8_t ED_MENU[][2] = {
-    {MI_COLOR, 0}, {MI_STYLE, 1}, {MI_LARGE, 2}, {MI_ANIM, 3}, {MI_LEDS, 4}, {MI_HOLD, 5}, {MI_ACCEL, 6},
+    /* ids 0 (COLOR), 1 (STYLE), 21 (SKIN), 25 (ECO STYLE): retired with GARDEN, never reused */
+    {MI_LARGE, 2}, {MI_ANIM, 3}, {MI_LEDS, 4}, {MI_HOLD, 5}, {MI_ACCEL, 6},
     {MI_LATCH, 7}, {MI_BPMLOCK, 8}, {MI_LOWCUT, 9}, {MI_USB, 10}, {MI_SERIAL, 11},
     {MI_CLICK, 12}, {MI_CLKLVL, 13}, {MI_COUNTIN, 14},
     {MI_RESTORE, 15},                                  /* 1.2 (Discussion #130), a row of SYSTEM */
@@ -22,11 +23,9 @@ static const uint8_t ED_MENU[][2] = {
     {MI_TRACKS, 18},                                   /* (JIANT 0.6.18) TRACKS 4 / 6, a row of AUDIO */
     {MI_LOAD, 19},                                     /* (JIANT 0.6.30) LOAD ECO / LITE / FULL, SYSTEM (0.9.12: AUDIO) */
     {MI_MIDIOUT, 20},                                  /* (JIANT 0.6.72) MIDI OUT KEYS / CLOCK / ALL / OFF, CONTROL (0.9.12: MIDI) */
-    {MI_SKIN, 21},                                     /* (JIANT 0.8.9) SKIN COLORS / BOTTOM / HUD (0.9.7: AIR COLORS BOTTOM
-                                                        * HUD; 0.9.17: AIR COLORS HUD), a row of DISPLAY */
     {MI_SCOPE, 22},                                    /* (0.9.7) SCOPE OFF / ON, a row of DISPLAY */
     {MI_CPU, 23}, {MI_CLOCK, 24},                      /* (0.9.12) CPU 1 CORE / 2 CORES, CPU CLOCK 360 / 320 MHZ, SYSTEM */
-    {MI_ECO, 25},                                      /* (0.9.19) ECO STYLE OG / GOOBERS, a row of SCREEN 2 */
+    {MI_MOTION, 26},                                   /* (GARDEN) MOTION 100 / 50 / 150 / 200 %, a row of MOTION */
 };
 #define ED_MENU_N NELEM(ED_MENU)
 

@@ -5,7 +5,7 @@
  * lens's panel (240 x 140, x 4..236).
  *   SOUND   (EDIT 1 / EDIT 2 of a synth) the engine's being on the left (graph_being's, alive with the sound), the
  *           engine's page name over it and the sound's name under it; on the right the scope in a well and the eight
- *           E parameters as chips, the page's four lit. DRUM's KIT keeps its colony (graph_colony)
+ *           E parameters as chips, the page's four lit. DRUM's KIT draws its kit (ui_graph.c)
  *   FILTER  the response of TYPE at CUT with RES (LP HP BP COMB), CUT a line, DRIVE a row of cells
  *   VOICE   the track's voices one a row, each as full as its envelope now; VOICE and PRIO (VOICE 2: ALLOC); GLIDE's
  *           curve
@@ -35,7 +35,7 @@ static void graph_sound_lz(const track_t *t)
 {
     const engine_t *e = trk_engp(t);
     uint32_t k, two = cur_page()->id[0] != P_E0, n = 0;
-    int32_t x = 122, w = 106, ty = 2, bare = ux.skin != 0u;
+    int32_t x = 122, w = 106, ty = 2, bare = UX_SKIN != 0u;
     uint16_t tb = lz_tile_bg();
     char b[40];
     /* (0.8.9, the skins' mock-up) the being large on the left (its tendrils kept on its side), the page's name over it, the
@@ -83,7 +83,7 @@ static void graph_sound_lz(const track_t *t)
         str_cpy(v + str_len(v), u, sizeof v - str_len(v));
         GFX_HOOK_ALIGN(0, y, 0, y + 12, AL_V | AL_N(2), "EDIT chip on its row");
         cv_clip_text(x + (bare ? 2 : 6), y + 3 - AF_X_CAP_Y, &AF_X, d->label, hot ? T_TEXT : T_MID, tb, 58);
-        cv_text_r(x + w - (bare ? 2 : 4), y + 3 - AF_X_CAP_Y, &AF_X, v, heat_on(r) ? ux_mix(kc, T_TEXT, 20) : kc, tb);
+        cv_text_r(x + w - (bare ? 2 : 4), y + 3 - AF_X_CAP_Y, &AF_X, v, kc, tb);
     }
     str_cpy(b, two ? "1/2" : "2/2", sizeof b);          /* the other page's names, as many as fit */
     for (k = 0; k < 4u; k++) {
@@ -124,7 +124,7 @@ static void graph_filter_lz(const track_t *t, const page_t *pg)
         cv_rect(64 + k * 54, 6, 1, 99, T_RAISE);
     for (x = 10; x <= 226; x++) {
         int32_t y = ed_resp(ty, x, xc, r[2]);
-        cv_rect(x, y, 1, 105 - y, ux_mix(T_SURF, settings.palette == UI_JIANT_INDEX ? heat_col(40 + x * 160 / 226) : T_THEME, 30));
+        cv_rect(x, y, 1, 105 - y, ux_mix(T_SURF, T_THEME, 30));
         if (x > 10)
             cv_line_t(x - 1, py, x, y, T_THEME, 2);
         py = y;
@@ -166,7 +166,7 @@ static void graph_voice_lz(const track_t *t, const page_t *pg)
         ed_cap(14, y, n, i < nv ? T_MID : T_DIM);
         cv_rect(26, y, 202, 7, i < nv ? T_RAISE : T_LINE);
         if (lv > 0)
-            cv_rect(26, y, lv, 7, settings.palette == UI_JIANT_INDEX ? heat_col(60 + lv) : T_ACCENT);
+            cv_rect(26, y, lv, 7, T_ACCENT);
     }
     param_format(track_desc(t, P_VOICE), t->p[P_VOICE], b, &u);
     str_cpy(b + str_len(b), pg->id[0] == P_ALLOC ? " \xB7 ALLOC " : " \xB7 PRIO ", 40 - str_len(b));
@@ -236,6 +236,8 @@ static int graph_edit_lz(const track_t *t, const page_t *pg)
         graph_voice_lz(t, pg);
     else if (pg->graph == GR_FOCUS)
         graph_focus_lz(t);
+    else if (pg->id[0] == P_CTYPE || pg->id[0] == P_LA_HF)   /* (JIANT, DYN) COMP and COMP 2: the compressor's transfer graph, the whole display */
+        graph_comp_curve(t, T_THEME, 4, 232, (int32_t)cv_h / 2, (int32_t)cv_h / 2 - 6);
     else
         return 0;
     return 1;
