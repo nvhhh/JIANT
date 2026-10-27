@@ -1734,9 +1734,13 @@ static void draw_tracks(void)
 /* oscilloscope of the output, triggered on a rising zero crossing: a RAISE centre line, the trace 2 px (in silence
  * a flat line on it; MENU > SCREEN OFF keeps it from staying on the panel for hours) */
 static void scope_at(int32_t x0, int32_t pw, int32_t cy, int32_t a, uint16_t c);
+static void scope_pic(int32_t x0, int32_t pw, int32_t cy, int32_t a, uint16_t c);
 static void graph_scope(uint16_t c)
 {
-    scope_at(PANEL_X0, PANEL_W, (int32_t)cv_h / 2, cv_h == H_GRAPH ? 46 : (int32_t)cv_h / 2 - 6, c);   /* (LARGE: the strip) */
+    if (ui_scope < 2u)                                       /* (GARDEN) OFF and ON: the music's picture (XY) */
+        scope_pic(PANEL_X0, PANEL_W, (int32_t)cv_h / 2, cv_h == H_GRAPH ? 46 : (int32_t)cv_h / 2 - 6, c);   /* (LARGE: the strip) */
+    else
+        scope_at(PANEL_X0, PANEL_W, (int32_t)cv_h / 2, cv_h == H_GRAPH ? 46 : (int32_t)cv_h / 2 - 6, c);
 }
 /* (0.9.18) BUBBLES (ui_scope 2): a row of soft dots, one every 3 px at the sample's height, each as big as the level
  * about it (the peak of 5 samples, 1..5 px), with a trail of two dim, smaller dots behind it (the samples before);
@@ -1791,6 +1795,34 @@ static void scope_orbit(const int16_t *snap, uint32_t trig, int32_t peak, int32_
         int32_t x2 = cx + snap[n] * a / peak, y2 = cy - snap[n - D] * a / peak;
         cv_line_t(x1, y1, x2, y2, ux_mix(T_SURF, c, 35), 4);   /* the glow */
         cv_line_t(x1, y1, x2, y2, c, 2);
+    }
+}
+/* (GARDEN, the owner: the music draws a picture) the HOME scope in XY: X = the output, Y = the same output D samples back,
+ * the whole 512-sample window as dots, the oldest dim and the newest bright, so a periodic sound draws its closed figure.
+ * D: a quarter of the period of the first two rising zero crossings (ORBIT's; 24 without a second) */
+static int32_t scope_pic_v(uint32_t w, uint32_t n, int32_t k) { return scope_s(scope_buf[(w + n) & (SCOPE_N - 1u)], k); }
+static void scope_pic(int32_t x0, int32_t pw, int32_t cy, int32_t a, uint16_t c)
+{
+    uint32_t w = scope_w, n, t0 = 1, t1;
+    int32_t D = 24, cx = x0 + pw / 2, peak = 750, k = scope_k();
+    for (n = 0; n < SCOPE_N; n++) {
+        int32_t v = scope_pic_v(w, n, k);
+        if (v < 0)
+            v = -v;
+        if (v > peak)
+            peak = v;
+    }
+    while (t0 < SCOPE_N && !(scope_pic_v(w, t0 - 1u, k) < 0 && scope_pic_v(w, t0, k) >= 0))
+        t0++;
+    for (t1 = t0 + 8u; t0 < SCOPE_N && t1 < SCOPE_N && t1 <= t0 + 256u; t1++)
+        if (scope_pic_v(w, t1 - 1u, k) < 0 && scope_pic_v(w, t1, k) >= 0) {
+            D = (int32_t)(t1 - t0) / 4;
+            break;
+        }
+    for (n = (uint32_t)D; n < SCOPE_N; n++) {
+        int32_t px = cx + scope_pic_v(w, n, k) * a / peak, py = cy - scope_pic_v(w, n - (uint32_t)D, k) * a / peak;
+        uint16_t col = n + 16u >= SCOPE_N ? c : ux_mix(T_SURF, c, 20 + (int32_t)(n - (uint32_t)D) * 80 / (SCOPE_N - D));
+        cv_rect(px - 1, py - 1, 2, 2, col);
     }
 }
 /* .. pw px wide from x0, about the line cy, +-a px (0.8.5: EDIT's SOUND, in its well) */

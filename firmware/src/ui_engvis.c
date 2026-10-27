@@ -3,8 +3,8 @@
  * Copyright (C) 2026 Juan Ignacio Antonucci (Juan Jiant) */
 /* (GARDEN, Phase 5) the engines' creatures (docs/garden-handoff mockups/creatures.html): each engine's EDIT / BEING
  * picture and its HOME / ECO one, drawn by code on the garden's primitives (ui_garden.c: 2 px blocky polygons, leaves,
- * blobs), on the plants' clock (MOTION x the music's level). DRUM a kit (hi-hat, crash, two toms, snare, kick; each
- * piece moves with its lane); VOICE a singing flower; ANIMAL a ladybird; LOFI an apple orbiting its dotted path; ANALOG an
+ * blobs), on the plants' clock (MOTION x the music's level). DRUM a kit of its eight pieces, each moving with its own
+ * lane's hit only; VOICE a singing flower; ANIMAL a ladybird; LOFI an apple orbiting its dotted path; ANALOG an
  * orange being with a face; FM6 five fuzzy flowers; PHASE a black hole and its rings; WHEEL a barn wheel rolling; NOISE
  * a galaxy, its sun and planets; SHRUB pixel bushes. Engines without their own (DIGITAL): ANIMAL's ladybird.
  * The pages: DRUM-X's KIT 2 / KIT 3 / SOUND the kit's eight pieces, each moving with its lane (vx_kit_page); FM6's
@@ -112,33 +112,22 @@ static void cr_shell(int32_t u, int32_t v, int32_t w, int32_t h, uint16_t c, int
     cr_blob(u, v, w / 2, 8, GD_SURF, 4, 256, 72 + hit / 10);
     cr_line(u - w / 2, v + h, u + w / 2, v + h, 24, GD_BURNT);
 }
+static void vx_piece(uint32_t l, int32_t e, int mute);
+/* (the owner: every piece its own, each moving with its own lane's hit only) the kit's eight pieces in a 4 x 2 grid over
+ * the creature's rectangle, each drawn by vx_piece about its slot's centre; the kit swelling on the beat */
 static void vx_drum(const track_t *t)
 {
-    int32_t e[8], hh, tm, ky, i, s0 = cr.s, cy0 = cr.cy;
+    int32_t e[8], i, s0 = cr.s, cx0 = cr.cx, cy0 = cr.cy, sw = vx_sw(1u, 1u, 0u, 16, 0, 0);
     vx_lanes(t, e);
-    cr.s = cr.s * vx_sw(1u, 1u, 0u, 16, 0, 0) / 256;    /* (the owner) the whole kit swelling on the beat, from its foot */
-    cr.cy = cy0 + (2848 - 2000) * (s0 - cr.s) / 256;
-    hh = e[VK_HATC] > e[VK_HATO] ? e[VK_HATC] : e[VK_HATO];
-    tm = e[VK_TOM];
-    vx_stem(640, 1952, 2848, 64, 0, 1u);                /* (the owner: the stands pixel stems, shorter) the hi-hat, clapping
-                                                         * shut on its hits, the open one lifting */
-    cr_blob(640, 1888 + hh * 96 / 256 - e[VK_HATO] * 64 / 256, 240 + e[VK_HATO] / 4, 8, GD_ORANGE, 1, 256, 77);
-    cr_blob(640, 2016 - hh / 8, 240, 8, GD_PBLUE, 2, 256, 77);
-    vx_stem(3264, 1600, 2816, 64, 0, 2u);               /* the crash, swinging and ringing with the bell (and the rim) */
-    i = e[VK_BELL] > e[VK_RIM] ? e[VK_BELL] : e[VK_RIM];
-    cr_blob(3264 + vx_s((uint32_t)fm1_ms * 60u, i * 64 / 256), 1536 - i * 96 / 256, 272 + i / 3, 8, GD_PBLUE, 3, 256, 77 + i / 8);
-    cr_shell(1440, 1888 - tm * 64 / 256, 640 + tm / 4, 320, GD_BLUE, tm);   /* the toms jumping, the snare */
-    cr_shell(2400, 1888 - tm * 40 / 256, 640 + tm / 4, 320, GD_BURNT, tm);
-    i = e[VK_SNARE] > e[VK_CLAP] ? e[VK_SNARE] : e[VK_CLAP];
-    cr_shell(1056 + vx_s((uint32_t)fm1_ms * 90u, i * 32 / 256), 2400 - i * 64 / 256, 480 + i / 3, 224, GD_SURF, i);
-    ky = 2272 - e[VK_KICK] * 128 / 256;                  /* the kick, jumping and booming */
-    {
-        int32_t q[8] = {1536, ky, 2304, ky, 2304, ky + 544, 1536, ky + 544};
-        cr_quad(q, GD_ORANGE);
+    for (i = 0; i < 8; i++) {
+        int32_t u = 600 + (i & 3) * 880, v = 1400 + (i >> 2) * 1200;   /* (the slot's centre, the mockup's units) */
+        cr.s = s0 * sw / 256;
+        cr.cx = cx0 + (u - 1920) * s0 / 256;
+        cr.cy = cy0 + (v - 2000) * s0 / 256;
+        vx_piece((uint32_t)i, e[i], dx_lane_muted((uint32_t)i));
     }
-    cr_blob(1920, ky + 272, 352 + e[VK_KICK] * 96 / 256, 9, GD_SURF, 7, 230, 230);
-    cr_blob(1920, ky + 272, 128 + e[VK_KICK] * 64 / 256, 7, GD_BURNT, 8, 256, 256);
     cr.s = s0;
+    cr.cx = cx0;
     cr.cy = cy0;
 }
 static void vx_voice(int32_t e)
