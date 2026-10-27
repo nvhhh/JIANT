@@ -50,7 +50,7 @@ static const char *const N_DBXR[] = {"1:1", "1.5:1", "2:1", "3:1", "4:1", "6:1",
 static const char *const N_LAMODE[] = {"COMP", "LIMIT"};               /* (JIANT) the LA-2A's switch */
 static const char *const N_FATC[] = {"1", "2", "3", "4", "5", "6"};    /* (JIANT) the 670's TIME CONSTANT (fx.c FA_TC) */
 static const char *const N_DTYPE[] = {"SOFT", "HARD", "FOLD", "CRUSH", "RECT", "AMP"};   /* (JIANT) fx.c DT_*; 0.7.8 AMP */
-static const char *const N_FTYPE[] = {"LP", "HP", "BP", "COMB", "LADDER"};   /* (JIANT 0.5) P_FTYPE: eng_analog.c FT_*; LADDER (ANALOG's, a Moog-style four-pole) plays as LP on other engines */
+static const char *const N_FTYPE[] = {"LP", "HP", "BP", "COMB", "LADDER"};   /* (JIANT 0.5) P_FTYPE: eng_analog.c FT_*; LADDER: ANALOG's only (enum_skip) */
 static const char *const N_VOICE[] = {"POLY", "MONO", "LEG", "UNI"};   /* V_POLY .. V_UNISON */
 static const char *const N_GLMODE[] = {"RATE", "TIME"};
 static const char *const N_PRIO[] = {"LAST", "LOW", "HIGH"};
@@ -336,10 +336,12 @@ static int32_t param_fit(const param_desc_t *d, int32_t v)
     return d->names == N_FM6_PATCH && v > (int32_t)FM6_OWN ? (int32_t)FM6_OWN : v;
 }
 
-/* v is a value a knob passes over: an alias, or one of FM6's bank slots without a voice */
+/* v is a value a knob passes over: an alias, one of FM6's bank slots without a voice, or FILTER TYPE LADDER on a part
+ * that is not ANALOG (its filter is ANALOG's own: eng_analog.c). A value stored as LADDER still shows on other engines */
 static int enum_skip(const param_desc_t *d, int32_t v)
 {
-    return enum_orig(d, v) != v || (d->names == N_FM6_PATCH && !fm6_slot_ok(v));
+    return enum_orig(d, v) != v || (d->names == N_FM6_PATCH && !fm6_slot_ok(v)) ||
+           (d->names == N_FTYPE && v == 4 && TSEL->engine != ENGI_ANALOG);
 }
 /* a knob moved an F_ENUM from `from` to v: past any value it skips in that direction; with none left to the end, the
  * last one it does not skip on the way from `from` (else `from`) */
