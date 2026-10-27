@@ -5557,14 +5557,14 @@ static int test_fm4_retired(void)
         turn(EN_K2, 1);
         seen |= 1u << TSEL->eng_req;
     }
-    bad += check("PRESETS KNOB 2: the engines in order (0.9.9: DRUM first, NOISE, SHRUB (0.9.10) then MONK (0.9.20) last, round), DIGITAL skipped, back to the first",
+    bad += check("PRESETS KNOB 2: the engines in order (0.9.9: DRUM first, NOISE, SERUM (0.9.10) then MONK (0.9.20) last, round), DIGITAL skipped, back to the first",
                  seen == all && TSEL->eng_req == 0u && eng_step(0, 1) == ENGI_FM6 && eng_step(ENGI_FM6, 1) == ENGI_PHASE &&
                  eng_step(ENGI_FM6, -1) == 0u && eng_step(0, -1) == ENGI_LOFI && eng_step(ENGI_DRUM, 1) == ENGI_VOICE &&
-                 eng_step(ENGI_VOICE, 1) == ENGI_ANIMAL && eng_step(ENGI_DRUM, -1) == ENGI_MONK && eng_step(ENGI_SHRUB, 1) == ENGI_MONK &&
-                 eng_step(ENGI_MONK, 1) == ENGI_DRUM && eng_step(ENGI_NOISE, 1) == ENGI_SHRUB);
+                 eng_step(ENGI_VOICE, 1) == ENGI_ANIMAL && eng_step(ENGI_DRUM, -1) == ENGI_MONK && eng_step(ENGI_SERUM, 1) == ENGI_MONK &&
+                 eng_step(ENGI_MONK, 1) == ENGI_DRUM && eng_step(ENGI_NOISE, 1) == ENGI_SERUM);
     {   /* the display order (engines.c ENGINE_ORDER, 0.9.9): every engine one can pick once; the PRESETS list follows it
          * (was ANALOG FM6 PHASE LOFI VOICE WHEEL NOISE DRUM ANIMAL: test_engine_order_099 has PROGRAM CHANGE's) */
-        static const char *const ORDER[] = {"DRUM", "VOICE", "ANIMAL", "LOFI", "ANALOG", "FM6", "PHASE", "WHEEL", "NOISE", "SHRUB", "MONK"};
+        static const char *const ORDER[] = {"DRUM", "VOICE", "ANIMAL", "LOFI", "ANALOG", "FM6", "PHASE", "WHEEL", "NOISE", "SERUM", "MONK"};
         uint32_t last = 0xFFu, r = 0, n = 0;
         ok = NENG_SHOWN == NELEM(ORDER);
         for (i = 0; ok && i < NENG_SHOWN; i++)
@@ -5579,7 +5579,7 @@ static int test_fm4_retired(void)
             last = e;
             r++;
         }
-        bad += check("engines shown DRUM VOICE ANIMAL LOFI ANALOG FM6 PHASE WHEEL NOISE SHRUB MONK (ENGINE_ORDER); PRESETS lists them so",
+        bad += check("engines shown DRUM VOICE ANIMAL LOFI ANALOG FM6 PHASE WHEEL NOISE SERUM MONK (ENGINE_ORDER); PRESETS lists them so",
                      ok && r == NENG_SHOWN);
     }
     /* a user preset stored with engine 1: kept as it is, it loads as FM6 with the converted patch */
@@ -10159,8 +10159,8 @@ static int test_scope(void)
     for (sk = 0; sk < 1u; sk++)                               /* the EDIT pages of every engine with a creature */
         for (e = 0; e < NENGINES; e++) {
             uint32_t on_tile, on_mid, off_tile, off_mid, gy, chips;
-            if (!eng_ok(e) || e == ENGI_DRUM || e == ENGI_FM6 || e == ENGI_SHRUB || eng_gone(e) || str_eq(ENGINES[e]->name, "DIGITAL"))
-                continue;                                         /* (DIGITAL, FELUCCA_FM4=1: its OP pages, no creature; SHRUB (0.9.10): no creature yet) */
+            if (!eng_ok(e) || e == ENGI_DRUM || e == ENGI_FM6 || e == ENGI_SERUM || eng_gone(e) || str_eq(ENGINES[e]->name, "DIGITAL"))
+                continue;                                         /* (DIGITAL, FELUCCA_FM4=1: its OP pages, no creature; SERUM (0.9.10): no creature yet) */
             ui_power_on();  set_engine_of(TSEL, e); TSEL->engine = TSEL->eng_req;
             go_title("EDIT 1"); ui.force = 1; frame(); frame();
             if (trk_engp(TSEL) == &ENG_FORMANT && TSEL->p[P_VLANG])
@@ -11353,7 +11353,7 @@ static void vxt_case(uint32_t e, const char *pre, const char *page, uint32_t k, 
     vxt_run(600, 1);
     vxt_snap();
     vxt_run(600, 1);
-    *st = !vxs.en[song.sel] && (e != ENGI_SHRUB || vxt_same());   /* (GARDEN: in silence slow, never frozen (SHRUB still): its level
+    *st = !vxs.en[song.sel] && (e != ENGI_SERUM || vxt_same());   /* (GARDEN: in silence slow, never frozen (SERUM still): its level
                                                          * fallen to 0) */
 }
 static int test_engvis(void)

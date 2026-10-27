@@ -296,7 +296,7 @@ function noise(t, e) {
     blob(px, py, size, 7, col, e, k + 2);
   });
 }
-// SHRUB: pixel-art bushes (3 px blocks, light top, dark base, a few berries); they swell only with the music
+// SERUM: pixel-art bushes (3 px blocks, light top, dark base, a few berries); they swell only with the music
 function bush(bx, by, W0, H0, seed, t, e) {
   const p = beatPulse(t), s = 1 + 0.14 * e * (0.4 + 0.6 * p);
   const W = W0 * s, H = H0 * s, sway = Math.sin(t * 2 + seed) * 1.5 * e;
@@ -312,7 +312,7 @@ function bush(bx, by, W0, H0, seed, t, e) {
     if (rnd(seed + k * 11) > 0.5) { ctx.fillStyle = C.orange; ctx.fillRect(Math.round(px + sway), Math.round(py), 3, 3); }
   }
 }
-function shrub(t, e) {
+function serum(t, e) {
   bush(44, 176, 56, 40, 1, t, e);
   bush(120, 178, 78, 56, 2, t, e);
   bush(196, 176, 56, 40, 3, t, e);
@@ -345,7 +345,7 @@ const CREATURES = [
   ['PHASE', 'a black hole with pulsing 3D rings', phase],
   ['WHEEL', 'a barn wheel, rolling', wheel],
   ['NOISE', 'a galaxy with a sun and planets', noise],
-  ['SHRUB', 'pulsing pixel shrubbery', shrub],
+  ['SERUM', 'pulsing pixel serumbery', serum],
   ['USER', 'a face; brows pulse to the tempo', face],
 ];
 const wrap = document.getElementById('wrap');

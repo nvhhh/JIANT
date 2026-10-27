@@ -1539,7 +1539,7 @@ function makeMockDevice(opt = {}) {
     E("MIDI", ["USB", "TRS"], 0), D("REL", F.PCT, 0, 100, 30),   /* G_DREL (was SYNC): DUCK's release */ E("ROUTE", ["CH1-8", "SEL"], 0), D("CPU", F.INT, 0, 0, 0),
     D("SLOT", F.INT, 1, 4, 1), D("DJ FILT", F.BIPCT, -64, 63, 0), E("LOAD", NGO, 0), E("SAVE", NGO, 0),   /* (0.9.1) G_DJF 17 (was NAME, "--"): the master DJ FILTER */
     E("ENG", ["ANALOG", "-", "PHASE", "LOFI", "-", "VOICE", "-", "WHEEL",
-      "-", "-", "DRUM", "NOISE", "FM6", "-", "ANIMAL", "SHRUB", "MONK"], 0), D("CLIP", F.PCT, 0, 100, 0),   /* G_CLIP (was SET); 0.8.3 ANIMAL; 0.9.10 SHRUB; 0.9.20 MONK */
+      "-", "-", "DRUM", "NOISE", "FM6", "-", "ANIMAL", "SERUM", "MONK"], 0), D("CLIP", F.PCT, 0, 100, 0),   /* G_CLIP (was SET); 0.8.3 ANIMAL; 0.9.10 SERUM; 0.9.20 MONK */
     E("CLRSQ", NGO, 0), E("INIT", NGO, 0),
     E("TYPE", ["ROOM", "SPRING", "SHIMR", "RESO", "CLOUD"], 0),               /* G_RTYPE (id 24, was G_DRCH): the reverb's model */
     D("PUNCH", F.PCT, 0, 100, 0), D("DUCK", F.PCT, 0, 100, 0),   /* G_PUNCH, G_DUCK (JIANT; were G_DRLVL, G_DRREV) */
@@ -1692,8 +1692,8 @@ function makeMockDevice(opt = {}) {
         P("BEE", [3, 90, 30, 75, 10, 40, 2, 22], [10, 64, 127, 40], 0, 5), P("FLY", [3, 70, 90, 78, 25, 50, 1, 22], [10, 64, 127, 40], 0, 5),
         P("WOLF", [4, 0, 8, 64, 40, 50, 0, 5], [20, 64, 127, 60], 1, 5), P("DOG BARK", [4, 100, 70, 64, -15, 85, 5, 6], [0, 64, 127, 30], 0, 3),
         P("ROAR", [4, 110, 100, 100, -20, 50, 3, 9], [6, 64, 127, 50], 1, 8), P("PURR", [4, 10, 60, 50, 0, 60, 1, 19], [10, 64, 127, 40], 1, 8)] },
-    /* 15: SHRUB (0.9.10, src/eng_shrub.c): two wavetable oscillators, a sub, a filter (LADDER ACID SVF) */
-    { name: "SHRUB", titles: ["OSC", "FLT"], edit: [D("WT", F.INT, 0, 127, 0), D("WARP", F.PCT, 0, 127, 0),
+    /* 15: SERUM (0.9.10, src/eng_serum.c): two wavetable oscillators, a sub, a filter (LADDER ACID SVF) */
+    { name: "SERUM", titles: ["OSC", "FLT"], edit: [D("WT", F.INT, 0, 127, 0), D("WARP", F.PCT, 0, 127, 0),
         D("DETUNE", F.INT, 0, 127, 10, null, "ct"), D("SUB", F.PCT, 0, 127, 0), D("CUT", F.CUTOFF, 0, 127, 90),
         D("RES", F.PCT, 0, 127, 30), D("DRIVE", F.PCT, 0, 127, 0), E("FILT", ["LADDER", "ACID", "SVF"], 0)],
       presets: [P("MONO GIANT", [2, 0, 12, 60, 40, 25, 20, 0], [0, 50, 100, 30], 1), P("ACID LADDER", [3, 0, 0, 0, 50, 100, 25, 1], [0, 55, 20, 30], 1),
@@ -2366,7 +2366,7 @@ function enumShown(d) {
 /* the order the device shows its engines in (src/engines.c ENGINE_ORDER): the lists here follow it, the protocol keeps
    the engine numbers. engineOrder(names): the indices of names in that order, "-" (a reserved number) left out; a name
    the list does not know (another firmware) follows in index order */
-const ENGINE_ORDER = ["DRUM", "VOICE", "ANIMAL", "LOFI", "ANALOG", "FM6", "PHASE", "WHEEL", "NOISE", "SHRUB", "MONK", "DIGITAL"];   /* (0.9.9: DRUM-X, VOICE,
+const ENGINE_ORDER = ["DRUM", "VOICE", "ANIMAL", "LOFI", "ANALOG", "FM6", "PHASE", "WHEEL", "NOISE", "SERUM", "MONK", "DIGITAL"];   /* (0.9.9: DRUM-X, VOICE,
    ANIMAL first, as the parts at power-on; DIGITAL, FELUCCA_FM4 builds only, last; was ANALOG FM6 DIGITAL PHASE LOFI VOICE WHEEL NOISE
    DRUM ANIMAL; PROGRAM CHANGE numbers the sounds in this order too) */
 function engineOrder(names) {

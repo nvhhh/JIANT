@@ -14,7 +14,7 @@ Everything needed to implement the GARDEN UI with Claude Code.
 | Folder | Files |
 | --- | --- |
 | `images/pages/` | HOME, ECO, ENV, LFO, FX, DRUM-X, FM6, SEQ, MIXER |
-| `images/creatures/` | DRUM, VOICE, ANIMAL, LOFI, ANALOG, FM6, PHASE, WHEEL, NOISE, SHRUB, USER |
+| `images/creatures/` | DRUM, VOICE, ANIMAL, LOFI, ANALOG, FM6, PHASE, WHEEL, NOISE, SERUM, USER |
 | `images/menus/` | BEING, ECO_XY (the SELECT view on ECO), MENU (the overlay) |
 
 Each name has three files: `_a_music` (t = 1.2 s, level 70 %), `_b_music` (t = 3.4 s, level 70 %),

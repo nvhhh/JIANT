@@ -35,7 +35,7 @@ static const genome_t GENOME[9] = {
 /* (JIANT 0.5) a species per engine: ANALOG the radiolarian, PHASE the swirling amoeba, LOFI the blunt diatom, VOICE the
  * hydra (a mouth of tentacles), WHEEL the ciliate (a fringe of pipes), NOISE the spore, FM6 the pollen grain (its
  * operators' geometry), the retired slots the worm; (0.8.3) ANIMAL the larva */
-static const uint8_t EGEN[NENGINES] = {0, 5, 1, 2, 5, 7, 5, 3, 5, 5, 0, 4, 6, 5, 8, 6};   /* SHRUB (15, 0.9.10): a pollen grain */
+static const uint8_t EGEN[NENGINES] = {0, 5, 1, 2, 5, 7, 5, 3, 5, 5, 0, 4, 6, 5, 8, 6};   /* SERUM (15, 0.9.10): a pollen grain */
 static const genome_t LANE_G_HOME = {12, 0, 10, 3, 18, 0, 6};   /* HOME: a DRUM-X track's being (spiky, a beat) */
 typedef struct {
     int32_t spikes, len, wob, lob, nuc, sep, fray, ripple;   /* len wob sep fray ripple 0..256 */

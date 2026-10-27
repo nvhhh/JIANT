@@ -20,7 +20,7 @@
                                   * by default; replaced by FM6, its sounds convert (fm4_convert.c) */
 #endif
 #define NENGINES 17              /* the stores' engine numbers 0..15 (engines.c ENGINES[], append-only; 0.8.3: 14 ANIMAL,
-                                  * 15 SHRUB (JIANT 0.9.10): its favourites in favorites.factory[4], not [15]: favorites.c FAV_ROW) */
+                                  * 15 SERUM (JIANT 0.9.10): its favourites in favorites.factory[4], not [15]: favorites.c FAV_ROW) */
 #define ENGI_DIGITAL 1u          /* reserved without FELUCCA_FM4: never selectable (eng_ok), its sounds load as FM6 */
 #define NENG_SHOWN (NENGINES - !FELUCCA_FM4 - 5)   /* the engines one can pick: PRESETS, the EDIT layer, the editor,
                                                 * in the display order of engines.c ENGINE_ORDER (PHYS 9, and in
@@ -221,7 +221,7 @@ static void params_by_count(int16_t *out, const int16_t *in, uint32_t np, const 
 #define ENGI_SAMPLE 4u
 #define ENGI_ANIMAL 14u          /* (JIANT 0.8.3) eng_animal.c */
 #define ENGI_MONK 16u            /* (JIANT 0.9.20) eng_formant.c ENG_MONK: the VOICE render with MonkSynth's five presets */
-#define ENGI_SHRUB 15u          /* (JIANT 0.9.10) eng_shrub.c: last in the display order (PROGRAM CHANGE numbers unchanged) */
+#define ENGI_SERUM 15u          /* (JIANT 0.9.10) eng_serum.c: last in the display order (PROGRAM CHANGE numbers unchanged) */
 #define ENGI_PHASE 2u            /* (0.9.9: named for the power-on parts and the display order, engines.c) */
 #define ENGI_LOFI 3u
 #define ENGI_VOICE 5u            /* eng_formant.c ENG_FORMANT */

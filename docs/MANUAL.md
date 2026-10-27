@@ -526,7 +526,7 @@ every engine) or with KNOB 2 (ENG) on SAVE > PRESETS. Each track's four HOME kno
 LOFI, ANALOG, FM6, PHASE, WHEEL, NOISE** (the first six are the tracks at power-on, T1–T6). Only the order you see
 changed: projects, user presets, favourites and backups name engines by their numbers, which stay, so everything saved
 before loads as it was. PROGRAM CHANGE numbers the sounds in this new order (see [14](#14-midi-and-usb)).
-SHRUB (0.9.10) comes last, after NOISE, so no number or place of the older engines moves.
+SERUM (0.9.10) comes last, after NOISE, so no number or place of the older engines moves.
 
 **Sound types** (0.9.12, after Skiff): every factory sound has a type: **BASS, LEAD, PAD, KEYS, PLUCK, BELL, VOX, DRUM,
 FX**. On SAVE › PRESETS, **KNOB 4 (LIST)** steps ALL → FAV → BASS → LEAD → … → FX: with a type, KNOB 1 and the PRESETS
@@ -590,7 +590,7 @@ your user presets show under ALL and FAV. The dice (GEN) uses the types too: a b
 - **NOISE**: coloured and metallic noise. MODE: ANLG, DUST, LFSR, META (DUST is only the crackle: at DENS 0 it still crackles softly). PEAK is its own resonance.
 - **DRUM**: DRUM-X, see [5](#5-drum-x).
 - **ANIMAL**: animal calls from physical models, see [ANIMAL](#animal-083) below.
-- **SHRUB** (0.9.10): a wavetable synth with eight edit slots, see [SHRUB](#shrub-0910) below.
+- **SERUM** (0.9.10): a wavetable synth with eight edit slots, see [SERUM](#serum-0910) below.
 
 ### ANIMAL (0.8.3)
 
@@ -653,14 +653,14 @@ ANIMAL came last in the PRESETS list in 0.8.3, after DRUM, so every sound before
 number; since 0.9.9 the list (and PROGRAM CHANGE) has it third (DRUM-X, VOICE, ANIMAL …). It costs no RAM (each voice's state fits the voice), about 7.6 KB of flash, and at most ~85 % of the heaviest
 engine's CPU with eight voices (GLOTT; CMOS, PULSE, WHSTL and WING about half): all eight voices on every mode.
 
-### SHRUB (0.9.10)
+### SERUM (0.9.10)
 
 A wavetable synth. Its eight edit slots, in order: **WT**, **WARP**, **DETUNE**, **SUB**, **CUT**, **RES**, **DRIVE**,
 **FILT**. FILT picks one of three filter types. **WT** (the wavetable position) and **CUT** (the filter's cutoff) are
 the usual targets of the modulation matrix (MOD): an LFO on WT moves the sound through the wavetable, an LFO on CUT
 sweeps the filter.
 
-<!-- TODO(shrub): the slot meanings beyond their names and the three FILT types' names come from eng_shrub.c; fill in once it lands. -->
+<!-- TODO(serum): the slot meanings beyond their names and the three FILT types' names come from eng_serum.c; fill in once it lands. -->
 
 ### VOICE: words and lyrics (0.8.5)
 
@@ -746,7 +746,7 @@ level and the beat):
 | PHASE | a black hole: an orange ring, a black core, four tilted rings | each ring turns its own way; rings and core pulse |
 | WHEEL | a barn wheel | it rolls along the ground, its spokes turning with the distance |
 | NOISE | a spiral galaxy with a sun and planets | the arms turn, the planets orbit |
-| SHRUB | pixel bushes with berries | they swell with the music only (still in silence) |
+| SERUM | pixel bushes with berries | they swell with the music only (still in silence) |
 
 The other engines show the nearest family's creature. (Until stems-10 the engines drew thermal line pictures: VOICE's
 vocal tract, ANIMAL's bird and mammal, LOFI's caterpillar and its DIP, DRUM-X's little beings and its colony; they are

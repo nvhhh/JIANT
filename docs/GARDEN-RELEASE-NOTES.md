@@ -14,7 +14,7 @@ projects are unchanged.
   hopping on the beat), PATTERN (sixteen mounds, a tulip on each step that plays, the playhead orange), DRUM-X KIT /
   SOUND (a ring of mushroom caps, each jumping on its hit), FM6 OPERATOR (a fern, a frond pair an operator).
 - **Engine creatures** on the EDIT pages and HOME › BEING: a drum kit, a singing flower, a beetle, an orbiting apple,
-  an orange being, five small flowers, a black hole, a barn wheel, a galaxy, pixel shrubs.
+  an orange being, five small flowers, a black hole, a barn wheel, a galaxy, pixel serums.
 - **ECO** is a standby garden: a mushroom, a bird, a frog and two beetles.
 - **X-Y view**: on ECO turn SELECT left; SELECT back. A vectorscope of the output (L, R, M, L-R / L+R).
 - **BEING**: the creature in the garden, its four knobs as pods at the corners.
@@ -40,7 +40,7 @@ projects are unchanged.
 - HOME: the ground's waves rise on the beat; the rain falls at the tempo, as much of it as the volume.
 - The creatures as the owner asked: the ladybird (two legs), ANALOG's swirl on its head, VOICE's pixel stem and bobbing
   head, DRUM-X's kit pulsing with each drum moving its own way and pixel stands, PHASE's hole and rings pulsing apart,
-  WHEEL and NOISE at a third of the pace, SHRUB solid (no seams) with an outline, LOFI's apple at half the pace.
+  WHEEL and NOISE at a third of the pace, SERUM solid (no seams) with an outline, LOFI's apple at half the pace.
 - FX: SENDS' stream slower and still when the music is; CHORUS's lines pulse; AUTO PAN's dot is the part's real pan
   (DEPTH 0 says OFF).
 - The knob pods' values: no fading while the knobs rest, and a 13 px face (AF_V, 15 % smaller than M).

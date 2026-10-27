@@ -99,7 +99,7 @@ If the working tree on your machine does not have these (they were not committed
 7. **MENU:** the new overlay look (§7.3) with the firmware's real rows, plus the new MOTION row. The mockup's
    placeholder rows (RAIN, GLOW, MUSIC LVL, TEMPO, SWING) are **not** to be added: RAIN is decoration, GLOW is the
    existing LED GLOW, TEMPO / SWING already exist on GLO, MUSIC LVL duplicates the master.
-8. **Pixel art:** the backdrop pieces (clouds, soil, grass, house, windmill, shrubs) are blocky (3 px); creatures
+8. **Pixel art:** the backdrop pieces (clouds, soil, grass, house, windmill, serums) are blocky (3 px); creatures
    and plants are slightly pixelated (2 px); text stays as the fonts draw it.
 
 ## 4. Palette and art colours
@@ -199,7 +199,7 @@ scene, all on the music-scaled clock.
 | PHASE | a black hole: orange photon ring, black core, four tilted rings in 3D | far half of each ring behind the core, near half in front; each ring turns at its own speed and direction; rings and core pulse with beat and level; clipped above the ground |
 | WHEEL | a barn wheel (`refs/wheel-barn-cart.png`): thick irregular wooden rim, 11 tapered uneven spokes, iron hub | rolls along the ground; rim and spokes turn with the distance covered (rotation = travel / radius) |
 | NOISE | a tilted spiral galaxy with a spiky sun and three planets (one ringed) | arms turn; planets orbit at their own speeds |
-| SHRUB | pixel bushes (`refs/shrub-pixel.png`): 3 px blocks, light top, dark base, a few berries | swell only with the music level (still in silence) |
+| SERUM | pixel bushes (`refs/serum-pixel.png`): 3 px blocks, light top, dark base, a few berries | swell only with the music level (still in silence) |
 | USER | a face inside an irregular halo that does not follow the face | eyes blink, mouth opens with the level, brows lift on each beat |
 
 Engines not listed (DIGITAL, CMOS, PULSE, WHSTL, WING, GLOTT): ask the owner; until then reuse the closest
@@ -327,6 +327,6 @@ with the UI busy, `docs/MANUAL.md` updated (the retired rows, MOTION, the new lo
 The owner's examples, for intent only (do not copy them):
 `fm1-device-colour-series.png` (the device and the colour idea), `cloud-shape-cartoon.png` and
 `cloud-pixel-sky.png` (clouds), `ground-shading-*.png` (soil shading in pixel art), `house-windmill-pixel.png`
-(house and windmill style), `phase-black-hole.png` (PHASE), `wheel-barn-cart.png` (WHEEL), `shrub-pixel.png`
-(SHRUB), `xy-crosshair-vectorscope.png` and `xy-trace-tangle.png` (the X-Y view), `old-ui-eco-phase.png` and
+(house and windmill style), `phase-black-hole.png` (PHASE), `wheel-barn-cart.png` (WHEEL), `serum-pixel.png`
+(SERUM), `xy-crosshair-vectorscope.png` and `xy-trace-tangle.png` (the X-Y view), `old-ui-eco-phase.png` and
 `old-ui-menus.png` (the old UI being replaced).

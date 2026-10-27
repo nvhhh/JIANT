@@ -6,7 +6,7 @@
  * blobs), on the plants' clock (MOTION x the music's level). DRUM a kit of its eight pieces, each moving with its own
  * lane's hit only; VOICE a singing flower; ANIMAL a ladybird; LOFI an apple orbiting its dotted path; ANALOG an
  * orange being with a face; FM6 five fuzzy flowers; PHASE a black hole and its rings; WHEEL a barn wheel rolling; NOISE
- * a galaxy, its sun and planets; SHRUB pixel bushes. Engines without their own (DIGITAL): ANIMAL's ladybird.
+ * a galaxy, its sun and planets; SERUM pixel bushes. Engines without their own (DIGITAL): ANIMAL's ladybird.
  * The pages: DRUM-X's KIT 2 / KIT 3 / SOUND the kit's eight pieces, each moving with its lane (vx_kit_page); FM6's
  * operator pages the fern, a frond pair an operator, its length the operator's level (vx_fm6_page, vx_fm6env).
  * (Retired with Phase 5: the 0.9.4 .. 0.9.12 creatures, the tract, the kit's beings, the colony's FM6, MOTION's
@@ -349,7 +349,7 @@ static void vx_bush(int32_t bx, int32_t by, int32_t W0, int32_t H0, uint32_t sd,
             cr_rect(bx + ((int32_t)(gd_h(sd * 7u, (uint32_t)k) >> 8) - 128) * W * 6 / 2560 + sw,
                     by - H * (77 + (int32_t)(gd_h(sd, (uint32_t)k * 3u) >> 9)) / 256, 48, 48, GD_ORANGE);
 }
-static void vx_shrub(int32_t e)
+static void vx_serum(int32_t e)
 {
     vx_bush(704, 2816, 896, 640, 1, e);
     vx_bush(1920, 2848, 1248, 896, 2, e);
@@ -490,7 +490,7 @@ static int vx_draw(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t h,
     case ENGI_PHASE: vx_phase(e); break;
     case ENGI_WHEEL: vx_wheel(e); break;
     case ENGI_NOISE: vx_noise(e); break;
-    case ENGI_SHRUB: vx_shrub(e); break;
+    case ENGI_SERUM: vx_serum(e); break;
     case ENGI_MONK: vx_monk(t, x, y, w, h, e); break;
     default: vx_beetle(e); break;                        /* (ANIMAL's ladybird; DIGITAL its family's) */
     }

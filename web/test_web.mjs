@@ -179,9 +179,9 @@ async function editorMock() {
   inp.onmidimessage = (e) => link.receive(e.data);
   const rq = async (r, o) => link.request(r, o);
   const info = E.parse[E.CMD.INFO](await rq(E.req.info()));
-  ok(info.nengines === 17 && info.engines[16] === "MONK" && info.engines[1] === "-" && info.engines[12] === "FM6" && info.engines[13] === "-" && info.engines[14] === "ANIMAL" && info.engines[15] === "SHRUB"
+  ok(info.nengines === 17 && info.engines[16] === "MONK" && info.engines[1] === "-" && info.engines[12] === "FM6" && info.engines[13] === "-" && info.engines[14] === "ANIMAL" && info.engines[15] === "SERUM"
  && info.engines[5] === "VOICE" && info.engines[6] === "-" && info.engines[7] === "WHEEL" && info.engines[8] === "-" && info.engines[9] === "-" && info.engines[10] === "DRUM" && info.engines[11] === "NOISE" && info.pcount === 123 && info.pe0 === 115 && info.engines[4] === "-",
-    "editor: INFO (0.9.10: SHRUB, engine 15; 0.9.20: MONK, 16)");
+    "editor: INFO (0.9.10: SERUM, engine 15; 0.9.20: MONK, 16)");
   let descs = 0;
   for (let i = 0; i < info.pcount; i++) if (E.parse[E.CMD.DESC](await rq(E.req.desc(0, i))).label) descs++;
   ok(descs === info.pcount, "editor: DESC for every parameter");
@@ -286,9 +286,9 @@ async function editorMock() {
   ok(!prefs.favorites[info.nengines][31] && !E.devicePresetRows(info, names, prefs).some((r) => r.user), "editor: erased slot disappears and loses star");
   {   /* the lists in the device's order (engines.c ENGINE_ORDER, 0.9.9): DRUM VOICE ANIMAL first, "-" never; the numbers stay */
     const shown = E.engineOrder(info.engines).map((i) => info.engines[i]);
-    ok(shown.join() === "DRUM,VOICE,ANIMAL,LOFI,ANALOG,FM6,PHASE,WHEEL,NOISE,SHRUB,MONK" &&
+    ok(shown.join() === "DRUM,VOICE,ANIMAL,LOFI,ANALOG,FM6,PHASE,WHEEL,NOISE,SERUM,MONK" &&
        E.engineOrder(info.engines).join() === "10,5,14,3,0,12,2,7,11,15,16",
-       "editor: engines listed DRUM VOICE ANIMAL LOFI ANALOG FM6 PHASE WHEEL NOISE SHRUB MONK (0.9.9, 0.9.10 SHRUB, 0.9.20 MONK last; indices kept)");
+       "editor: engines listed DRUM VOICE ANIMAL LOFI ANALOG FM6 PHASE WHEEL NOISE SERUM MONK (0.9.9, 0.9.10 SERUM, 0.9.20 MONK last; indices kept)");
     ok(E.engineOrder(["ANALOG", "X", "-", "DRUM", "FM6"]).join() === "3,0,4,1", "editor: an unknown engine follows the known ones");
     ok(E.engineOrder(["ANALOG", "DIGITAL", "FM6", "DRUM"]).join() === "3,0,2,1", "editor: DIGITAL (FELUCCA_FM4 builds) after the others");
     m.state.favorites[10][0] = m.state.favorites[12][0] = true;

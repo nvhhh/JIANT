@@ -95,7 +95,7 @@ the colour of its track. The colours come from the palette (no new colours). The
 | NOISE | cloud of gnats | density = the noise level |
 | DRUM (DRUM-X) | mushroom ring, 8 caps (BD SD CP CH OH TM RS CB) | each cap lifts on its hit |
 | ANIMAL | frog on a log | jump on the call's onset |
-| SHRUB | shrub with 8 branches (wavetable slots) | a branch per edit slot |
+| SERUM | serum with 8 branches (wavetable slots) | a branch per edit slot |
 | CMOS | snail | the shell turns with the clock |
 | PULSE | cricket | the chirp rate = the pulse rate |
 | WHSTL | whistling kettle-plant | the steam = the pressure |

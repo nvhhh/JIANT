@@ -213,7 +213,7 @@ static const uint8_t MIDI_CC_ENG[NENGINES] = {
     0x80, 0x30, 0x30, 0x34, 0x30,                     /* GRAIN TONE, PHYS BRIT, DRUM TONE, NOISE FREQ RES, FM6 MLVL */
     0x80,                                             /* SLICE TONE (retired: ANALOG's played) */
     0x23,                                             /* ANIMAL PRESS (TOUCH CLICK BUZZ MOUTH), CHAOS (COUPLE Q DRIFT ROUGH) */
-    0x00,                                             /* SHRUB: no CC yet (its 8 slots are reached by the knobs and the editor) */
+    0x00,                                             /* SERUM: no CC yet (its 8 slots are reached by the knobs and the editor) */
 };
 /* a CC sets parameter id of track t as a knob would: 0..127 over its range (the map's and MIDI LEARN's) */
 static void midi_cc_set(track_t *t, uint32_t id, uint32_t value)

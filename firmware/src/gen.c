@@ -2014,7 +2014,7 @@ static void gx_mutate(void)
  * SPRING, the texture left out, then the arp, then the lead (gx_fit_sounds, before the parts); the delay's grain off,
  * a PLAYHEAD less, a note less in every chord (two at least), the long releases shorter, the texture cleared
  * (gx_fit_piece, after them). The genres and RANDOM are left as they were */
-static const uint8_t GC_ENG[NENGINES] = {27, 79, 45, 27, 27, 64, 27, 44, 27, 27, 70, 60, 79, 27, 22, 27};   /* SHRUB: ANALOG's, not generated (GX_ENG) */   /* (ANALOG ..
+static const uint8_t GC_ENG[NENGINES] = {27, 79, 45, 27, 27, 64, 27, 44, 27, 27, 70, 60, 79, 27, 22, 27};   /* SERUM: ANALOG's, not generated (GX_ENG) */   /* (ANALOG ..
                                                          * ANIMAL by number; the retired ones as ANALOG, DIGITAL as FM6) */
 static const uint8_t GC_VOX[NENGINES] = {19, 26, 15, 17, 19, 23, 19, 22, 19, 19, 11, 16, 26, 19, 11, 19};
 static const uint8_t GC_REV[5] = {0, 25, 32, 10, 47};   /* ROOM SPRING SHIMMER RESO CLOUD */
