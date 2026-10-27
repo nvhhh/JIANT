@@ -7799,24 +7799,24 @@ static int test_scl_alltr(void)
     return bad;
 }
 /* (0.9.2) FX one flat chain (this replaces the "FX plano" task): TRK (SENDS DIST AUTO PAN) . BUS (BUSES) . DLY (DLY DLY 2
- * DLY 3) . REV (REVERB REVERB 2) . CHO (CHORUS) . SLC (SLICER SL BUS SL BUS 2 SL BUS 3 SL PITCH) . MST (MASTER) . PCH
- * (PUNCH), seventeen pages (0.9.20: SL BUS 3, the SLICER's FX switch, T7 T8 on SL BUS 2); SELECT a page a detent (no wrap), an FX tap the next group's first (round), the eight tabs lit by group
- * (their short names), "FX . DELAY . DLY 2  6/17"; PRESETS a sound (was the module); BUSES' four knobs the buses' DLY MIX,
+ * DLY 3) . REV (REVERB REVERB 2) . CHO (CHORUS) . SLC (SLICER SL BUS SL BUS 2 SL PITCH) . MST (MASTER) . PCH
+ * (PUNCH), sixteen pages (0.9.20: T7 T8 on SL BUS 2; SL BUS 3 removed, the SLICER's FX switch); SELECT a page a detent (no wrap), an FX tap the next group's first (round), the eight tabs lit by group
+ * (their short names), "FX . DELAY . DLY 2  6/16"; PRESETS a sound (was the module); BUSES' four knobs the buses' DLY MIX,
  * REV SIZE, CHORUS DEPTH, SLICER DEPTH; LOAD ECO: CHORUS and SLICER out of the chain (their tabs too); FX from elsewhere
  * the page left. (Was 0.8.5's lens: SELECT TRACK <-> BUSES <-> EFFECT, PRESETS the module, the FX tap the level's next) */
 static int test_fx_sections(void)
 {
-    static const char *const CH[17] = {"SENDS", "DIST", "AUTO PAN", "BUSES", "DLY", "DLY 2", "DLY 3", "REVERB", "REVERB 2",
-                                       "CHORUS", "SLICER", "SL BUS", "SL BUS 2", "SL BUS 3", "SL PITCH", "MASTER", "PUNCH"};
+    static const char *const CH[16] = {"SENDS", "DIST", "AUTO PAN", "BUSES", "DLY", "DLY 2", "DLY 3", "REVERB", "REVERB 2",
+                                       "CHORUS", "SLICER", "SL BUS", "SL BUS 2", "SL PITCH", "MASTER", "PUNCH"};
     static const char *const TP[7] = {"BUSES", "DLY", "REVERB", "CHORUS", "SLICER", "MASTER", "PUNCH"};
     int bad = 0, ok;
     uint32_t pr;
     ui_power_on();
-    bad += check("0.9.2 FX: one chain of 17 (TRK BUS DLY REV CHO SLC MST PCH) by SELECT, no wrap; an FX tap each group's first, round",
-                 chain_walk(B_FX, CH, 17, TP, 7));
+    bad += check("0.9.2 FX: one chain of 16 (TRK BUS DLY REV CHO SLC MST PCH) by SELECT, no wrap; an FX tap each group's first, round",
+                 chain_walk(B_FX, CH, 16, TP, 7));
     ui_power_on(); go_home(); frame(); press(B_FX); frame();
     ok = fx_on() && fx_level() == FXL_TRACK && lz_on() && card_y() == LB_CARD_Y && lz_tabs() == 8u && lz_tab_lit(0) &&
-         lz_crumb_is("FX \xB7 TRACK \xB7 SENDS") && lz_count_is("1/17");
+         lz_crumb_is("FX \xB7 TRACK \xB7 SENDS") && lz_count_is("1/16");
     turn(EN_SELECT, 3); frame();
     ok &= fx_level() == FXL_BUSES && cur_page()->graph == GR_BUSES && lz_tab_lit(1) && lz_crumb_is("FX \xB7 BUSES \xB7 BUSES");
     ok &= cur_page()->id[0] == G_DMIX && cur_page()->id[1] == G_RSIZE && cur_page()->id[2] == G_CDEPTH && cur_page()->id[3] == G_SLDEP;
@@ -7824,19 +7824,19 @@ static int test_fx_sections(void)
     ok &= song.g[G_RSIZE] > 50;
     turn(EN_SELECT, 2); frame();
     ok &= fx_level() == FXL_EFFECT && str_eq(cur_page()->title, "DLY 2") && lz_tab_lit(2) &&
-          lz_crumb_is("FX \xB7 DELAY \xB7 DLY 2") && lz_count_is("6/17") && ui.fxmod == 0u;
+          lz_crumb_is("FX \xB7 DELAY \xB7 DLY 2") && lz_count_is("6/16") && ui.fxmod == 0u;
     {   /* the eight tabs: their short names (the full ones do not fit) */
         const char *nm[8], *tab[8];
         uint8_t cnt[8];
         uint32_t lv, at, n = tabs_now(nm, tab, cnt, &lv, &at);
-        ok &= n == 8u && str_eq(tab[2], "DLY") && str_eq(tab[5], "SLC") && cnt[2] == 3u && cnt[5] == 5u && lv == 2u && at == 1u;
+        ok &= n == 8u && str_eq(tab[2], "DLY") && str_eq(tab[5], "SLC") && cnt[2] == 3u && cnt[5] == 4u && lv == 2u && at == 1u;
     }
     pr = TSEL->preset;
     turn(EN_PRESET, 1); frame();
     ok &= str_eq(cur_page()->title, "DLY 2") && (TSEL->preset != pr || TSEL->eng_req != trk_def_engine(0));
     frames(320); press(B_FX); frame();
     ok &= str_eq(cur_page()->title, "REVERB") && ui.fxmod == 1u;
-    bad += check("0.9.2 FX: tabs (eight, short names, dots), crumb FX . DELAY . DLY 2 6/17; BUSES' knobs; PRESETS a sound (was the module)", ok);
+    bad += check("0.9.2 FX: tabs (eight, short names, dots), crumb FX . DELAY . DLY 2 6/16; BUSES' knobs; PRESETS a sound (was the module)", ok);
     go_home(); frame();
     press(B_FX); frame();
     ok = str_eq(cur_page()->title, "REVERB") && fx_level() == FXL_EFFECT;
@@ -11464,7 +11464,7 @@ static const old_lv_t OLD_LV[] = {
     {FAM_SEQ, LV_STEP, 9, {"COMP", "COMP 2"}},   /* (NOTE's STEP view: merged into BAR's, the mock-up's "páginas repetidas") */
     {FAM_FX, FXL_TRACK, 9, {"FX", "DIST", "AUTO PAN"}}, {FAM_FX, FXL_BUSES, 9, {"BUSES"}},
     {FAM_FX, FXL_EFFECT, 9, {"DLY", "DLY 2", "DLY 3", "REVERB", "REVERB 2", "CHORUS", "SLICER", "SL BUS", "SL BUS 2",
-                             "SL BUS 3", "SL PITCH", "MASTER", "PUNCH"}},
+                             "SL PITCH", "MASTER", "PUNCH"}},
 };
 static int test_lz_reach(void)
 {
