@@ -1731,9 +1731,8 @@ static void draw_tracks(void)
         ts.bed = bsig;
     }
 }
-/* (JIANT, DYN) the HOME picture (ui_scope OFF and ON), the track's compressor: on the left its static curve, input against
- * output in dB (THRESH, the model's ratio, MAKEUP; a straight line when it is OFF); on the right its gain reduction, a bar an
- * audio block (fx.c dyn_hist: the deepest reduction of each, the last 32), the newest at the right. dB x10 throughout */
+/* (JIANT, DYN) the compressor's static curve (EDIT COMP and COMP 2, the whole display): input against output in dB, THRESH,
+ * the model's ratio and MAKEUP; a straight line when it is OFF. dB x10 throughout */
 static void graph_comp_curve(const track_t *t, uint16_t c, int32_t x0, int32_t pw, int32_t cy, int32_t a)
 {
     uint32_t ty = (uint32_t)t->p[P_CTYPE];
@@ -1749,18 +1748,6 @@ static void graph_comp_curve(const track_t *t, uint16_t c, int32_t x0, int32_t p
         if (py < cy - a) py = cy - a;
         if (py > cy + a) py = cy + a;
         cv_rect(px - 1, py - 1, 2, 2, c);
-    }
-}
-static void graph_comp(const track_t *t, uint16_t c, int32_t x0, int32_t pw, int32_t cy, int32_t a)
-{
-    uint32_t ti = (uint32_t)(t - trk) % NTRK, n;
-    int32_t bw = pw * 5 / 11, rx = x0 + bw + 8, rw = pw - bw - 10;
-    graph_comp_curve(t, c, x0, bw, cy, a);
-    for (n = 0; n < 32u; n++) {                                /* the gain reduction: down from the top */
-        int32_t gr = (int32_t)dyn_hist[ti][(dyn_hw[ti] + n) & 31u] * 235 / 100, h = gr > 480 ? 2 * a : gr * (2 * a) / 480;
-        int32_t bxr = rx + (int32_t)n * rw / 32;
-        if (h > 0)
-            cv_rect(bxr, cy - a, rw / 32 > 1 ? rw / 32 - 1 : 1, h, c);
     }
 }
 /* (GARDEN, the owner: the music draws a picture) the HOME scope in XY: X = the output, Y = the same output D samples back,
@@ -1796,8 +1783,9 @@ static void scope_pic(int32_t x0, int32_t pw, int32_t cy, int32_t a, uint16_t c)
 static void scope_at(int32_t x0, int32_t pw, int32_t cy, int32_t a, uint16_t c);
 static void graph_scope(const track_t *t, uint16_t c)
 {
-    if (ui_scope < 2u)                                       /* (JIANT, DYN) OFF and ON: the track's compressor (graph_comp) */
-        graph_comp(t, c, PANEL_X0, PANEL_W, (int32_t)cv_h / 2, cv_h == H_GRAPH ? 46 : (int32_t)cv_h / 2 - 6);   /* (LARGE: the strip) */
+    (void)t;
+    if (ui_scope < 2u)                                       /* (GARDEN) OFF and ON: the music's picture (XY) */
+        scope_pic(PANEL_X0, PANEL_W, (int32_t)cv_h / 2, cv_h == H_GRAPH ? 46 : (int32_t)cv_h / 2 - 6, c);   /* (LARGE: the strip) */
     else
         scope_at(PANEL_X0, PANEL_W, (int32_t)cv_h / 2, cv_h == H_GRAPH ? 46 : (int32_t)cv_h / 2 - 6, c);
 }
