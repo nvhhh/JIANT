@@ -123,7 +123,7 @@ int main(int argc, char **argv)
         uint32_t pd;
         gp.genre = (uint8_t)g; gp.seed = (uint16_t)seed; gp.energy = (uint8_t)energy; gp.form = (uint8_t)form;
         for (k = 0; k < GP_N; k++) gp.amt[k] = GA_AUTO;
-        gp.complex = 50; gp.swing = GA_AUTO; gp.human = 30;
+        gp.complex = 50; gp.swing = GA_AUTO;
         gen_go();
         pd = gs.trk_of[RL_PAD];
         spell();

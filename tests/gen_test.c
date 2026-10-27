@@ -45,7 +45,7 @@ static void gen_with(uint32_t genre, uint32_t seed, uint32_t energy, uint32_t fo
     uint32_t k;
     gp.genre = (uint8_t)genre; gp.seed = (uint16_t)seed; gp.energy = (uint8_t)energy; gp.form = (uint8_t)form;
     for (k = 0; k < GP_N; k++) gp.amt[k] = GA_AUTO;
-    gp.complex = 50; gp.swing = GA_AUTO; gp.human = 30;
+    gp.complex = 50; gp.swing = GA_AUTO;
     gen_go();
 }
 static uint32_t all_sig(void)
@@ -210,7 +210,7 @@ int main(void)
                 uint32_t pd;
                 gp.genre = (uint8_t)(g + 1u); gp.seed = (uint16_t)(2000u + 41u * s + g); gp.energy = (uint8_t)(15u + (s * 23u) % 80u); gp.form = 0;
                 for (k = 0; k < GP_N; k++) gp.amt[k] = GA_AUTO;
-                gp.complex = (uint8_t)(10u + (s * 31u) % 85u); gp.swing = GA_AUTO; gp.human = 30;
+                gp.complex = (uint8_t)(10u + (s * 31u) % 85u); gp.swing = GA_AUTO;
                 gen_go();
                 for (k = 0; k < GEN_NT; k++) {            /* the SCALE page */
                     const track_t *t = &trk[k];
@@ -377,7 +377,7 @@ int main(void)
     {
         uint32_t h0, h1, h2, k0, k2;
         gen_reset();
-        gp.genre = 1; gp.seed = 77; gp.energy = 50; gp.form = 0; gp.complex = 50; gp.swing = GA_AUTO; gp.human = 30;
+        gp.genre = 1; gp.seed = 77; gp.energy = 50; gp.form = 0; gp.complex = 50; gp.swing = GA_AUTO;
         for (k = 0; k < GP_N; k++) gp.amt[k] = GA_AUTO;
         gp.amt[GP_DRUMS] = 20; gen_go(); h0 = hits_all(&trk[gs.trk_of[RL_DRUM]]); k0 = hits_of(&trk[gs.trk_of[RL_DRUM]], 0);
         gp.amt[GP_DRUMS] = 60; gen_go(); h1 = hits_all(&trk[gs.trk_of[RL_DRUM]]);
@@ -400,7 +400,7 @@ int main(void)
         gen_reset();
         gp.genre = 2; gp.seed = 9; gp.energy = 50; gp.form = 0;
         for (k = 0; k < GP_N; k++) gp.amt[k] = GA_AUTO;
-        gp.amt[GP_LEAD] = 0; gp.amt[GP_ARP] = 0; gp.complex = 50; gp.swing = GA_AUTO; gp.human = 30;
+        gp.amt[GP_LEAD] = 0; gp.amt[GP_ARP] = 0; gp.complex = 50; gp.swing = GA_AUTO;
         gen_go();
         {
             uint32_t on = 0;
@@ -570,7 +570,7 @@ int main(void)
             gp.genre = (uint8_t)GEN_EXPLORE; gp.seed = (uint16_t)(sd * 163u + 7u); gp.energy = (uint8_t)(10u + (sd * 37u) % 85u);
             gp.form = 0;
             for (k = 0; k < GP_N; k++) gp.amt[k] = GA_AUTO;
-            gp.complex = (uint8_t)((sd * 29u) % 100u); gp.swing = GA_AUTO; gp.human = 30;
+            gp.complex = (uint8_t)((sd * 29u) % 100u); gp.swing = GA_AUTO;
             gen_go();
             if (strncmp(ui.msg, "GEN: EXPLORE ", 13) || strcmp(gs.g->name, "EXPLORE")) name_bad++;
             for (k = 0; k < GEN_NT; k++) {
@@ -672,7 +672,7 @@ int main(void)
                     gen_reset();
                     gp.genre = (uint8_t)GEN_EXPLORE; gp.seed = (uint16_t)(sd * 41u + 3u); gp.energy = 50; gp.form = 0;
                     for (k = 0; k < GP_N; k++) gp.amt[k] = GA_AUTO;
-                    gp.complex = (uint8_t)(cx * 50u); gp.swing = GA_AUTO; gp.human = 30;
+                    gp.complex = (uint8_t)(cx * 50u); gp.swing = GA_AUTO;
                     gen_go();
                     for (k = 0; k < GEN_NT; k++) {
                         uint32_t h;
@@ -718,7 +718,7 @@ int main(void)
                     gen_reset();
                     gp.genre = (uint8_t)GEN_EXPLORE; gp.seed = (uint16_t)(sd * 53u + 11u); gp.energy = 50; gp.form = 0;
                     for (k = 0; k < GP_N; k++) gp.amt[k] = GA_AUTO;
-                    gp.complex = 50; gp.swing = GA_AUTO; gp.human = 30;
+                    gp.complex = 50; gp.swing = GA_AUTO;
                     gen_go();
                     est[f] += gc_cost(1);
                 }

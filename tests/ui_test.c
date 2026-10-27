@@ -2298,7 +2298,7 @@ static int test_preset_types(void)
         for (g = 0; g < 8u; g++)
             for (sd = 1; sd < 4u; sd++) {
                 gp.genre = (uint8_t)g; gp.seed = (uint16_t)(sd * 7u); gp.energy = 50; gp.form = 0; gp.complex = 50;
-                gp.swing = GA_AUTO; gp.human = 30;
+                gp.swing = GA_AUTO;
                 for (q = 0; q < GP_N; q++) gp.amt[q] = GA_AUTO;
                 gen_go();
                 for (q = 0; q < NTRK; q++)
@@ -7945,7 +7945,7 @@ static int test_dice_all(void)
         {   /* (0.6.27) 40 throws: never the same piece, the tempo moved every time (even from the same random state) */
             uint32_t h[40], n2, m, same = 0, bpm_same = 0;
             int16_t b0;
-            gp.genre = 0; gp.energy = 50; gp.form = 1; gp.complex = 50; gp.swing = GA_AUTO; gp.human = 30;   /* (0.8.5: the
+            gp.genre = 0; gp.energy = 50; gp.form = 1; gp.complex = 50; gp.swing = GA_AUTO;   /* (0.8.5: the
                                                          * settings as at power-on, whatever the GEN tests left: the 40
                                                          * throws the same whatever ran before, as 0.6.92 meant) */
             for (n2 = 0; n2 < GP_N; n2++) gp.amt[n2] = GA_AUTO;
@@ -9300,7 +9300,7 @@ static int test_click_menu(void)
         {   /* (0.6.92) the same generated song whatever ran before (dice_all's seed mixes the ticks in): the
              * generator's settings set here, seed 1, any genre (a drum in it) */
             uint32_t q;
-            gp.genre = 0; gp.seed = 1; gp.energy = 50; gp.form = 0; gp.complex = 50; gp.swing = GA_AUTO; gp.human = 30;
+            gp.genre = 0; gp.seed = 1; gp.energy = 50; gp.form = 0; gp.complex = 50; gp.swing = GA_AUTO;
             for (q = 0; q < GP_N; q++) gp.amt[q] = GA_AUTO;
             gen_go();
         }

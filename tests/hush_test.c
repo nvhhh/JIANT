@@ -57,7 +57,7 @@ int main(void)
     for (seed = 3; seed < 6u; seed++) {                  /* EXPLORE pieces: PLAY, STOP, silence, PLAY, STOP */
         gp.genre = GEN_EXPLORE; gp.seed = (uint16_t)seed; gp.energy = 60; gp.form = 0;
         for (k = 0; k < GP_N; k++) gp.amt[k] = GA_AUTO;
-        gp.complex = 50; gp.swing = GA_AUTO; gp.human = 30;
+        gp.complex = 50; gp.swing = GA_AUTO;
         gen_go();
         song.master_q12 = 4096;
         transport_req = 1; ui_input();
