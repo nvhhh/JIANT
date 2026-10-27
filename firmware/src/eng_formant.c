@@ -442,13 +442,6 @@ static const preset_t FORMANT_PRESETS[] = {
     {"SCAT EN", {0, 64, 0, 0, 96, 4, 76, 0}, {16, 60, 100, 60}, 0, 1 | TAG(VOX), FX(0, 0, 35, 30), PAT(4), WORDS(LG_EN, 17)},
     {"ROBOT EN", {0, 64, 0, -3, 127, 0, 90, 0}, {2, 65, 120, 56}, 0, 1 | TAG(VOX), FX(10, 10, 35, 30), PAT(4), WORDS(LG_EN, 6)},
     {"WHISPER JA", {0, 64, 0, 3, 50, 120, 52, 0}, {40, 90, 110, 80}, 0, TAG(VOX), FX(0, 40, 30, 70), PAT(5), WORDS(LG_JA, 7)},
-    /* (DELAY LAMA, from MonkSynth's presets) the five monk sounds: the head size as SHIFT (the formants' ratio, a voice's
-     * 0.75 .. 1.25 in semitones: -5 .. +4), the delay mix as the DELAY send; the glide and the volume are the track's */
-    {"RABTEN", {64, 0, 0, 0, 84, 6, 72, 0}, {24, 70, 112, 72}, 0, 1 | TAG(VOX), FX(0, 0, 102, 0), PAT(4)},
-    {"DORJE", {64, 0, 0, -5, 84, 6, 72, 0}, {24, 70, 112, 72}, 0, 1 | TAG(VOX), FX(0, 0, 38, 0), PAT(4)},
-    {"NGAWANG", {64, 0, 0, -2, 84, 6, 72, 0}, {24, 70, 112, 72}, 0, 1 | TAG(VOX), FX(0, 0, 77, 0), PAT(4)},
-    {"JAMYANG", {64, 0, 0, 2, 84, 6, 72, 0}, {24, 70, 112, 72}, 0, 1 | TAG(VOX), FX(0, 0, 0, 0), PAT(4)},
-    {"TINLEY", {64, 0, 0, 4, 84, 6, 72, 0}, {24, 70, 112, 72}, 0, 1 | TAG(VOX), FX(0, 0, 115, 0), PAT(4)},
 };
 
 static const engine_t ENG_FORMANT = {
@@ -466,6 +459,42 @@ static const engine_t ENG_FORMANT = {
     },
     .presets = FORMANT_PRESETS,
     .npresets = NELEM(FORMANT_PRESETS),
+    .note_on = formant_note_on,
+    .render = formant_render,
+    .knob = {P_E0, P_E4, P_E5, P_E2},
+    .poly = 4,
+    .desc = formant_desc,
+    .block = formant_block,
+    .amp = formant_amp,
+};
+
+/* (JIANT 0.9.20) MONK: the VOICE render with the five sounds of MonkSynth's presets (MIT, JonET/monksynth), so the
+ * monk voice plays as its own engine. The head size is SHIFT (the formants' ratio: a voice's 0.75 .. 1.25 in semitones,
+ * -5 .. +4); the delay mix is the DELAY send. Glide, volume and vibrato stay on the track (the presets have no field
+ * for them). Its own engine number (ENGI_MONK) so VOICE's presets and stored sounds are unchanged */
+static const preset_t MONK_PRESETS[] = {
+    {"RABTEN", {64, 0, 0, 0, 84, 6, 72, 0}, {24, 70, 112, 72}, 0, 1 | TAG(VOX), FX(0, 0, 102, 0), PAT(4)},
+    {"DORJE", {64, 0, 0, -5, 84, 6, 72, 0}, {24, 70, 112, 72}, 0, 1 | TAG(VOX), FX(0, 0, 38, 0), PAT(4)},
+    {"NGAWANG", {64, 0, 0, -2, 84, 6, 72, 0}, {24, 70, 112, 72}, 0, 1 | TAG(VOX), FX(0, 0, 77, 0), PAT(4)},
+    {"JAMYANG", {64, 0, 0, 2, 84, 6, 72, 0}, {24, 70, 112, 72}, 0, 1 | TAG(VOX), FX(0, 0, 0, 0), PAT(4)},
+    {"TINLEY", {64, 0, 0, 4, 84, 6, 72, 0}, {24, 70, 112, 72}, 0, 1 | TAG(VOX), FX(0, 0, 115, 0), PAT(4)},
+};
+
+static const engine_t ENG_MONK = {
+    .name = "MONK",
+    .page_title = {"VOWL", "TONE"},
+    .edit = {
+        {"VOWEL", F_INT, 0, 127, 0, 0, 0},
+        {"VOWEL2", F_INT, 0, 127, 64, 0, 0},
+        {"TALK", F_TIME, 0, 127, 0, 0, 0},
+        {"SHIFT", F_SEMI, -12, 12, 0, 0, 0},
+        {"BUZZ", F_PCT, 0, 127, 64, 0, 0},
+        {"BREATH", F_PCT, 0, 127, 10, 0, 0},
+        {"Q", F_PCT, 0, 127, 64, 0, 0},
+        {"RAND", F_PCT, 0, 127, 0, 0, 0},
+    },
+    .presets = MONK_PRESETS,
+    .npresets = NELEM(MONK_PRESETS),
     .note_on = formant_note_on,
     .render = formant_render,
     .knob = {P_E0, P_E4, P_E5, P_E2},
