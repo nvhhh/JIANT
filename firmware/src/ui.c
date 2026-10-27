@@ -602,6 +602,8 @@ static int page_visible(uint32_t i)
     if (PAGES[i].fam == FAM_EDIT && (PAGES[i].id[0] == P_CTYPE || PAGES[i].id[0] == P_LA_HF)) {   /* (JIANT, DYN) COMP,
                                                          * COMP 2: the selected model's front panel only */
         uint32_t m = (uint32_t)TSEL->p[P_CTYPE], k = PAGES[i].id[0] == P_LA_HF ? P_LA_PR : PAGES[i].id[1];
+        if (!ui.home && ui.page == i)                   /* (the page on screen stays while its own TYPE or ON changes: no jump) */
+            return 1;
         return m == (k == P_DBX_THR ? 1u : k == P_LA_PR ? 2u : k == P_FA_IN ? 3u : 0u);
     }
     if (PAGES[i].scope == SC_TRACK && PAGES[i].id[0] == P_FTYPE)   /* (JIANT 0.5) FILTER: ANALOG's, or the part's */
