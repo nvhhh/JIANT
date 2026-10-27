@@ -1769,8 +1769,11 @@ static void graph_comp_curve(const track_t *t, uint16_t c, int32_t x0, int32_t p
             pk = (pk * pk >> 15) * pk >> 15;
             sw = 6 + (8 * pk >> 15);
             int32_t s = sine_i(((uint32_t)i * 2048u + (uint32_t)j * 21845u + ph * 512u) << 16) * sw >> 15;
+            /* the lines fan out toward both ends, the left end 15 % of the height apart, the right end 5 %: the spread
+             * is 0 at the middle and grows as the square of the distance from it */
+            int32_t sp = (j - 1) * 2 * a * (720 - 10 * i) * ((2 * i - 48) * (2 * i - 48)) / (4800 * 2304);
             gx = px / 3 * 3;
-            gy = (py + s) / 3 * 3;
+            gy = (py + s + sp) / 3 * 3;
             if (gy < cy - a || gy > cy + a - 3)
                 continue;
             cv_rect(gx, gy, 3, 3, CR_RAIN[(i * 11 / 48 + j * 4) % 12]);

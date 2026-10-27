@@ -6,7 +6,7 @@
  * blobs), on the plants' clock (MOTION x the music's level). DRUM a kit of its eight pieces, each moving with its own
  * lane's hit only; VOICE a singing flower; ANIMAL a ladybird; LOFI an apple orbiting its dotted path; ANALOG an
  * orange being with a face; FM6 five fuzzy flowers; PHASE a black hole and its rings; WHEEL a barn wheel rolling; NOISE
- * a galaxy, its sun and planets; SERUM pixel bushes. Engines without their own (DIGITAL): ANIMAL's ladybird.
+ * a galaxy, its sun and planets; SERUM a pixel perfume atomiser with its spray. Engines without their own (DIGITAL): ANIMAL's ladybird.
  * The pages: DRUM-X's KIT 2 / KIT 3 / SOUND the kit's eight pieces, each moving with its lane (vx_kit_page); FM6's
  * operator pages the fern, a frond pair an operator, its length the operator's level (vx_fm6_page, vx_fm6env).
  * (Retired with Phase 5: the 0.9.4 .. 0.9.12 creatures, the tract, the kit's beings, the colony's FM6, MOTION's
@@ -321,41 +321,49 @@ static void vx_noise(int32_t e)
         cr_blob(x, y, SZ[i] * g / 256, 7, i == 1 ? GD_BLUE : i ? 0xC50Fu : GD_BURNT, (uint32_t)i + 2u, 256, 256);
     }
 }
-static void vx_bush(int32_t bx, int32_t by, int32_t W0, int32_t H0, uint32_t sd, int32_t e)
+/* SERUM: a perfume atomiser (serum_bottle.h: the owner's pixel art, mirrored), tilted 35 degrees clockwise, its body on
+ * the left and the bulb on the right. It breathes on the beat (vx_sw). On each beat a spray of small pixel dots leaves
+ * the spot above-left of the cap and drifts out, fading. The beats are counted from the tempo, so the spray is stateless. */
+#define SB_CELL 25                                       /* a cell, in the mockup's units */
+#define SB_COS 3355                                      /* cos 35 degrees, Q12 */
+#define SB_SIN 2349                                      /* sin 35 degrees, Q12 */
+#define SB_LIFE 307                                      /* a spray dot lives 1.2 beats (Q8) */
+#define SB_PLUM 0x38A7u                                  /* #3A1538, the dark dots */
+#define SB_ROSE 0xD22Fu                                  /* #D6457F, the rose dots */
+#include "serum_bottle.h"
+static void sb_put(int32_t dx, int32_t dy, int32_t size, uint16_t c)   /* a point dx, dy from the centre (mockup units) */
 {
-    int32_t s = vx_sw(3u, 8u, sd * 9000u, 14, 36, e);    /* (the owner) swelling every 2 2/3 beats (25 % slower than a hop every 2) */
-    int32_t W = W0 * s / 256, H = H0 * s / 256, sw = vx_s(vx_t(200) + sd * 10430u, 24) * e / 256, px, py, k, o;
-    int32_t ol = 48 + (24 + 72 * e / 256) * gd_pulse(3u, 8u, sd * 9000u + 16384u) / 256;   /* (the owner) an outline round it,
-                                                         * thicker on the pulse as the music is louder */
-    for (o = 0; o < 2; o++)                              /* the outline, the leaves on it */
-    for (py = by - H - (o ? 0 : (ol + 47) / 48 * 48); py < by; py += 48)   /* (on the leaves' grid) */
-        for (px = bx - W / 2 - (o ? 0 : (ol + 47) / 48 * 48); px < bx + W / 2 + (o ? 0 : ol); px += 48) {
-            int32_t u = (px - bx) * 512 / (W + (o ? 0 : 2 * ol)), v = (by - py) * 256 / (H + (o ? 0 : ol)),
-                    n = (int32_t)(gd_h((uint32_t)(px + sd * 997u), py) >> 8);
-            int32_t x0 = CX(px + sw) >> 4, y0 = CY(py) >> 4;
-            uint16_t c;
-            if (u * u + v * v * 230 / 256 > 65536 + (o ? 77 : 20) * (n - 128))   /* (the outline smoother than the leaves) */
-                continue;
-            if (!o) {
-                cv_rect(x0, y0, (CX(px + sw + 48) >> 4) - x0, (CY(py + 48) >> 4) - y0, GD_INK);
-                continue;
-            }
-            c = v > 184 ? GD_PBLUE : v < 77 ? 0x3290u : GD_BLUE;
-            cv_rect(x0, y0, (CX(px + sw + 48) >> 4) - x0, (CY(py + 48) >> 4) - y0, n > 218 && v > 102 ? GD_PBLUE : c);   /* (each cell
-                                                         * to the next one's edge: no seams between them) */
-        }
-    for (k = 0; k < 3; k++)                              /* a few berries */
-        if (gd_h(sd, (uint32_t)k + 11u) & 32768u)
-            cr_rect(bx + ((int32_t)(gd_h(sd * 7u, (uint32_t)k) >> 8) - 128) * W * 6 / 2560 + sw,
-                    by - H * (77 + (int32_t)(gd_h(sd, (uint32_t)k * 3u) >> 9)) / 256, 48, 48, GD_ORANGE);
+    int32_t u = 1920 + (dx * SB_COS - dy * SB_SIN) / 4096, v = 1984 + (dx * SB_SIN + dy * SB_COS) / 4096;
+    cv_rect(CX(u) >> 4, CY(v) >> 4, size, size, c);
 }
 static void vx_serum(int32_t e)
 {
-    vx_bush(704, 2816, 896, 640, 1, e);
-    vx_bush(1920, 2848, 1248, 896, 2, e);
-    vx_bush(3136, 2816, 896, 640, 3, e);
-    vx_bush(1344, 2912, 544, 352, 4, e);
-    vx_bush(2496, 2912, 544, 352, 5, e);
+    int32_t sw = vx_sw(1u, 1u, 0u, 256, 64, e), cell = SB_CELL * sw / 256, sz = CR(cell) >> 4, r, c, m, k;
+    uint64_t t256 = (uint64_t)fm1_ms * (uint32_t)song.g[G_BPM] * 256u / 60000u;   /* beats so far (Q8) */
+    if (sz < 1)
+        sz = 1;
+    for (r = 0; r < SB_N; r++)
+        for (c = 0; c < SB_N; c++) {
+            uint32_t i = (uint32_t)(r * SB_N + c);
+            uint8_t n = (uint8_t)(SB_CELLS[i >> 1] >> ((i & 1u) ? 4 : 0) & 15u);
+            if (n)
+                sb_put((c - 20) * cell, (r - 20) * cell, sz, SB_PAL[n]);
+        }
+    for (m = 0; m < 4; m++) {                                   /* the spray of the last four beats */
+        uint32_t bi = (uint32_t)(t256 >> 8) - (uint32_t)m;
+        int32_t age = (int32_t)((t256 & 255u) + (uint64_t)m * 256u);
+        if (age > SB_LIFE)
+            continue;
+        for (k = 0; k < 6; k++) {
+            uint32_t hh = (bi * 6u + (uint32_t)k) * 2654435761u;
+            int32_t dx = (4 - 20) * cell - (120 + (int32_t)((hh >> 8) & 127u)) * age / 256,
+                    dy = (6 - 20) * cell + (((int32_t)(hh >> 16) & 255) - 128) * age / 256;
+            if (hh >> 31)
+                sb_put(dx, dy, sz, SB_ROSE);
+            else
+                sb_put(dx, dy, sz, SB_PLUM);
+        }
+    }
 }
 
 /* -------------------------------------------------------------------------------------------------- MONK --- */
