@@ -323,8 +323,7 @@ static void eco_garden(void)
         }
     }
 }
-/* (JIANT, DYN) ECO's X-Y view (SELECT left on ECO, SELECT back): the whole screen is the selected track's compressor, as
- * graph_comp draws it on the strips (the static curve, the gain reduction per audio block). eco_xy_on: when it shows */
+/* (GARDEN, the owner: the music draws a picture) ECO's X-Y view (SELECT left on ECO, SELECT back): the output in XY, scope_pic */
 static int eco_xy_on(void) { return ui.xy && ui.home && !gen_on() && home_level() == 0u && !home_set() && !ui.menu; }
 static void draw_xy(void)
 {
@@ -338,7 +337,7 @@ static void draw_xy(void)
         int32_t y0 = (int32_t)pass * 120;
         cv_begin(240, 120, T_SURF);
         cv_oy = -y0;
-        graph_comp(TSEL, GD_ORANGE, 8, 224, 120, 110);
+        scope_pic(8, 224, 120, 110, GD_ORANGE);
         cv_oy = 0;
         cv_blit(0, (uint32_t)y0);
     }

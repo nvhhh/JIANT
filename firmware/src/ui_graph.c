@@ -1757,6 +1757,34 @@ static void graph_comp(const track_t *t, uint16_t c, int32_t x0, int32_t pw, int
             cv_rect(bxr, cy - a, rw / 32 > 1 ? rw / 32 - 1 : 1, h, c);
     }
 }
+/* (GARDEN, the owner: the music draws a picture) the HOME scope in XY: X = the output, Y = the same output D samples back,
+ * the whole 512-sample window as dots, the oldest dim and the newest bright, so a periodic sound draws its closed figure.
+ * D: a quarter of the period of the first two rising zero crossings (ORBIT's; 24 without a second) */
+static int32_t scope_pic_v(uint32_t w, uint32_t n, int32_t k) { return scope_s(scope_buf[(w + n) & (SCOPE_N - 1u)], k); }
+static void scope_pic(int32_t x0, int32_t pw, int32_t cy, int32_t a, uint16_t c)
+{
+    uint32_t w = scope_w, n, t0 = 1, t1;
+    int32_t D = 24, cx = x0 + pw / 2, peak = 750, k = scope_k();
+    for (n = 0; n < SCOPE_N; n++) {
+        int32_t v = scope_pic_v(w, n, k);
+        if (v < 0)
+            v = -v;
+        if (v > peak)
+            peak = v;
+    }
+    while (t0 < SCOPE_N && !(scope_pic_v(w, t0 - 1u, k) < 0 && scope_pic_v(w, t0, k) >= 0))
+        t0++;
+    for (t1 = t0 + 8u; t0 < SCOPE_N && t1 < SCOPE_N && t1 <= t0 + 256u; t1++)
+        if (scope_pic_v(w, t1 - 1u, k) < 0 && scope_pic_v(w, t1, k) >= 0) {
+            D = (int32_t)(t1 - t0) / 4;
+            break;
+        }
+    for (n = (uint32_t)D; n < SCOPE_N; n++) {
+        int32_t px = cx + scope_pic_v(w, n, k) * a / peak, py = cy - scope_pic_v(w, n - (uint32_t)D, k) * a / peak;
+        uint16_t col = n + 16u >= SCOPE_N ? c : ux_mix(T_SURF, c, 20 + (int32_t)(n - (uint32_t)D) * 80 / (SCOPE_N - D));
+        cv_rect(px - 1, py - 1, 2, 2, col);
+    }
+}
 /* oscilloscope of the output, triggered on a rising zero crossing: a RAISE centre line, the trace 2 px (in silence
  * a flat line on it; MENU > SCREEN OFF keeps it from staying on the panel for hours) */
 static void scope_at(int32_t x0, int32_t pw, int32_t cy, int32_t a, uint16_t c);
