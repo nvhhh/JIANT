@@ -2367,11 +2367,14 @@ static void ui_draw(void)
     }
     if (!scr_frame())                                   /* MENU > SCREEN OFF: dark (or waking), nothing drawn */
         return;
-    {   /* (COMP) a change of TYPE redraws the whole page: the front panel's labels and the knob cells change with it */
-        static uint8_t ctype_seen __attribute__((section(".pool")));
-        uint8_t ct = (uint8_t)TSEL->p[P_CTYPE];
-        if (ct != ctype_seen)
-            ui.force = 1, ctype_seen = ct;
+    if (!ui.home && (cur_page()->id[0] == P_CTYPE || cur_page()->id[0] == P_DBX_THR || cur_page()->id[0] == P_LA_PR ||
+                     cur_page()->id[0] == P_LA_MIX || cur_page()->id[0] == P_FA_IN)) {
+        /* (COMP pages only) a change of TYPE on the track shown redraws the whole page: the front panel's labels and
+         * the knob cells change with it. Keyed by track and TYPE, so other pages and tracks do not redraw */
+        static uint32_t comp_seen __attribute__((section(".pool")));
+        uint32_t key = song.sel * 16u + (uint32_t)TSEL->p[P_CTYPE];
+        if (key != comp_seen)
+            ui.force = 1, comp_seen = key;
     }
     ui_draw_page(counting);
     scr_shown();
