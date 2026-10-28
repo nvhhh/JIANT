@@ -1785,8 +1785,8 @@ static void graph_comp_curve(const track_t *t, uint16_t c, int32_t x0, int32_t p
             int32_t reach = 4 + (int32_t)((i * 37u + (uint32_t)j * 11u) % 7u), sx, sy, sz;
             if ((h >> 16) % 100u < 35u)
                 continue;
-            sx = px + (((int32_t)(hs >> 24) - 128) * 36 * reach / 88) / 128;
-            sy = py + (((int32_t)((hs >> 16) & 255u) - 128) * 18 * reach / 88) / 128;
+            sx = px + ((int32_t)(hs >> 24) - 128) * 36 * reach / (8 * 128);     /* up to 4.5 px x reach, either side */
+            sy = py + ((int32_t)((hs >> 16) & 255u) - 128) * 18 * reach / (8 * 128);   /* up to 2.2 px x reach, up and down */
             sz = 1 + (int32_t)((hs >> 8) & 3u) % 3;
             if (sx < x0 || sx + sz > x0 + pw || sy < cy - a || sy + sz > cy + a)
                 continue;
