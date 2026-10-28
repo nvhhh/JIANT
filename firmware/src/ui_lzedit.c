@@ -113,7 +113,7 @@ static void graph_filter_lz(const track_t *t, const page_t *pg)
     int16_t *vp;
     const param_desc_t *d;
     int32_t r[4], x, py = 0, xc, k, nd;
-    uint32_t ty = (uint32_t)clamp(t->p[P_FTYPE], 0, 3);
+    uint32_t ty = (uint32_t)clamp(t->p[P_FTYPE], 0, 4);
     char b[32];
     for (k = 0; k < 4; k++) {
         d = page_desc(pg, (uint32_t)k, &vp);

@@ -599,8 +599,6 @@ static int page_visible(uint32_t i)
         return trk_engp(TSEL) == &ENG_WHEEL;
     if (PAGES[i].id[0] == P_LRTRG && PAGES[i].id[1] == 0xFFu)   /* (0.6.12) RETRIG: LOFI BYTE / FLOAT's */
         return trk_engp(TSEL) == &ENG_LOFI && TSEL->p[P_E1] >= RW_BYTE;
-    if (PAGES[i].fam == FAM_FX && PAGES[i].graph == GR_SLCR && PAGES[i].id[0] == G_SLFX)   /* SL BUS 3: out of the UI (it flashed) */
-        return 0;
     if (PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] == P_CTYPE)   /* (JIANT, DYN) COMP 1: the TYPE, always */
         return 1;
     if (PAGES[i].fam == FAM_EDIT && (PAGES[i].id[0] == P_DBX_THR || PAGES[i].id[0] == P_LA_PR || PAGES[i].id[0] == P_LA_MIX ||

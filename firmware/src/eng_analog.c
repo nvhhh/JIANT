@@ -11,8 +11,9 @@ static const char *const N_ANALOG_WAVE[] = {"SAW", "SQR", "TRI", "SIN", "PWM", "
 enum { AW_SYNC = 5, AW_RING, AW_SAW3 };
 /* (JIANT 0.5) FILTER TYPE (P_FTYPE): LP as before (analog_render's loop); HP BP from the same state-variable filter
  * (analog_ext's loop, every WAVE); COMB the filter open, the part's sum through a feedback comb tuned to the newest
- * note and CUT (+-32 semitones about it), RES its feedback (voice.c track_comb) */
-enum { FT_LP, FT_HP, FT_BP, FT_COMB };
+ * note and CUT (+-32 semitones about it), RES its feedback (voice.c track_comb). LADDER (P_FTYPE 4, ANALOG only): the
+ * Moog-style four-pole low-pass below (lad_make, lad_step) */
+enum { FT_LP, FT_HP, FT_BP, FT_COMB, FT_LADDER };
 static inline int32_t svf_mode(const tsvf_t *c, int32_t in, int32_t *ic1, int32_t *ic2, uint32_t ft, int32_t k)
 {
     int32_t v3 = in - *ic2;
@@ -23,11 +24,44 @@ static inline int32_t svf_mode(const tsvf_t *c, int32_t in, int32_t *ic1, int32_
     return ft == FT_HP ? in - v2 - ((k * v1) >> 12) : ft == FT_BP ? (k * v1) >> 12 : ft == FT_COMB ? in : v2;
 }
 
+/* (JIANT 0.9.21) FILTER TYPE LADDER: a Moog-style ladder, four one-pole low-passes in series (24 dB/oct) with RES fed
+ * from the last stage back to the input. Each stage is a tanh (softclip), so a loud note saturates the way a ladder
+ * does; at low level it is linear. The four states live in v->s[3..6] (the filter is per voice; s[0..2] are the SVF
+ * and the noise). Per block: G = g / (1 + g) from the same CUT as the SVF, Q12; K the feedback, 0 .. 3.9 (Q12): RES 127
+ * sits just under self-oscillation. */
+typedef struct { int32_t G, K; } lad_t;
+static inline lad_t lad_make(int32_t cut, int32_t res)
+{
+    lad_t c;
+    int32_t g = svf_g(cut);
+    c.G = (g << 12) / (4096 + g);
+    c.K = res * 4096 * 39 / (127 * 10);
+    return c;
+}
+static inline int32_t lad_step(const lad_t *c, int32_t in, int32_t *y)
+{
+    /* in * (1 + K) - K * y[3]: the feedback loses no DC gain */
+    int32_t u = softclip(in + ((c->K * (in - y[3])) >> 12)), prev = u, j;
+    for (j = 0; j < 4; j++) {
+        int32_t th = softclip(y[j]);
+        y[j] = clamp(y[j] + ((c->G * (prev - th)) >> 12), -32767, 32767);
+        prev = th;
+    }
+    return y[3];
+}
+/* the filter of a sample: LADDER's stages (its states at ls), else the SVF's TYPE */
+static inline int32_t an_filt(uint32_t ft, const tsvf_t *c, const lad_t *l, int32_t in, int32_t *ic1, int32_t *ic2,
+                              int32_t *ls, int32_t k)
+{
+    return ft == FT_LADDER ? lad_step(l, in, ls) : svf_mode(c, in, ic1, ic2, ft, k);
+}
+
 static void analog_note_on(track_t *t, voice_t *v)
 {
     (void)t;
     v->ph[1] = v->ph[0] + 0x40000000u;
     v->s[0] = v->s[1] = 0;                            /* filter */
+    v->s[3] = v->s[4] = v->s[5] = v->s[6] = 0;        /* LADDER's four stages */
     if (!v->s[2])
         v->s[2] = 0x1234567 + (int32_t)v->age;        /* noise state */
 }
@@ -66,13 +100,14 @@ static __attribute__((noinline)) void analog_morph(track_t *t, voice_t *v, int32
                                                    int32_t mpos0, int32_t mpos1)   /* (0.6.50: ramped mpos0 -> mpos1) */
 {
     const int16_t *p = t->p;
-    uint32_t i, inc1 = m->inc, ph0 = v->ph[0], ph1 = v->ph[1], ft = (uint32_t)p[P_FTYPE] & 3u;
+    uint32_t i, inc1 = m->inc, ph0 = v->ph[0], ph1 = v->ph[1], ft = (uint32_t)p[P_FTYPE] & 7u;
     uint32_t inc2 = p[P_E1] || p[P_E7] ? cents_inc(m->pitch16 + p[P_E7] * 16, p[P_E1], 0) : inc1;
     int32_t m2 = p[P_E2] * 258, m1 = 32767 - m2, nz = p[P_E3] * 200, drv = p[P_E6], kd = 8192 - p[P_E5] * 7600 / 127;
     int32_t drive = 32768 + drv * 512, cut = (p[P_E4] << 8) + m->cutoff + ((v->pitch16 - 60 * 16) << 2);
     int32_t ic1 = v->s[0], ic2 = v->s[1], nst = v->s[2];
     tsvf_t flt;
     tsvf_coef(&flt, cut, p[P_E5]);
+    lad_t lad = lad_make(cut, p[P_E5]);
     int32_t dq = ((mpos1 - mpos0) << 8) / (int32_t)(n ? n : 1u);
     for (i = 0; i < n; i++) {
         int32_t mpos = mpos0 + ((dq * (int32_t)i) >> 8);
@@ -83,7 +118,7 @@ static __attribute__((noinline)) void analog_morph(track_t *t, voice_t *v, int32
             s += mulq15((int32_t)(noise32(&nst) >> 17) - 16384, nz);
         if (drv)
             s = softclip(((s >> 2) * (drive >> 2)) >> 11);
-        out[i] += voice_amp(soft_knee(svf_mode(&flt, s >> 1, &ic1, &ic2, ft, kd), 16000) << 1, m, i) << 1;
+        out[i] += voice_amp(soft_knee(an_filt(ft, &flt, &lad, s >> 1, &ic1, &ic2, v->s + 3, kd), 16000) << 1, m, i) << 1;
     }
     v->ph[0] = ph0;
     v->ph[1] = ph1;
@@ -105,13 +140,14 @@ static __attribute__((noinline)) void analog_ext(track_t *t, voice_t *v, int32_t
 {
     const int16_t *p = t->p;
     uint32_t wave = (uint32_t)p[P_E0], i, inc1 = m->inc, ph0 = v->ph[0], ph1 = v->ph[1], ph2 = v->ph[2], r, inc2, inc3;
-    uint32_t ft = (uint32_t)p[P_FTYPE] & 3u, pw = an_pw(t, m);
+    uint32_t ft = (uint32_t)p[P_FTYPE] & 7u, pw = an_pw(t, m);
     int32_t mx = wave >= AW_SYNC ? an_mext(t->mo_cur, m) : 0;   /* (0.6.81) MORPH, SHAPE on SYNC RING SAW3 */
     int32_t det = p[P_E1] + (wave == AW_SAW3 ? mx * 40 / (127 << 8) : 0), m2 = p[P_E2] * 258, m1 = 32767 - m2, nz = p[P_E3] * 200, drv = p[P_E6], kd = 8192 - p[P_E5] * 7600 / 127;
     int32_t drive = 32768 + drv * 512, cut = (p[P_E4] << 8) + m->cutoff + ((v->pitch16 - 60 * 16) << 2);
     int32_t ic1 = v->s[0], ic2 = v->s[1], nst = v->s[2];
     tsvf_t flt;
     tsvf_coef(&flt, cut, p[P_E5]);
+    lad_t lad = lad_make(cut, p[P_E5]);
     r = 16u + (uint32_t)det + (wave != AW_SAW3 ? (uint32_t)(mx * 64 / (127 << 8)) : 0u);   /* SYNC / RING: osc 2 at r / 16
                                                          * of osc 1 (1 .. 8.9; 0.6.81: MORPH up to 4 more) */
     inc2 = wave == AW_SAW3 ? cents_inc(m->pitch16 + p[P_E7] * 16, det, 0) : (inc1 >> 4) * r;   /* (SAW3: osc 2 at INT) */
@@ -150,7 +186,7 @@ static __attribute__((noinline)) void analog_ext(track_t *t, voice_t *v, int32_t
             s += mulq15((int32_t)(noise32(&nst) >> 17) - 16384, nz);
         if (drv)
             s = softclip(((s >> 2) * (drive >> 2)) >> 11);
-        out[i] += voice_amp(soft_knee(svf_mode(&flt, s >> 1, &ic1, &ic2, ft, kd), 16000) << 1, m, i) << 1;
+        out[i] += voice_amp(soft_knee(an_filt(ft, &flt, &lad, s >> 1, &ic1, &ic2, v->s + 3, kd), 16000) << 1, m, i) << 1;
     }
     v->ph[0] = ph0;
     v->ph[1] = ph1;

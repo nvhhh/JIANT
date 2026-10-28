@@ -7799,15 +7799,15 @@ static int test_scl_alltr(void)
     return bad;
 }
 /* (0.9.2) FX one flat chain (this replaces the "FX plano" task): TRK (SENDS DIST AUTO PAN) . BUS (BUSES) . DLY (DLY DLY 2
- * DLY 3) . REV (REVERB REVERB 2) . CHO (CHORUS) . SLC (SLICER SL BUS SL BUS 2 SL BUS 3 SL PITCH) . MST (MASTER) . PCH
- * (PUNCH), seventeen pages (0.9.20: SL BUS 3, the SLICER's FX switch, T7 T8 on SL BUS 2); SELECT a page a detent (no wrap), an FX tap the next group's first (round), the eight tabs lit by group
- * (their short names), "FX . DELAY . DLY 2  6/17"; PRESETS a sound (was the module); BUSES' four knobs the buses' DLY MIX,
+ * DLY 3) . REV (REVERB REVERB 2) . CHO (CHORUS) . SLC (SLICER SL BUS SL BUS 2 SL PITCH) . MST (MASTER) . PCH
+ * (PUNCH), sixteen pages (0.9.20: T7 T8 on SL BUS 2; SL BUS 3 removed, the SLICER's FX switch); SELECT a page a detent (no wrap), an FX tap the next group's first (round), the eight tabs lit by group
+ * (their short names), "FX . DELAY . DLY 2  6/16"; PRESETS a sound (was the module); BUSES' four knobs the buses' DLY MIX,
  * REV SIZE, CHORUS DEPTH, SLICER DEPTH; LOAD ECO: CHORUS and SLICER out of the chain (their tabs too); FX from elsewhere
  * the page left. (Was 0.8.5's lens: SELECT TRACK <-> BUSES <-> EFFECT, PRESETS the module, the FX tap the level's next) */
 static int test_fx_sections(void)
 {
     static const char *const CH[16] = {"SENDS", "DIST", "AUTO PAN", "BUSES", "DLY", "DLY 2", "DLY 3", "REVERB", "REVERB 2",
-                                       "CHORUS", "SLICER", "SL BUS", "SL BUS 2", "SL PITCH", "MASTER", "PUNCH"};   /* SL BUS 3 out of the UI */
+                                       "CHORUS", "SLICER", "SL BUS", "SL BUS 2", "SL PITCH", "MASTER", "PUNCH"};
     static const char *const TP[7] = {"BUSES", "DLY", "REVERB", "CHORUS", "SLICER", "MASTER", "PUNCH"};
     int bad = 0, ok;
     uint32_t pr;
@@ -11464,7 +11464,7 @@ static const old_lv_t OLD_LV[] = {
     {FAM_SEQ, LV_STEP, 9, {"COMP", "COMP 2"}},   /* (NOTE's STEP view: merged into BAR's, the mock-up's "páginas repetidas") */
     {FAM_FX, FXL_TRACK, 9, {"FX", "DIST", "AUTO PAN"}}, {FAM_FX, FXL_BUSES, 9, {"BUSES"}},
     {FAM_FX, FXL_EFFECT, 9, {"DLY", "DLY 2", "DLY 3", "REVERB", "REVERB 2", "CHORUS", "SLICER", "SL BUS", "SL BUS 2",
-                             "SL PITCH", "MASTER", "PUNCH"}},   /* (SL BUS 3 out of the UI: no longer reached) */
+                             "SL PITCH", "MASTER", "PUNCH"}},
 };
 static int test_lz_reach(void)
 {

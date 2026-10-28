@@ -50,7 +50,7 @@ static const char *const N_DBXR[] = {"1:1", "1.5:1", "2:1", "3:1", "4:1", "6:1",
 static const char *const N_LAMODE[] = {"COMP", "LIMIT"};               /* (JIANT) the LA-2A's switch */
 static const char *const N_FATC[] = {"1", "2", "3", "4", "5", "6"};    /* (JIANT) the 670's TIME CONSTANT (fx.c FA_TC) */
 static const char *const N_DTYPE[] = {"SOFT", "HARD", "FOLD", "CRUSH", "RECT", "AMP"};   /* (JIANT) fx.c DT_*; 0.7.8 AMP */
-static const char *const N_FTYPE[] = {"LP", "HP", "BP", "COMB"};   /* (JIANT 0.5) P_FTYPE: eng_analog.c FT_* */
+static const char *const N_FTYPE[] = {"LP", "HP", "BP", "COMB", "LADR"};   /* (JIANT 0.5) P_FTYPE: eng_analog.c FT_*; LADR (the ladder): ANALOG's only (enum_skip) */
 static const char *const N_VOICE[] = {"POLY", "MONO", "LEG", "UNI"};   /* V_POLY .. V_UNISON */
 static const char *const N_GLMODE[] = {"RATE", "TIME"};
 static const char *const N_PRIO[] = {"LAST", "LOW", "HIGH"};
@@ -336,10 +336,12 @@ static int32_t param_fit(const param_desc_t *d, int32_t v)
     return d->names == N_FM6_PATCH && v > (int32_t)FM6_OWN ? (int32_t)FM6_OWN : v;
 }
 
-/* v is a value a knob passes over: an alias, or one of FM6's bank slots without a voice */
+/* v is a value a knob passes over: an alias, one of FM6's bank slots without a voice, or FILTER TYPE LADDER on a part
+ * that is not ANALOG (its filter is ANALOG's own: eng_analog.c). A value stored as LADDER still shows on other engines */
 static int enum_skip(const param_desc_t *d, int32_t v)
 {
-    return enum_orig(d, v) != v || (d->names == N_FM6_PATCH && !fm6_slot_ok(v));
+    return enum_orig(d, v) != v || (d->names == N_FM6_PATCH && !fm6_slot_ok(v)) ||
+           (d->names == N_FTYPE && v == 4 && TSEL->engine != ENGI_ANALOG);
 }
 /* a knob moved an F_ENUM from `from` to v: past any value it skips in that direction; with none left to the end, the
  * last one it does not skip on the way from `from` (else `from`) */
@@ -623,7 +625,6 @@ static const page_t PAGES[] = {
     {"SLICER", FAM_FX, SC_GLOBAL, GR_SLCR, {G_SLMODE, G_SLPAT, G_SLRATE, G_SLDEP}},   /* (0.6.3) one, on a bus */
     {"SL BUS", FAM_FX, SC_GLOBAL, GR_SLCR, {G_SLT1, G_SLT1 + 1, G_SLT1 + 2, G_SLT1 + 3}},   /* what goes in */
     {"SL BUS 2", FAM_FX, SC_GLOBAL, GR_SLCR, {G_SLT1 + 4, G_SLT6, G_SLT7, G_SLT8}},   /* (0.9.20: T7 T8; FX its own page) */
-    {"SL BUS 3", FAM_FX, SC_GLOBAL, GR_SLCR, {G_SLFX, 0xFF, 0xFF, 0xFF}},
     {"SL PITCH", FAM_FX, SC_GLOBAL, GR_SLPIT, {0xFF, G_SLP0, G_SLPLEN, G_SLPQ}},   /* KNOB 1 the step (sl_ui_step) */
     {"PUNCH", FAM_FX, SC_GLOBAL, GR_PUNCH, {G_PFXLEN, G_PFXRES, 0xFF, 0xFF}},   /* (0.6.99) the punch-in lane: LEN RES, REC, CLEAR */
     {"SCL", FAM_SCL, SC_TRACK, GR_SCALE, {P_ROOT, P_SCALE, P_QUANT, ID_ALLTR}},   /* (JIANT: ROOT, SCALE every melodic track's;
