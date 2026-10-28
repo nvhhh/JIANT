@@ -237,7 +237,7 @@ static const param_desc_t GP[G_COUNT] = {
     [G_SLDEP] = PD("DEPTH", F_PCT, 0, 127, 127),
     [G_SLT1] = PE("T1", N_ONOFF, 1), [G_SLT1 + 1] = PE("T2", N_ONOFF, 1), [G_SLT1 + 2] = PE("T3", N_ONOFF, 1),
     [G_SLT1 + 3] = PE("T4", N_ONOFF, 1), [G_SLT1 + 4] = PE("T5", N_ONOFF, 1), [G_SLT6] = PE("T6", N_ONOFF, 1),
-    [G_SLFX] = PE("FX", N_ONOFF, 1),            /* the delay, reverb and chorus returns: on, the tails cut too */
+    [G_SLFX] = PE("FX", N_ONOFF, 0),            /* the delay, reverb and chorus returns: off by default (SL BUS 3 flashed) */
     [G_SLPLEN] = PD("LEN", F_INT, 1, 16, 16),
     [G_SLPQ] = PE("QUANT", N_SLPQ, 1),            /* the pitch steps: every semitone / the scale's */
     [G_SLP0] = PD("PITCH", F_SEMI, -24, 24, 0), [G_SLP0 + 1] = PD("PITCH", F_SEMI, -24, 24, 0),
